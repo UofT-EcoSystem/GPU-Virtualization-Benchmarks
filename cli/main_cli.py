@@ -12,13 +12,11 @@ from tbd_cli import add_tbd_cli, run_tbd
 def main_cli():
 
     main_parser = argparse.ArgumentParser(description='benchmark collection')
-    subparsers = main_parser.add_subparsers(title='Available benchmarks', dest='subparser')
+    subparsers = main_parser.add_subparsers(title='Available benchmarks', description='', dest='subparser')
 
     add_tbd_cli(subparsers)
 
     args = main_parser.parse_args()
-
-    print args
 
     benchmark = {
         'tbd': run_tbd,
