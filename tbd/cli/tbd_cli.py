@@ -7,14 +7,21 @@ def add_tbd_cli(subparsers):
     Args:
         subparsers: The sub-parsers of the main CLI
     """
-    tbd_parser = subparsers.add_parser('tbd')
+    tbd_parser = subparsers.add_parser('tbd', help='TBD benchmark')
 
-    tbd_parser.add_argument('-m', '--models', nargs='*', choices=['seq2seq', 'transformer', 'inception'], required=True)
-    tbd_parser.add_argument('-M', '--profile-metrics', nargs='*')
-    tbd_parser.add_argument('-P', '--profile-mode-off', action='store_true')
-    tbd_parser.add_argument('-f', '--frameworks', choices=['tf', 'mxnet', 'cntk'], nargs='*', default=['tf'])
-    tbd_parser.add_argument('-b', '--batch-size', type=int)
-    tbd_parser.add_argument('-o', '--output', default='profile_result')
+    tbd_parser.add_argument('-m', '--models', nargs='*',
+                            choices=['seq2seq', 'transformer', 'inception'], required=True,
+                            help='Specify the models to be profiled.')
+    tbd_parser.add_argument('-M', '--profile-metrics', nargs='*',
+                            help='Specify the metrics to be profiled. Use the command `nvprof --query-metrics` to see the full list of available metrics for your device.')
+    tbd_parser.add_argument('-P', '--profile-mode-off', action='store_true',
+                            help='Disable profile mode.')
+    tbd_parser.add_argument('-f', '--frameworks', choices=['tf', 'mxnet', 'cntk'], nargs='*', default=['tf'],
+                            help='Choose the framework that will be used for the model.')
+    tbd_parser.add_argument('-b', '--batch-size', type=int,
+                            help='Specify the batch size of the training procedure.')
+    tbd_parser.add_argument('-o', '--output', default='profile_result',
+                            help='Output nvvp file prefix.')
 
 def run_tbd(args):
     for model in args.models:
