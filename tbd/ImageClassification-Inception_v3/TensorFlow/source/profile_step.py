@@ -54,7 +54,7 @@ def train_step(sess, train_op, global_step, train_step_kwargs):
                 exit()
         else:
             if np_global_step == train_step_kwargs['nvprof_start_step']:
-                pipe = open(train_step_kwargs['pipe'], 'w')
+                pipe = open(train_step_kwargs['pipe'], 'a')
                 pipe.write(str(os.getpid()))
                 pipe.close()
                 profiling_period()
