@@ -5,6 +5,11 @@
                 "requirements": "tbd/ImageClassification-Inception_v3/TensorFlow/source/requirements.gpu-cu80.txt",
                 "check_imports": ["tensorflow", "six", "numba"],
                 "virtualenv_flags": ""
+            },
+            "mxnet": {
+                "requirements": "tbd/ImageClassification-Inception_v3/MXNet/source/requirements.gpu-cu80.txt",
+                "check_imports": ["tensorflow", "six", "numba"],
+                "virtualenv_flags": ""
             }
         }
     }
