@@ -1,3 +1,4 @@
+import os
 import signal
 import numba.cuda as cuda
 
@@ -22,7 +23,7 @@ def stop_profiling(sig, frame):
 
 def profiling_period():
     signal.signal(signal.SIGUSR1, start_profiling)
-    print bcolors.OKGREEN + '[Signal Handler] Waiting for SIGUSR1 to start.' + bcolors.ENDC
+    print bcolors.OKGREEN + '[Signal Handler] [{}] Waiting for SIGUSR1 to start.'.format(os.getpid()) + bcolors.ENDC
     signal.pause()
     signal.signal(signal.SIGUSR2, stop_profiling)
-    print bcolors.OKGREEN + '[Signal Handler] Started profiling, waiting for SIGUSR2 to stop.' + bcolors.ENDC
+    print bcolors.OKGREEN + '[Signal Handler] [{}] Started profiling, waiting for SIGUSR2 to stop.'.format(os.getpid()) + bcolors.ENDC
