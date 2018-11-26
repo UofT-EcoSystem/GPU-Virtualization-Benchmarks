@@ -70,6 +70,11 @@ def download(model, framework, args):
     
 
 def run_model(model, framework, args):
+    model_dir = os.path.join(dir_path, '..', model_dir_map[model], framework_name_map[framework])
+    dataset_dir = os.path.join(model_dir, 'dataset')
+
+
+def run_model(model, framework, args):
 
     trainer_map = {
         ('inception', 'tf'): 'train_image_classifier.py',

@@ -584,17 +584,19 @@ def main(_):
         step = slim.learning.train_step
 # </EcoSys>
 
-    print '\n! Batch Size:', FLAGS.batch_size, '\n\n'
-
     ###########################
     # Kicks off the training. #
     ###########################
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.4
+
     slim.learning.train(
         train_tensor,
         logdir=FLAGS.train_dir,
 # <EcoSys> customized train_step with nvprof enabled
         train_step_fn=step,
         train_step_kwargs=kwargs,
+        session_config=config,
 # </EcoSys>
         master=FLAGS.master,
         is_chief=(FLAGS.task == 0),
