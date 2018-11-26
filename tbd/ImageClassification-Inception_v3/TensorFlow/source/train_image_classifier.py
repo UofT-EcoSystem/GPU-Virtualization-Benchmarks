@@ -584,6 +584,8 @@ def main(_):
         step = slim.learning.train_step
 # </EcoSys>
 
+    print '\n! Batch Size:', FLAGS.batch_size, '\n\n'
+
     ###########################
     # Kicks off the training. #
     ###########################
