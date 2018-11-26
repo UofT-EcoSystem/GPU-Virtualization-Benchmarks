@@ -19,6 +19,8 @@ def add_tbd_cli(subparsers):
                             help='Specify the metrics to be profiled. Use the command `nvprof --query-metrics` to see the full list of available metrics for your device.')
     tbd_parser.add_argument('-P', '--profile-mode-off', action='store_true',
                             help='Disable profile mode.')
+    tbd_parser.add_argument('-c', '--concurrent', action='store_true',
+                            help='Profile in concurrent mode.')
     tbd_parser.add_argument('-f', '--frameworks', choices=['tf', 'mxnet', 'cntk'], nargs='*', default=['tf'],
                             help='Choose the framework that will be used for the model.')
     tbd_parser.add_argument('-b', '--batch-size', type=int, default=16,
@@ -73,12 +75,17 @@ def run_model(model, framework, args):
     if args.profile_mode_off:
         prefix = ''
         suffix = ''
-    elif not args.profile_metrics:
-        prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
-        suffix = ' --nvprof_on=True'
     else:
-        prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
-        suffix = ' --nvprof_on=True'
+        if args.concurrent:
+            prefix = ''
+            suffix = ' --nvprof_on=True --concurrent=True'
+        else:
+            if not args.profile_metrics:
+                prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
+                suffix = ' --nvprof_on=True'
+            else:
+                prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
+                suffix = ' --nvprof_on=True'
 
     # train_dir = dir_path + 
 

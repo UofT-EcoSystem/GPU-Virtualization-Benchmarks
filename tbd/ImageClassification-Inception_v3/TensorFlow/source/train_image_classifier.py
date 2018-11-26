@@ -222,13 +222,15 @@ tf.app.flags.DEFINE_boolean(
 FLAGS = tf.app.flags.FLAGS
 
 # <EcoSys> nvprof Flags
-tf.app.flags.DEFINE_boolean(
-    'nvprof_on', False,
-    'Whether nvprof is enabled.')
+tf.app.flags.DEFINE_boolean('nvprof_on', False, 'Whether nvprof is enabled.')
 tf.app.flags.DEFINE_integer(
-    'nvprof_start_step', 500, 'The global_step where nvprof begins')
+    'nvprof_start_step', 100, 'The global_step where nvprof begins')
 tf.app.flags.DEFINE_integer(
-    'nvprof_stop_step', 550, 'The global_step where nvprof ends.')
+    'nvprof_stop_step', 150, 'The global_step where nvprof ends.')
+tf.app.flags.DEFINE_boolean('concurrent', False, 'Profile in concurrent mode.')
+tf.app.flags.DEFINE_string(
+    'pipe', '/tmp/ready',
+    'The path to the pipe.')
 # </EcoSys>
 
 def _configure_learning_rate(num_samples_per_epoch, global_step):
@@ -572,6 +574,11 @@ def main(_):
         kwargs['nvprof_start_step'] = FLAGS.nvprof_start_step
         kwargs['nvprof_stop_step'] = FLAGS.nvprof_stop_step
         step = train_step
+
+        if FLAGS.concurrent:
+          kwargs['concurrent'] = True
+          kwargs['pipe'] = FLAGS.pipe
+
     else:
         kwargs = 0
         step = slim.learning.train_step
