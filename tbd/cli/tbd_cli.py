@@ -1,3 +1,4 @@
+import json
 import os
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -32,6 +33,17 @@ def add_tbd_cli(subparsers):
     tbd_parser.add_argument('--download', action='store_true',
                             help='Download the dataset')
 
+model_dir_map = {
+    'seq2seq': 'MachineTranslation-Seq2Seq',
+    'transformer': 'MachineTranslation-Transformer',
+    'inception': 'ImageClassification-Inception_v3',
+}
+
+framework_name_map = {
+    'tf': 'TensorFlow',
+    'mxnet': 'MXNet',
+    'cntk': 'CNTK',
+}
 
 def run_tbd(args):
     for model in args.models:
@@ -44,21 +56,20 @@ def run_tbd(args):
 inception_tf = ' --train_dir={train_dir} --dataset_dir={dataset_dir} --model_name=inception_v3 --optimizer=sgd --batch_size={batch_size} --dataset_name=cifar10 --learning_rate=0.1 --learning_rate_decay_factor=0.1 --num_epochs_per_decay=30 --weight_decay=0.0001 '
 
 def download(model, framework, args):
-    downloader_map[(model, framework)]()
+    model_dir = os.path.join(dir_path, '..', model_dir_map[model], framework_name_map[framework])
+    dataset_dir = os.path.join(model_dir, 'dataset')
+
+    info = json.load(open(os.path.join(dir_path, 'tbd_info.json')))[model][framework]
+    get_dataset_command = info['get_dataset'].format(**{
+        'model_dir': model_dir,
+        'dataset_dir': dataset_dir,
+    })
+    print get_dataset_command
+    exit()
+    os.system(get_dataset_command)
     
 
 def run_model(model, framework, args):
-    model_dir_map = {
-        'seq2seq': 'MachineTranslation-Seq2Seq',
-        'transformer': 'MachineTranslation-Transformer',
-        'inception': 'ImageClassification-Inception_v3',
-    }
-
-    framework_name_map = {
-        'tf': 'TensorFlow',
-        'mxnet': 'MXNet',
-        'cntk': 'CNTK',
-    }
 
     trainer_map = {
         ('inception', 'tf'): 'train_image_classifier.py',
