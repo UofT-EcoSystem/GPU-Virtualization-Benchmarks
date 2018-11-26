@@ -12,7 +12,9 @@ TODO...
 ## To Add New Benchmarks
 To use our benchmark wrapper script, each benchmark should implement the same interface to synchronize kernel launches. Consider a test comprises two applications A and B, with each application invoking different GPU compute kernels. The goal is to capture performance data during the period where both kernels from A and B execute concurrently. The timing relationship among A, B and the wrapper script is shown in the timing diagram below.
 
-![alt text](https://github.com/UofT-EcoSystem/GPU-Virtualization-Benchmarks/tree/master/docs/wrapper_squence.png)
+![alt text](https://raw.githubusercontent.com/UofT-EcoSystem/GPU-Virtualization-Benchmarks/master/docs/wrapper_squence.png?token=AGTJ4mE9QrhHsR6V7_bMo_Whkr4ofRobks5cBWkowA%3D%3D)
+
+
 
 
 Each benchmark application should be structured as in the following code snippet
