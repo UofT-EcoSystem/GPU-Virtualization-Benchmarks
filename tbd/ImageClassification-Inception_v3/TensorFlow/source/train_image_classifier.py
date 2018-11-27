@@ -14,9 +14,15 @@
 # ==============================================================================
 """Generic training script that trains a model using a given dataset."""
 
-from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+env = '/home/frank/Desktop/CSC2224/GPU-Virtualization-Benchmarks/envs/tbd_inception_tf'
+import os
+import sys
+
+activate = env + '/bin/activate_this.py'
+execfile(activate, dict(__file__=activate))
 
 import tensorflow as tf
 
@@ -610,3 +616,7 @@ def main(_):
 
 if __name__ == '__main__':
   tf.app.run()
+
+def run_main(argv):
+  sys.argv = new_argv
+  print(sys.argv)

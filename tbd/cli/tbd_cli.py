@@ -93,7 +93,7 @@ def run_model(model, framework, args):
         suffix = ''
     else:
         if args.concurrent:
-            prefix = ''
+            prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
             suffix = ' --nvprof_on=True --concurrent=True'
         else:
             if not args.profile_metrics:
