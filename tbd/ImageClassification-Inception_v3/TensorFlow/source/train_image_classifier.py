@@ -17,12 +17,12 @@
 from __future__ import division
 from __future__ import print_function
 
-env = '/home/frank/Desktop/CSC2224/GPU-Virtualization-Benchmarks/envs/tbd_inception_tf'
-import os
-import sys
+# env = '/home/frank/Desktop/CSC2224/GPU-Virtualization-Benchmarks/envs/tbd_inception_tf'
+# import os
+# import sys
 
-activate = env + '/bin/activate_this.py'
-execfile(activate, dict(__file__=activate))
+# activate = env + '/bin/activate_this.py'
+# execfile(activate, dict(__file__=activate))
 
 import tensorflow as tf
 
