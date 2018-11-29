@@ -1,9 +1,33 @@
 # Benchmarks for GPU Virtualization 
 This repo is a suite of GPGPU benchmarks that will be used to collect both motivation data for GPU resource virtualization and to evaluate our proposed solutions. 
 
+## List of NVPROF Metrics Considered
+
+* DP util: double precision function unit utilization on a scale of 0 to 10 [double_precision_fu_utilization]
+* DP effic: ratio of achieved to peak double-precision FP operations [flop_dp_efficiency]
+* SP util: [single_precision_fu_utilization]
+* SP effic: [flop_sp_efficiency]
+* HP util: [half_precision_fu_utilization]
+* HP effic: [flop_hp_efficiency]
+* DRAM util: [dram_utilization]
+* L1/tex hit rate: Hit rate for global load and store in unified l1/tex cache [global_hit_rate]
+* L2 hit rate: Hit rate at L2 cache for all requests from texture cache [l2_tex_hit_rate]
+* Shared memory util: on a scale of 0 to 10 [shared_utilization]
+* Special func unit util: on a scale of 0 to 10 [special_fu_utilization]
+* tensor precision util: [tensor_precision_fu_utilization]
+* tensor int8 util: [tensor_int_fu_utilization]
+
+
 ## List of Benchmarks
 
-Table 1...
+<p align="center">
+ Table 1 Individual Benchmark Characteristics
+</p>
+
+|  Source  | Application | Benchmark Name | C/M Bound | DP Util/effic | SP Util/effic | HP Util/effic | DRAM Util | L1/tex hit rate  | L2 hit rate | Shared memory util | Special func unit util | tensor FP util | tensor int8 util | 
+| ---------- | ---------- | --------- | ------ | ----- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+
 
 ## To Build and Run Benchmarks
 
