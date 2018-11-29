@@ -14,9 +14,15 @@
 # ==============================================================================
 """Generic training script that trains a model using a given dataset."""
 
-from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+# env = '/home/frank/Desktop/CSC2224/GPU-Virtualization-Benchmarks/envs/tbd_inception_tf'
+# import os
+# import sys
+
+# activate = env + '/bin/activate_this.py'
+# execfile(activate, dict(__file__=activate))
 
 import tensorflow as tf
 
@@ -222,13 +228,15 @@ tf.app.flags.DEFINE_boolean(
 FLAGS = tf.app.flags.FLAGS
 
 # <EcoSys> nvprof Flags
-tf.app.flags.DEFINE_boolean(
-    'nvprof_on', False,
-    'Whether nvprof is enabled.')
+tf.app.flags.DEFINE_boolean('nvprof_on', False, 'Whether nvprof is enabled.')
 tf.app.flags.DEFINE_integer(
-    'nvprof_start_step', 500, 'The global_step where nvprof begins')
+    'nvprof_start_step', 100, 'The global_step where nvprof begins')
 tf.app.flags.DEFINE_integer(
-    'nvprof_stop_step', 550, 'The global_step where nvprof ends.')
+    'nvprof_stop_step', 150, 'The global_step where nvprof ends.')
+tf.app.flags.DEFINE_boolean('concurrent', False, 'Profile in concurrent mode.')
+tf.app.flags.DEFINE_string(
+    'pipe', '/tmp/ready',
+    'The path to the pipe.')
 # </EcoSys>
 
 def _configure_learning_rate(num_samples_per_epoch, global_step):
@@ -572,6 +580,11 @@ def main(_):
         kwargs['nvprof_start_step'] = FLAGS.nvprof_start_step
         kwargs['nvprof_stop_step'] = FLAGS.nvprof_stop_step
         step = train_step
+
+        if FLAGS.concurrent:
+          kwargs['concurrent'] = True
+          kwargs['pipe'] = FLAGS.pipe
+
     else:
         kwargs = 0
         step = slim.learning.train_step
@@ -580,12 +593,16 @@ def main(_):
     ###########################
     # Kicks off the training. #
     ###########################
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.4
+
     slim.learning.train(
         train_tensor,
         logdir=FLAGS.train_dir,
 # <EcoSys> customized train_step with nvprof enabled
         train_step_fn=step,
         train_step_kwargs=kwargs,
+        session_config=config,
 # </EcoSys>
         master=FLAGS.master,
         is_chief=(FLAGS.task == 0),
@@ -599,3 +616,7 @@ def main(_):
 
 if __name__ == '__main__':
   tf.app.run()
+
+def run_main(argv):
+  sys.argv = new_argv
+  print(sys.argv)

@@ -1,0 +1,1 @@
+from profile_signal.sig_handler import profiling_period
