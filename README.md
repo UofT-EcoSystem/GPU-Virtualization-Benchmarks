@@ -106,6 +106,8 @@ void do_work() {
     
     
     /* Record the start event and start nvprof profiling */
+    cudaProfilerStart();
+    
     error = cudaEventRecord(start, NULL);
 
     if (error != cudaSuccess)
@@ -115,7 +117,6 @@ void do_work() {
         exit(EXIT_FAILURE);
     }
     
-    cudaProfilerStart();
     /* End CUDA start records */
     
     
@@ -126,8 +127,6 @@ void do_work() {
     }
     /* End kernel launching */
     
-    cudaThreadSynchronize();
-
     /* Record and wait for the stop event */
     error = cudaEventRecord(stop, NULL);
 
@@ -137,6 +136,8 @@ void do_work() {
                                                 cudaGetErrorString(error));
         exit(EXIT_FAILURE);
     }
+    
+    cudaThreadSynchronize();
 
     error = cudaEventSynchronize(stop);
 
