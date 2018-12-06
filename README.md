@@ -10,6 +10,8 @@ This repo is a suite of GPGPU benchmarks that will be used to collect both motiv
 * HP util: [half_precision_fu_utilization]
 * HP effic: [flop_hp_efficiency]
 * DRAM util: [dram_utilization]
+* DRAM read throughput: [dram_read_throughput]
+* DRAM write throughput: [dram_write_throughput]
 * L1/tex hit rate: Hit rate for global load and store in unified l1/tex cache [global_hit_rate]
 * L2 hit rate: Hit rate at L2 cache for all requests from texture cache [l2_tex_hit_rate]
 * Shared memory util: on a scale of 0 to 10 [shared_utilization]
