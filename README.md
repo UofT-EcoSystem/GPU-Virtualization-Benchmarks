@@ -13,11 +13,11 @@ This repo is a suite of GPGPU benchmarks that will be used to collect both motiv
 * DRAM read throughput: [dram_read_throughput]
 * DRAM write throughput: [dram_write_throughput]
 * L1/tex hit rate: Hit rate for global load and store in unified l1/tex cache [global_hit_rate]
-* L2 hit rate: Hit rate at L2 cache for all requests from texture cache [l2_tex_hit_rate]
+* L2 hit rate: Hit rate at L2 cache for all requests from texture cache [l2_tex_hit_rate] (not avail. on Volta)
 * Shared memory util: on a scale of 0 to 10 [shared_utilization]
 * Special func unit util: on a scale of 0 to 10 [special_fu_utilization]
-* tensor precision util: [tensor_precision_fu_utilization]
-* tensor int8 util: [tensor_int_fu_utilization]
+* tensor precision util: [tensor_precision_fu_utilization] (not avail. on CUDA 9.0)
+* tensor int8 util: [tensor_int_fu_utilization] (not avail. on CUDA 9.0)
 
 
 ## List of Benchmarks
