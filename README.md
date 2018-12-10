@@ -26,8 +26,20 @@ This repo is a suite of GPGPU benchmarks that will be used to collect both motiv
  Table 1 Individual Benchmark Characteristics
 </p>
 
-|  Source  | Application | Benchmark Name | C/M Bound | DP Util/effic | SP Util/effic | HP Util/effic | DRAM Util | L1/tex hit rate  | L2 hit rate | Shared memory util | Special func unit util | tensor FP util | tensor int8 util | 
-| ---------- | ---------- | --------- | ------ | ----- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  Source  | Application | Benchmark Name | C/M Bound | DP Util| DP effic | SP Util | SP effic | HP Util | HP effic | DRAM Util | DRAM read thruput | DRAM write thruput | L1/tex hit rate  | L2 hit rate | Shared memory util | Special func unit util | tensor FP util | tensor int8 util | sm effic | 
+| ----- | ---- | -- | -- | --- | -- | -- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---| ---| 
+|Cutlass | SP matrix multiply | cutlass_sgemm_256 | C | Idle (0) | 0.00% | High (7) | 3.56% | Idle (0) | 0.00% | Low (1) | 7.62GB/s | 15.15GB/s | 0.00% | N/A | Low (1) | Idle (0) | N/A | N/A | 4.75% | 
+|Cutlass | SP matrix multiply | cutlass_sgemm_512 | C | Idle (0) | 0.00% | High (8) | 15.74% | Idle (0) | 0.00% | Low (1) | 16.06GB/s | 20.95GB/s | 0.00% | N/A | Low (1) | Idle (0) | N/A | N/A | 19.45% | 
+|Cutlass | SP matrix multiply | cutlass_sgemm_1024 | C | Idle (0) | 0.00% | High (8) | 64.51% | Idle (0) | 0.00% | Low (1) | 31.66GB/s | 25.81GB/s | 0.00% | N/A | Low (2) | Idle (0) | N/A | N/A | 78.38% | 
+|Cutlass | SP matrix multiply | cutlass_sgemm_2048 | C | Idle (0) | 0.00% | Max (10) | 73.23% | Idle (0) | 0.00% | Low (1) | 37.95GB/s | 9.16GB/s | 1.30% | N/A | Low (3) | Idle (0) | N/A | N/A | 81.37% | 
+|Cutlass | SP matrix multiply | cutlass_sgemm_4096 | C | Idle (0) | 0.00% | Max (10) | 90.34% | Idle (0) | 0.00% | Low (2) | 61.49GB/s | 5.61GB/s | 0.41% | N/A | Low (3) | Idle (0) | N/A | N/A | 98.23% | 
+|CUDA SDK | HP matrix multiply | tensor_gemm | C | Idle (0) | 0.00% | Low (1) | 0.08% | Idle (0) | 0.00% | Mid (4) | 184.41GB/s | 21.12GB/s | 0.00% | N/A | Mid (5) | Low (1) | N/A | N/A | 96.74% | 
+|Cutlass | INT matrix multiply | cutlass_igemm_256 | C | Idle (0) | 0.00% | Mid (6) | 0.00% | Idle (0) | 0.00% | Low (1) | 5.40GB/s | 20.94GB/s | 0.00% | N/A | Low (1) | Idle (0) | N/A | N/A | 4.30% | 
+|Cutlass | INT matrix multiply | cutlass_igemm_512 | C | Idle (0) | 0.00% | Mid (6) | 0.00% | Idle (0) | 0.00% | Low (1) | 13.60GB/s | 26.52GB/s | 0.00% | N/A | Low (1) | Idle (0) | N/A | N/A | 18.42% | 
+|Cutlass | INT matrix multiply | cutlass_igemm_1024 | C | Idle (0) | 0.00% | High (7) | 0.00% | Idle (0) | 0.00% | Low (2) | 27.60GB/s | 57.73GB/s | 0.00% | N/A | Low (2) | Idle (0) | N/A | N/A | 75.14% | 
+|Cutlass | INT matrix multiply | cutlass_igemm_2048 | C | Idle (0) | 0.00% | High (9) | 0.00% | Idle (0) | 0.00% | Low (1) | 31.76GB/s | 44.74GB/s | 1.32% | N/A | Low (2) | Idle (0) | N/A | N/A | 81.01% | 
+|Cutlass | INT matrix multiply | cutlass_igemm_4096 | C | Idle (0) | 0.00% | High (9) | 0.00% | Idle (0) | 0.00% | Low (2) | 81.71GB/s | 26.73GB/s | 0.05% | N/A | Low (3) | Idle (0) | N/A | N/A | 98.16% | 
+| Parboil | Sparse vector matrix multiply | parboil_spmv | M | Idle (0) | 0.00% | Low (1) | 0.85% | Idle (0) | 0.00% | High (9) | 464.77GB/s | 37.25GB/s | 48.81% | N/A | Idle (0) | Idle (0) | N/A | N/A | 90.80% |
 
 
 
