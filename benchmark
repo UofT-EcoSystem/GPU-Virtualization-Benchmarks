@@ -1,4 +1,36 @@
 #!/usr/bin/python
+"""
+usage:
+    benchmark [--version] [--help] <command> [<args>...]
+
+options:
+   -c <name=value>
+   -h, --help
+   -p, --paginate
+
+The most commonly used commands are:
+   tbd        TBD benchmarks
+
+See 'benchmark help <command>' for more information on a specific command.
+
+"""
+
+# from docopt import docopt
+# from subprocess import call
+
+# if __name__ == '__main__':
+
+#     args = docopt(__doc__,
+#                   version='0.0.1',
+#                   options_first=True)
+
+#     argv = [args['<command>']] + args['<args>']
+
+#     if args['<command>'] == 'tbd':
+#         import tbd.cli
+#         exit(call(['python', './tbd/cli'] + argv))
+#     else:
+#         exit("%r is not a benchmark command. See 'benchmark help'." % args['<command>'])
+
 from cli.main_cli import main_cli
 main_cli()
-

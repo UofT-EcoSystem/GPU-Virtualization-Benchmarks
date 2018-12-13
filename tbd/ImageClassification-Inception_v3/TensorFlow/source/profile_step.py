@@ -58,6 +58,9 @@ def train_step(sess, train_op, global_step, train_step_kwargs):
                 pipe.write(str(os.getpid()) + '\n')
                 pipe.close()
                 profiling_period()
+            elif np_global_step > train_step_kwargs['nvprof_start_step']:
+                print('### STEP ### ' + str(np_global_step))
+
 
     if run_metadata is not None:
         tl = timeline.Timeline(run_metadata.step_stats)
