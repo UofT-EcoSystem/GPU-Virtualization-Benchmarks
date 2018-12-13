@@ -33,11 +33,11 @@ def create_env(env_path):
         requirements = env_info['requirements']
         os.system('virtualenv ' + virtualenv_flags + ' ' + os.path.join(envs_path, env_path))
 
-        env = envs_path + '/' + env_path
+        env = os.path.join(envs_path, env_path)
 
         activate = env + '/bin/activate_this.py'
         execfile(activate, dict(__file__=activate))
-        os.system('pip install -r ' + root_path + '/' + requirements)
+        os.system('pip install -r ' + os.path.join(root_path, requirements))
 
         print 'created environment ' + env_path
 
