@@ -98,7 +98,7 @@ def run_model(model, framework, args):
 
     flags = info['config']
     flags_string = ' '.join('--' + k + '=' + v for k, v in flags.items())
-    command = prefix + ' python -m ' + trainer + ' ' + flags + suffix
+    command = prefix + ' python -m ' + trainer + ' ' + flags_string + suffix
     os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'dataset_dir': dataset_dir}))
 
 # def run_model(model, framework, args):
