@@ -14,7 +14,7 @@
         },
         "seq2seq": {
             "tf": {
-                "requirements": "tbd/MachineTranslation-Seq2Seq/NMT/source/nmt-tf-1.2/requirements.gpu-cu80.txt",
+                "requirements": "tbd/MachineTranslation-Seq2Seq/TensorFlow/source/nmt-tf-1.2/requirements.gpu-cu80.txt",
                 "check_imports": ["tensorflow", "six", "numba"],
                 "virtualenv_flags": ""
             }
