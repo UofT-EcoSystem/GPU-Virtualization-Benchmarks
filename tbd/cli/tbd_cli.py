@@ -76,11 +76,10 @@ def run_model(model, framework, args):
 def run_model(model, framework, args):
     info = json.load(open(os.path.join(dir_path, 'tbd_info.json')))[model][framework]
 
-    model_trainer = os.join(dir_path, '..', model_dir_map[model], framework_name_map[framework], 'source', trainer_map[(model, framework)])
-    train_dir = os.join(dir_path, '..', model_dir_map[model], framework_name_map[framework], 'log')
-    dataset_dir = os.join(dir_path, '..', model_dir_map[model], framework_name_map[framework], 'dataset')
-
-    trainer = info['trainer']
+    model_dir = os.path.join(dir_path, '..', model_dir_map[model], framework_name_map[framework])
+    trainer = os.path.join(model_dir, 'source', info['trainer'])
+    train_dir = os.path.join(model_dir, 'log')
+    dataset_dir = os.path.join(model_dir, 'dataset')
 
     if args.profile_mode_off:
         prefix = ''
@@ -97,7 +96,9 @@ def run_model(model, framework, args):
                 prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
                 suffix = ' --nvprof_on=True'
 
-    command = prefix + ' python ' + model_trainer + flag_map[(model, framework)] + suffix
+    flags = info['config']
+    flags_string = ' '.join('--' + k + '=' + v for k, v in flags.items())
+    command = prefix + ' python ' + train_dir + ' ' + flags + suffix
     os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'dataset_dir': dataset_dir}))
 
 # def run_model(model, framework, args):
