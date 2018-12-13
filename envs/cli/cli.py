@@ -31,7 +31,7 @@ def create_env(env_path):
         env_info = json.load(open(dir_path + '/env_info.json'))[benchmark][model][framework]
         virtualenv_flags = env_info['virtualenv_flags']
         requirements = env_info['requirements']
-        os.system('virtualenv ' + virtualenv_flags + ' ' + envs_path + '/' + env_path)
+        os.system('virtualenv ' + virtualenv_flags + ' ' + os.path.join([envs_path, env_path]))
 
         env = envs_path + '/' + env_path
 
