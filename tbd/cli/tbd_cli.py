@@ -73,20 +73,14 @@ def run_model(model, framework, args):
     model_dir = os.path.join(dir_path, '..', model_dir_map[model], framework_name_map[framework])
     dataset_dir = os.path.join(model_dir, 'dataset')
 
-
 def run_model(model, framework, args):
+    info = json.load(open(os.path.join(dir_path, 'tbd_info.json')))[model][framework]
 
-    trainer_map = {
-        ('inception', 'tf'): 'train_image_classifier.py',
-    }
+    model_trainer = os.join(dir_path, '..', model_dir_map[model], framework_name_map[framework], 'source', trainer_map[(model, framework)])
+    train_dir = os.join(dir_path, '..', model_dir_map[model], framework_name_map[framework], 'log')
+    dataset_dir = os.join(dir_path, '..', model_dir_map[model], framework_name_map[framework], 'dataset')
 
-    flag_map = {
-        ('inception', 'tf'): inception_tf,
-    }
-
-    model_trainer = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/source/' + trainer_map[(model, framework)]
-    train_dir = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/log'
-    dataset_dir = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/dataset/'
+    trainer = info['trainer']
 
     if args.profile_mode_off:
         prefix = ''
@@ -103,7 +97,41 @@ def run_model(model, framework, args):
                 prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
                 suffix = ' --nvprof_on=True'
 
-    # train_dir = dir_path + 
-
     command = prefix + ' python ' + model_trainer + flag_map[(model, framework)] + suffix
     os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'dataset_dir': dataset_dir}))
+
+# def run_model(model, framework, args):
+
+#     trainer_map = {
+#         ('inception', 'tf'): 'train_image_classifier.py',
+#         ('seq2seq', 'tf'): 'nmt/nmt.py',
+#     }
+
+#     flag_map = {
+#         ('inception', 'tf'): inception_tf,
+#         ('seq2seq', 'tf'): seq2seq_tf,
+#     }
+
+#     model_trainer = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/source/' + trainer_map[(model, framework)]
+#     train_dir = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/log'
+#     dataset_dir = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/dataset/'
+
+#     if args.profile_mode_off:
+#         prefix = ''
+#         suffix = ''
+#     else:
+#         if args.concurrent:
+#             prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
+#             suffix = ' --nvprof_on=True --concurrent=True'
+#         else:
+#             if not args.profile_metrics:
+#                 prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
+#                 suffix = ' --nvprof_on=True'
+#             else:
+#                 prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
+#                 suffix = ' --nvprof_on=True'
+
+#     # train_dir = dir_path + 
+
+#     command = prefix + ' python ' + model_trainer + flag_map[(model, framework)] + suffix
+#     os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'dataset_dir': dataset_dir}))
