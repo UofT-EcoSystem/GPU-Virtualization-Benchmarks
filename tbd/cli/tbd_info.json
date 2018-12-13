@@ -1,0 +1,51 @@
+{
+    "inception": {
+        "tf": {
+            "trainer": "train_image_classifier.py",
+            "get_dataset": "python {model_dir}/source/download_and_convert_data.py --dataset_name cifar10 --dataset_dir {dataset_dir}",
+            "config": {
+                "train_dir": "{train_dir}",
+                "dataset_dir": "{dataset_dir}",
+                "model_name": "inception_v3",
+                "optimizer": "sgd",
+                "batch_size": "{batch_size}",
+                "dataset_name": "cifar10",
+                "learning_rate": "0.1",
+                "learning_rate_decay_factor": "0.1",
+                "num_epochs_per_decay": "30",
+                "weight_decay": "0.0001"
+            },
+            "config_type": "flags"
+        },
+        "mxnet": {
+            "trainer": "train_imagenet.py",
+            "get_dataset": "python {model_dir}/dataset/im2rec.py --list True --recursive True imagenet1k {dataset_dir};python {model_dir}/dataset/im2rec.py --resize 480 --quality 95 --num-thread 16 imagenet1k {dataset_dir}",
+            "config": {
+                "gpus": "0",
+                "batch-size": "32",
+                "image-shape": "3,299,299",
+                "num-epochs": "100",
+                "network": "inception-v3",
+                "data-train": "{dataset_dir}"
+            },
+            "config_type": "flags"
+        }
+    },
+    "seq2seq": {
+        "tf": {
+            "trainer": "nmt/nmt.py",
+            "get_dataset": "bash {dataset_dir}/download_iwslt15_en-vi.sh",
+            "config": {
+                "src": "en",
+                "tgt": "vi",
+                "hparams_path": "{model_dir}/hparams/$HPARAM_FNAME",
+                "out_dir": "{model_dir}/models",
+                "vocab_prefix": "{model_dir}/dataset/iwslt15_en-vi/vocab",
+                "train_prefix": "{model_dir}/dataset/iwslt15_en-vi/train",
+                "dev_prefix": "{model_dir}/dataset/iwslt15_en-vi/tst2012",
+                "test_prefix": "{model_dir}/dataset/iwslt15_en-vi/tst2013"
+            },
+            "config_type": "flags"
+        }
+    }
+}
