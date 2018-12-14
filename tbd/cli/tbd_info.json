@@ -2,6 +2,7 @@
     "inception": {
         "tf": {
             "trainer": "train_image_classifier.py",
+            "command_type": "file",
             "get_dataset": "python {model_dir}/source/download_and_convert_data.py --dataset_name cifar10 --dataset_dir {dataset_dir}",
             "config": {
                 "train_dir": "{train_dir}",
@@ -33,17 +34,19 @@
     },
     "seq2seq": {
         "tf": {
-            "trainer": "nmt.nmt",
+            "trainer": "nmt-tf-1.2",
+            "command_type": "module",
+            "trainer_module": "nmt.nmt",
             "get_dataset": "bash {dataset_dir}/download_iwslt15_en-vi.sh",
             "config": {
                 "src": "en",
                 "tgt": "vi",
-                "hparams_path": "{model_dir}/hparams/$HPARAM_FNAME",
+                "hparams_path": "{model_dir}/hparams/nmt_tf_1.2-iwslt15_en_vi-520_updates.json",
                 "out_dir": "{model_dir}/models",
-                "vocab_prefix": "{model_dir}/dataset/iwslt15_en-vi/vocab",
-                "train_prefix": "{model_dir}/dataset/iwslt15_en-vi/train",
-                "dev_prefix": "{model_dir}/dataset/iwslt15_en-vi/tst2012",
-                "test_prefix": "{model_dir}/dataset/iwslt15_en-vi/tst2013"
+                "vocab_prefix": "{model_dir}/dataset/vocab",
+                "train_prefix": "{model_dir}/dataset/train",
+                "dev_prefix": "{model_dir}/dataset/tst2012",
+                "test_prefix": "{model_dir}/dataset/tst2013"
             },
             "config_type": "flags"
         }

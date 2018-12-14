@@ -97,43 +97,13 @@ def run_model(model, framework, args):
 
     flags = info['config']
     flags_string = ' '.join('--' + k + '=' + v for k, v in flags.items())
-    command = prefix + ' python ' + trainer + ' ' + flags_string + suffix
+    command_type = info['command_type']
+
+    if command_type == 'file':
+        command = prefix + ' python ' + trainer + ' ' + flags_string + suffix
+    elif command_type == 'module':
+        os.chdir(trainer)
+        trainer_module = info['trainer_module']
+        command = prefix + ' python -m ' + trainer_module + ' ' + flags_string + suffix
     print command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'model_dir': model_dir, 'dataset_dir': dataset_dir})
     os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'model_dir': model_dir, 'dataset_dir': dataset_dir}))
-
-# def run_model(model, framework, args):
-
-#     trainer_map = {
-#         ('inception', 'tf'): 'train_image_classifier.py',
-#         ('seq2seq', 'tf'): 'nmt/nmt.py',
-#     }
-
-#     flag_map = {
-#         ('inception', 'tf'): inception_tf,
-#         ('seq2seq', 'tf'): seq2seq_tf,
-#     }
-
-#     model_trainer = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/source/' + trainer_map[(model, framework)]
-#     train_dir = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/log'
-#     dataset_dir = dir_path + '/../' + model_dir_map[model] + '/' + framework_name_map[framework] + '/dataset/'
-
-#     if args.profile_mode_off:
-#         prefix = ''
-#         suffix = ''
-#     else:
-#         if args.concurrent:
-#             prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
-#             suffix = ' --nvprof_on=True --concurrent=True'
-#         else:
-#             if not args.profile_metrics:
-#                 prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
-#                 suffix = ' --nvprof_on=True'
-#             else:
-#                 prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
-#                 suffix = ' --nvprof_on=True'
-
-#     # train_dir = dir_path + 
-
-#     command = prefix + ' python ' + model_trainer + flag_map[(model, framework)] + suffix
-#     os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'dataset_dir': dataset_dir}))
-
