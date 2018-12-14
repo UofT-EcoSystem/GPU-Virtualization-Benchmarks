@@ -65,7 +65,6 @@ def download(model, framework, args):
         'dataset_dir': dataset_dir,
     })
     print get_dataset_command
-    exit()
     os.system(get_dataset_command)
     
 
@@ -98,9 +97,9 @@ def run_model(model, framework, args):
 
     flags = info['config']
     flags_string = ' '.join('--' + k + '=' + v for k, v in flags.items())
-    command = prefix + ' python -m ' + trainer + ' ' + flags_string + suffix
-#    os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'model_dir': model_dir, 'dataset_dir': dataset_dir}))
+    command = prefix + ' python ' + trainer + ' ' + flags_string + suffix
     print command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'model_dir': model_dir, 'dataset_dir': dataset_dir})
+    os.system(command.format(**{'batch_size': args.batch_size, 'train_dir': train_dir, 'model_dir': model_dir, 'dataset_dir': dataset_dir}))
 
 # def run_model(model, framework, args):
 
