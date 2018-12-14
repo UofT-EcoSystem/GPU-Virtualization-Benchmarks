@@ -33,6 +33,8 @@ from .utils import misc_utils as utils
 from .utils import nmt_utils
 from .utils import vocab_utils
 
+from profile_signal import profiling_period
+
 utils.check_tensorflow_version()
 
 __all__ = [
@@ -361,11 +363,23 @@ def train(hparams, scope=None, target_session="", single_cell_fn=None):
 
         open('/home/frank/Desktop/micro_log.txt', 'w').write(str(global_step) + '\n')
 
-        if global_step == 10:
-            cuda.profile_start()
-        if global_step == 15:
-            cuda.profile_stop()
-            exit(0)
+        # TODO: add this as a parameter
+        concurrent = True
+
+        if concurrent:
+            if global_step == 10:
+                # pipe = open(train_step_kwargs['pipe'], 'a')
+                # pipe.write(str(os.getpid()) + '\n')
+                # pipe.close()
+                profiling_period()
+            elif global_step >= 10:
+                print('### STEP ### ' + str(global_step))
+        else:
+            if global_step == 10:
+                cuda.profile_start()
+            if global_step == 15:
+                cuda.profile_stop()
+                exit(0)
         # </EcoSys>
 
         ### Run a step ###
