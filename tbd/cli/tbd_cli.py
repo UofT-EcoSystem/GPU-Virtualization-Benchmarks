@@ -32,6 +32,8 @@ def add_tbd_cli(subparsers):
                             help='Output nvvp file directory.')
     tbd_parser.add_argument('--download', action='store_true',
                             help='Download the dataset')
+    tbd_parser.add_argument('-e', '--environment', default=None,
+                            help='Specify the environment to use.')
 
 model_dir_map = {
     'seq2seq': 'MachineTranslation-Seq2Seq',
@@ -98,6 +100,14 @@ def run_model(model, framework, args):
     flags = info['config']
     flags_string = ' '.join('--' + k + '=' + v for k, v in flags.items())
     command_type = info['command_type']
+
+    if args.environment == None:
+        environment = '_'.join(['tbd', model, framework])
+    else:
+        environment = args.environment
+    activate = os.path.join(dir_path, '..', '..', 'envs', environment, 'bin', 'activate_this.py')
+    execfile(activate, dict(__file__=activate))
+
 
     if command_type == 'file':
         command = prefix + ' python ' + trainer + ' ' + flags_string + suffix
