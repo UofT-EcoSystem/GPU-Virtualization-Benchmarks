@@ -95,6 +95,6 @@ set*/
 .nfs*
 
 # Parboil datasets
-parboil/datasets/*/
+benchmarks/parboil/datasets/*/
 
 # End of https://www.gitignore.io/api/c,cuda,linux
