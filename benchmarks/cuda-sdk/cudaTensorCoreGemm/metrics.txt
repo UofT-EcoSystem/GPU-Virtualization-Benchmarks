@@ -1,0 +1,131 @@
+Available Events:
+                            Name   Description
+Device 0 (TITAN V):
+	Domain domain_a:
+                active_cycles_pm:  Number of cycles a multiprocessor has at least one active warp.
+
+                 active_warps_pm:  Accumulated number of active warps per cycle. For every cycle it increments by the number of active warps in the cycle which can be in the range 0 to 64.
+
+          shared_ld_transactions:  Number of transactions for shared load accesses. Maximum transaction size in volta is 128 bytes, any warp accessing more than 128 bytes will cause multiple transactions for a shared load instruction. This also includes extra transactions caused by shared bank conflicts.
+
+          shared_st_transactions:  Number of transactions for shared store accesses. Maximum transaction size in volta is 128 bytes, any warp accessing more than 128 bytes will cause multiple transactions for a shared store instruction. This also includes extra transactions caused by shared bank conflicts.
+
+               elapsed_cycles_sm:  elapsed clocks
+
+               elapsed_cycles_pm:  elapsed clocks
+
+         shared_ld_bank_conflict:  Number of shared load bank conflict generated when the addresses for two or more shared memory load requests fall in the same memory bank.
+
+         shared_st_bank_conflict:  Number of shared store bank conflict generated when the addresses for two or more shared memory store requests fall in the same memory bank.
+
+	Domain domain_b:
+           fb_subp0_read_sectors:  Number of DRAM read requests to sub partition 0, increments by 1 for 32 byte access.
+
+           fb_subp1_read_sectors:  Number of DRAM read requests to sub partition 1, increments by 1 for 32 byte access.
+
+          fb_subp0_write_sectors:  Number of DRAM write requests to sub partition 0, increments by 1 for 32 byte access.
+
+          fb_subp1_write_sectors:  Number of DRAM write requests to sub partition 1, increments by 1 for 32 byte access.
+
+	Domain domain_d:
+                   active_cycles:  Number of cycles a multiprocessor has at least one active warp
+
+                    active_warps:  Accumulated number of active warps per cycle. For every cycle it increments by the number of active warps in the cycle which can be in the range 0 to 64.
+
+                 prof_trigger_00:  Number of pmtrig instructions executed where Imm16 & 0x0001
+
+                 prof_trigger_01:  Number of pmtrig instructions executed where Imm16 & 0x0002
+
+                 prof_trigger_02:  Number of pmtrig instructions executed where Imm16 & 0x0004
+
+                 prof_trigger_03:  Number of pmtrig instructions executed where Imm16 & 0x0008
+
+                 prof_trigger_04:  Number of pmtrig instructions executed where Imm16 & 0x0010
+
+                 prof_trigger_05:  Number of pmtrig instructions executed where Imm16 & 0x0020
+
+                 prof_trigger_06:  Number of pmtrig instructions executed where Imm16 & 0x0040
+
+                 prof_trigger_07:  Number of pmtrig instructions executed where Imm16 & 0x0080
+
+                    inst_issued0:  Number of cycles that did not issue any instruction, increments per warp.
+
+                    inst_issued1:  Number of cycles that issued single instruction, increments per warp.
+
+                   inst_executed:  Number of instructions executed per warp.
+
+            thread_inst_executed:  Number of instructions executed by the active threads. For each instruction it increments by number of threads, including predicated-off threads, that execute the instruction. It does not include replays.
+
+not_predicated_off_thread_inst_executed:  Number of instructions executed by the active and not predicated off threads. For each instruction it increments by number of active and non-predicated off threads that execute the instruction. It does not include replays.
+
+                    generic_load:  Number of LD instructions executed
+
+                   generic_store:  Number of ST instructions executed
+
+                      atom_count:  Number of ATOM instructions executed
+
+                 global_atom_cas:  Number of ATOM.CAS instructions executed
+
+                      gred_count:  Number of RED instructions executed
+
+                     global_load:  Number of LDG instructions executed
+
+                    global_store:  Number of STG instructions executed
+
+                      local_load:  Number of LDL instructions executed
+
+                     local_store:  Number of STL instructions executed
+
+                     shared_atom:  Number of shared ATOMS instructions executed
+
+                 shared_atom_cas:  Number of shared ATOMS.CAS instructions executed
+
+                     shared_load:  Number of LDS instructions executed
+
+                    shared_store:  Number of STS instructions executed
+
+                  warps_launched:  Number of warps launched
+
+                 sm_cta_launched:  Number of ctas launched
+
+	Domain domain_e:
+    l2_subp0_write_sector_misses:  Number of write requests sent to DRAM from slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+    l2_subp1_write_sector_misses:  Number of write requests sent to DRAM from slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+     l2_subp0_read_sector_misses:  Number of read requests sent to DRAM from slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+     l2_subp1_read_sector_misses:  Number of read requests sent to DRAM from slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp0_read_tex_sector_queries:  Number of read requests from Texture cache to slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp0_write_tex_sector_queries:  Number of write requests from Texture cache to slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+   l2_subp0_read_tex_hit_sectors:  Number of read requests from Texture cache that hit in slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+  l2_subp0_write_tex_hit_sectors:  Number of write requests from Texture cache that hit in slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp0_read_sysmem_sector_queries:  Number of system memory read requests to slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp0_write_sysmem_sector_queries:  Number of system memory write requests to slice 0 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp0_total_read_sector_queries:  Total read requests to slice 0 of L2 cache. This includes requests from  L1, Texture cache, system memory. This increments by 1 for each 32-byte access.
+
+l2_subp0_total_write_sector_queries:  Total write requests to slice 0 of L2 cache. This includes requests from  L1, Texture cache, system memory. This increments by 1 for each 32-byte access.
+
+l2_subp1_read_tex_sector_queries:  Number of read requests from Texture cache to slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp1_write_tex_sector_queries:  Number of write requests from Texture cache to slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+   l2_subp1_read_tex_hit_sectors:  Number of read requests from Texture cache that hit in slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+  l2_subp1_write_tex_hit_sectors:  Number of write requests from Texture cache that hit in slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp1_read_sysmem_sector_queries:  Number of system memory read requests to slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp1_write_sysmem_sector_queries:  Number of system memory write requests to slice 1 of L2 cache. This increments by 1 for each 32-byte access.
+
+l2_subp1_total_read_sector_queries:  Total read requests to slice 1 of L2 cache. This includes requests from  L1, Texture cache, system memory. This increments by 1 for each 32-byte access.
+
+l2_subp1_total_write_sector_queries:  Total write requests to slice 1 of L2 cache. This includes requests from  L1, Texture cache, system memory. This increments by 1 for each 32-byte access.
+
