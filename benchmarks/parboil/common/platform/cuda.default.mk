@@ -10,7 +10,8 @@
 include $(PARBOIL_ROOT)/common/platform/c.default.mk
 
 # Paths
-CUDAHOME=/usr/local/cuda-9.0
+include ../../../../scripts/run/path.sh
+# CUDAHOME=/usr/local/cuda-9.0
 
 # Programs
 CUDACC=$(CUDAHOME)/bin/nvcc
@@ -20,5 +21,5 @@ CUDALINK=$(CUDAHOME)/bin/nvcc
 PLATFORM_CUDACFLAGS=-O3
 PLATFORM_CUDALDFLAGS=-lm -lpthread
 
-APP_CUDACFLAGS +=-arch=sm_70
+APP_CUDACFLAGS += $(arch)
 

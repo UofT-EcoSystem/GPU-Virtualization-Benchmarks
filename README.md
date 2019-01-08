@@ -65,7 +65,13 @@ This repo is a suite of GPGPU benchmarks that will be used to collect both motiv
 
 ## To Build and Run Benchmarks
 
-TODO...
+#### Modify config files
+
+You can modify the following parameters in config file `PROJECT_ROOT/scripts/run/path.sh`
+
+* `usrname`: Your own username. Some of your tests might need to run with sudo rights and hence the experiment result folders will be sudo owned by default. The run scripts will automatically change ownership of these folders to you at the end of the test run.
+* `CUDAHOME`: Path to CUDA root folder. 
+* `Arch version`: SM version of your CUDA device.
 
 ## To Add New Benchmarks
 To use our benchmark wrapper script, each benchmark should implement the same interface to synchronize kernel launches. Consider a test comprises two applications A and B, with each application invoking different GPU compute kernels. The goal is to capture performance data during the period where both kernels from A and B execute concurrently. Hence, kernel execution in each application should start at the same time and ideally end around the same time. Since it's impossible to guarantee all kernels end simultaneously due to kernel runtime difference, the data processing script will calculate the delta of kernel elapased time between A and B and discard profiled statistics in the tail where only one application is running. The timing relationship among A, B and the wrapper script is shown in the timing diagram below.

@@ -1,11 +1,7 @@
 #!/bin/bash
 
-
-usrname=serinatan
-
-NVPROF="/usr/local/cuda-10.0/bin/nvprof"
-
 source path.sh
+source run_path.sh
 
 pipe=/tmp/ready
 
@@ -151,8 +147,8 @@ fi
 
 # parse config file to get test sets
 
-#testcase_no, device_name, exec1_name, exec2_name, keyword_exec1, keyword_exec2
-sed 1d $3 | while IFS=, read -r test_no device exec1 exec2 key1 key2 
+#testcase_no, device_name, exec1_name, exec2_name
+sed 1d $3 | while IFS=, read -r test_no device exec1 exec2
 do
 
     #select executable
@@ -168,7 +164,7 @@ do
         echo Iteration $j
 
 
-        filepath=experiments/$test_no/run$j
+        filepath=$ROOT/tests/experiments/$test_no/run$j
 
         rm -rf $filepath
         mkdir -p $filepath
@@ -266,7 +262,7 @@ do
 
 
     # change ownership of the experiment folder to yourself
-    chown -R $usrname: experiments/$test_no
+    chown -R $usrname: $ROOT/tests/experiments/$test_no
 
 done
 
