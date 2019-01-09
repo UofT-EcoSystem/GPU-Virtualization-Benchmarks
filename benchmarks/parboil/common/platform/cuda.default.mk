@@ -10,7 +10,7 @@
 include $(PARBOIL_ROOT)/common/platform/c.default.mk
 
 # Paths
-include ../../../../scripts/run/path.sh
+include ../../../../scripts/config
 # CUDAHOME=/usr/local/cuda-9.0
 
 # Programs

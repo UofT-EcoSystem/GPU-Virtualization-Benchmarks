@@ -1,3 +1,6 @@
+source ../config
+
+
 CUTLASS_PATH="$ROOT/benchmarks/cutlass/build"
 
 PARBOIL_PATH="$ROOT/benchmarks/parboil"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source path.sh
+source ../config
 source run_path.sh
 
 pipe=/tmp/ready
