@@ -16,7 +16,7 @@ case $1 in
         exit
     fi
 
-    (cd scripts/build && ./build.sh $1 $2)
+    (cd scripts/compile && ./compile.sh $1 $2)
 
     ;;
 "run")
