@@ -3,10 +3,10 @@
 # Modify these:
 usrname=serinatan
 CUDAHOME=/usr/local/cuda-9.0
-arch="-arch=sm_70"
+arch="-arch=sm_61"
 
 # Do not modify:
-ROOT=../../
+ROOT=$(cd ../../ && pwd)
 NVPROF="$CUDAHOME/bin/nvprof"
 
 

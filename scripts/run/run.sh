@@ -2,6 +2,7 @@
 
 source ../config
 source run_path.sh
+source nv-metrics
 
 pipe=/tmp/ready
 
@@ -84,7 +85,7 @@ run_single() {
 run_single_metric() {
     # usage: run_single_metric filepath app app_out
     echo "$2"
-    $NVPROF --profile-from-start off -f --csv --log-file "$1"/"$3".csv -m double_precision_fu_utilization,flop_dp_efficiency,single_precision_fu_utilization,flop_sp_efficiency,half_precision_fu_utilization,flop_hp_efficiency,dram_utilization,dram_read_throughput,dram_write_throughput,global_hit_rate,shared_utilization,special_fu_utilization,sm_efficiency,tensor_precision_fu_utilization,tensor_int_fu_utilization $2 &
+    $NVPROF --profile-from-start off -f --csv --log-file "$1"/"$3".csv -m $metrics $2 &
 
     local pid=$( cat $pipe )
 
@@ -134,29 +135,49 @@ run_single_inst_count() {
 # Start of script
 if [ "$#" -ne 3 ]; then
         echo "Illegal number of parameters"
-        echo "Usage: <path/to/script> <timeline | duration | metrics> <# of iters> <tests.config>"
+        echo "Usage: <path/to/script> <timeline | duration | metrics | nvvp> <# of iters> <tests.config>"
         exit
 fi
 
+export TOP_PID=$$
+
+echo $TOP_PID
 
 trap "rm -f $pipe" EXIT
 
-if [[ ! -p $pipe ]]; then
+if [[ ! -f $pipe ]]; then
     mkfifo $pipe
 fi
 
 # parse config file to get test sets
 
 #testcase_no, device_name, exec1_name, exec2_name
-sed 1d $3 | while IFS=, read -r test_no device exec1 exec2
+sed 1d $3 | while IFS=, read -r test_no device exec1 exec2 key1 key2
 do
 
     #select executable
+    echo exec1: $exec1
     exec1_path=$(select_run $exec1)
+
+    if [ "can't find exec!" = "$exec1_path" ]; then
+        echo Cannot find exec1. Exiting...
+        exit 1
+    fi
+
     echo First app: "$exec1_path"
 
+
+    echo exec2: $exec2
     exec2_path=$(select_run $exec2)
+
+    if [ "can't find exec!" = "$exec2_path" ]; then
+        echo Cannot find exec2. Exiting...
+        exit 1
+    fi
+
     echo Second app: "$exec2_path"
+
+
 
     let "iter = $2 - 1"
     # Multiple runs to get the most stable run
@@ -244,11 +265,11 @@ do
 
             echo MPS run
 
-            source common/mps_server_on.sh
+            source ../mps/mps_server_on.sh
 
             run_concurrent $filepath "${exec1_path}" mps-1 "${exec2_path}" mps-2
 
-            source common/mps_server_off.sh
+            source ../mps/mps_server_off.sh
 
             # need to cancel nvprof and change file path
             kill -SIGINT $pid_nvp

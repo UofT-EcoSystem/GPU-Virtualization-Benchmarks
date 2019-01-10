@@ -46,7 +46,7 @@ cutlass_wmma="$CUTLASS_PATH/tools/test/perf/cutlass_perf_test --kernels=wmma_gem
 tensor_gemm="$TENSOR_PATH/cudaTensorCoreGemm"
 
 
-select_run() {
+function select_run() {
     case $1 in
         "cutlass_wmma")
             local exec_path=$cutlass_wmma
@@ -116,8 +116,8 @@ select_run() {
             ;;
 
         *)
-            echo "can't find exec1!"
-            exit
+            echo "can't find exec!"
+            exit 1
      esac
 
      echo "$exec_path"
