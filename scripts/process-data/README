@@ -1,1 +1,40 @@
+====== Postprocessing Scripts ======
+
+=== One-time Setup ===
+
+1. Create Python virtual environment to avoid library conflicts
+
+```
+python3 -m venv data-env
+```
+
+2. Activate the virtual environment
+
+```
+source data-env/bin/activate
+```
+
+3. Install packages
+
+```
+pip3 install numpy scipy matplotlib ipython jupyter pandas sympy nose
+```
+
+=== Using the scripts ===
+
+Activate the virtual environment before running the scripts if the environment is deactivated.
+
+```
+source data-env/bin/activate
+```
+
+One caveat is Parboil benchmarks cannot be compiled/cleaned when the virtual environment (Python3)is activated. To deactivate the virtual environment, run
+
+``` 
+deactivate
+```
+
+=== What are the scripts? ===
+
+
 draw_metrics_table.py: parses results from nvprof metrics data

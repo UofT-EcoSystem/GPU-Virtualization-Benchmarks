@@ -5,28 +5,28 @@ This repo is a suite of GPGPU benchmarks that will be used to collect both motiv
 ## List of Benchmark Suites
 
 1. [Parboil](http://impact.crhc.illinois.edu/parboil/parboil.aspx)
-..* bfs
-..* cutcp
-..* histo
-..* lbm
-..* mri-gridding
-..* mri-q
-..* sad
-..* sgemm
-..* spmv
-..* stencil
-..* tpacf
+* bfs
+* cutcp
+* histo
+* lbm
+* mri-gridding
+* mri-q
+* sad
+* sgemm
+* spmv
+* stencil
+* tpacf
 
 2. [Cutlass](https://github.com/NVIDIA/cutlass)
-..* sgemm
-..* wmma
+* sgemm
+* wmma
 
 3. [cuda-sdk](https://docs.nvidia.com/cuda/cuda-samples/index.html)
-..* tensorTensorCoreGemm
+* tensorTensorCoreGemm
 
 4. [TBD](http://tbd-suite.ai/)
-..* ImageClassification-Inception_v3
-..* MachineTranslation-Seq2Seq
+* ImageClassification-Inception_v3
+* MachineTranslation-Seq2Seq
    
 
 ## To Build Benchmarks
@@ -61,6 +61,12 @@ is useful when multiple runs are required for data processing.
 
 #### Run Script Options
 
+Concurrent execution type of options will invoke isolated run (one application at a time), 
+time multiplexed run (all applications within the same test simultaneously using time-sliced 
+scheduler on the hardware)
+and [MPS](https://docs.nvidia.com/deploy/pdf/CUDA_Multi_Process_Service_Overview.pdf) run 
+(similar to time multiplexed run but using MPS' spatial multiplexing scheduler).
+
 _Concurent execution:_
 1. **timeline**: Capture execution timeline of the benchmark only. Output is a .prof file that 
 can be imported by Nvidia's visual profiler (nvvp).
@@ -82,10 +88,32 @@ provide detailed performance analysis (memory/compute-bound etc.) and optimizati
 the benchmark.
 
 #### Write Test Configs
+The test config describes what benchmarks you would like to run in parallel for each test. 
+An example config looks like the following:
 
+```
+testcase_no, device_name, exec1_name, exec2_name, keyword_exec1, keyword_exec2
+f7,Volta,cutlass_sgemm_512,cutlass_sgemm_2048,spmv,Sgemm
+```
+The first line is always the same headers. Each of the following line is a new test case.
+
+`testcase_no` should be a unique identifier of the test which will be the name of the generated
+experiment result folder under `$PROJECT_ROOT/tests/experiment`. 
+
+`device name` is a user friendly
+description of your device used by the postprocessing scripts for plot titles. 
+
+`exec1_name` and `exec2_name` are the benchmark name defined 
+in `$PROJECT_ROOT/scripts/run/run_path.sh`. 
+
+`keyword_exec1` and `keyword_exec2` are user-friendly description of the benchmarks for 
+postprocessing scripts. 
 
 ## Experiment Results Post-processing
-Overview
+
+All profiled results generated will be stored under `PROJECT_ROOT/tests/experiment`. A set of
+postproecssing scripts written using Python Matplotlib are available for your convenience. They
+are located in `PROJECT_ROOT/scripts/process-data`.
 
 #### Existing Processing Scripts
 
@@ -97,153 +125,29 @@ Overview
 
 #### Interface Set up in Source
 
-To use our benchmark wrapper script, each benchmark should implement the same interface to synchronize kernel launches. Consider a test comprises two applications A and B, with each application invoking different GPU compute kernels. The goal is to capture performance data during the period where both kernels from A and B execute concurrently. Hence, kernel execution in each application should start at the same time and ideally end around the same time. Since it's impossible to guarantee all kernels end simultaneously due to kernel runtime difference, the data processing script will calculate the delta of kernel elapased time between A and B and discard profiled statistics in the tail where only one application is running. The timing relationship among A, B and the wrapper script is shown in the timing diagram below.
+To use our benchmark wrapper script, each benchmark should implement the same interface to 
+synchronize kernel launches. Consider a test comprises two applications A and B, with each 
+application invoking different GPU compute kernels. The goal is to capture performance data 
+during the period where both kernels from A and B execute concurrently. Hence, kernel execution 
+in each application should start at the same time and ideally end around the same time. Since 
+it's impossible to guarantee all kernels end simultaneously due to kernel runtime difference, 
+the data processing script will calculate the delta of kernel elapased time between A and B 
+and discard profiled statistics in the tail where only one application is running. The timing 
+relationship among A, B and the wrapper script is shown in the timing diagram below.
 
 ![alt text](https://raw.githubusercontent.com/UofT-EcoSystem/GPU-Virtualization-Benchmarks/master/docs/wrapper_squence.png?token=AGTJ4mhfa8Np3Abqr4S5c7lwo1Ikuy1Cks5cGBVJwA%3D%3D)
 
 
-
-Each benchmark application should be structured as in the following code snippet
-
-```C++
-#include <unistd.h>
-#include <signal.h>
-#include <fcntl.h>
-
-#include "cuda_profiler_api.h"
-
-volatile bool ready = false;
-volatile bool should_stop = false;
-const char * ready_fifo = "/tmp/ready"; 
-
-void start_handler(int sig) {
-    ready = true;
-}
-
-void stop_handler(int sig) {
-    should_stop = true;
-}
-
-void do_work() {
-    // Data setup...
-
-    /* Create CUDA start & stop events to record total elapsed time of kernel execution */
-    cudaEvent_t start;
-    cudaError_t error = cudaEventCreate(&start);
-
-    if (error != cudaSuccess)
-    {   
-        fprintf(stderr, "Failed to create start event (error code %s)!\n", 
-                                                cudaGetErrorString(error));   
-        exit(EXIT_FAILURE);
-    }
-
-    cudaEvent_t stop;
-    error = cudaEventCreate(&stop);
-
-    if (error != cudaSuccess)
-    {   
-        fprintf(stderr, "Failed to create stop event (error code %s)!\n", 
-                                                cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
-
-    /* End event creation */ 
-    
-    
-    /* Write to pipe to signal the wrapper script that we are done with data setup */
-    char pid[10];
-    sprintf(pid, "%d", getpid());
-
-    int fd = open(ready_fifo, O_WRONLY);
-    int res = write(fd, pid, strlen(pid));
-    close(fd);
-
-    if (res > 0) printf("Parboil spmv write success to the pipe!\n");
-    /* End pipe writing */
-    
-    
-    /* Spin until master tells me to start kernels */
-    while (!ready);
-    /* End spinning */
-    
-    
-    /* Record the start event and start nvprof profiling */
-    cudaProfilerStart();
-    
-    error = cudaEventRecord(start, NULL);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to record start event (error code %s)!\n", 
-                                                cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
-    
-    /* End CUDA start records */
-    
-    
-    /* Main loop to do real work */
-    while (!should_stop){ 
-        // Launch kernels asynchrously in a loop
-        kerenl<<<grid_size, block_size>>>(...);    
-    }
-    /* End kernel launching */
-    
-    /* Record and wait for the stop event */
-    error = cudaEventRecord(stop, NULL);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to record stop event (error code %s)!\n", 
-                                                cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
-    
-    cudaThreadSynchronize();
-
-    error = cudaEventSynchronize(stop);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to synchronize on the stop event (error code %s)!\n", 
-                                                            cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
-    
-    cudaProfilerStop();
-    
-    /* End stop CUDA event handling */
-    
-    
-    /* Output total elapsed time */
-    float msecTotal = 0.0f;
-    // !!! Important: must use this print format, the data processing 
-    // script requires this information 
-    error = cudaEventElapsedTime(&msecTotal, start, stop);
-    printf("Total elapsed time: %f ms\n", msecTotal);
-    /* End elpased time recording */
-
-
-    // Clean up your crap...
-}
-
-int main(int argc, char** argv) {
-    if (signal(SIGUSR1, start_handler) < 0)
-        perror("Signal error");
-
-    if (signal(SIGUSR2, stop_handler) < 0)
-        perror("Signal error");
-
-    // Do some useful setup...
-}
-
-```
+Each benchmark application should be structured similar to the code snippet 
+in `$PROJECT_ROOT/benchmarks/interface.c`
 
 #### Build System Set up ####
 
-blah...
+Your Makefile or CMakeLists should source/include `$PROJECT_ROOT/scripts/config` for build 
+information such as CUDA path, CUDA device compute capability etc.. 
 
+Also, modify the script `$PROJECT_ROOT/scripts/compile/compile.sh` to add support 
+for compilation through the main driver script `virbench.sh`.
 
 ## NVPROF Metrics Considered (#metrics)
 
