@@ -152,7 +152,7 @@ fi
 # parse config file to get test sets
 
 #testcase_no, device_name, exec1_name, exec2_name
-sed 1d $3 | while IFS=, read -r test_no device exec1 exec2 key1 key2
+sed 1d $3 | while IFS=, read -r test_no device exec1 exec2 key1 key2 time mps
 do
 
     #select executable
@@ -259,17 +259,24 @@ do
             run_single $filepath "${exec2_path}" single-2
 
 
-            #echo Time Multiplexing 
+            if [ $time -eq 1 ]; then
+                echo Time Multiplexing run
 
-            #run_concurrent $filepath "${exec1_path}" time-1 "${exec2_path}" time-2
+                run_concurrent $filepath "${exec1_path}" time-1 "${exec2_path}" time-2
+            fi
+            
 
-            echo MPS run
+            if [ $mps -eq 1 ]; then
+                echo MPS run
 
-            source ../mps/mps_server_on.sh
+                source ../mps/mps_server_on.sh
 
-            run_concurrent $filepath "${exec1_path}" mps-1 "${exec2_path}" mps-2
+                run_concurrent $filepath "${exec1_path}" mps-1 "${exec2_path}" mps-2
 
-            source ../mps/mps_server_off.sh
+                source ../mps/mps_server_off.sh
+
+            fi
+            
 
             # need to cancel nvprof and change file path
             kill -SIGINT $pid_nvp
