@@ -16,6 +16,7 @@ case $1 in
                 cd $ROOT/benchmarks/cutlass
                 if [ ! -d "build/" ]; then
                     mkdir build && cd build 
+                    cmake -CUTLASS_NVCC_ARCHS=$cmake_arch
                     cmake ..
                 else
                     cd build

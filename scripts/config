@@ -4,6 +4,9 @@
 usrname=serinatan
 CUDAHOME=/usr/local/cuda-9.0
 arch="-arch=sm_61"
+# Should be consistent with $arch
+# Too lazy to generate a variable for CMAKE by regexing $arch
+cmake_arch="61"
 
 # Do not modify:
 ROOT=$(cd ../../ && pwd)
