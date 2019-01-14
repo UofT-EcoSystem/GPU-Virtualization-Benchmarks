@@ -74,6 +74,7 @@ can be imported by Nvidia's visual profiler (nvvp).
 2. **duration**: Capture runtime duration of each kernel within the benchmark. Output is a .csv file.
 
 _Isolated execution:_
+
 3. **metrics**: Evaluate each kernel within the benchmark in terms of a predefined metrics 
 supported by nvprof. The default metrics are listed in [NVPROF Metrics Considered](#metrics).
 The metrics evaluated by the script can be modified in `PROJECT_ROOT/scripts/run/metrics` file.
@@ -92,8 +93,8 @@ The test config describes what benchmarks you would like to run in parallel for 
 An example config looks like the following:
 
 ```
-testcase_no, device_name, exec1_name, exec2_name, keyword_exec1, keyword_exec2
-f7,Volta,cutlass_sgemm_512,cutlass_sgemm_2048,spmv,Sgemm
+testcase_no, device_name, exec1_name, exec2_name, keyword_exec1, keyword_exec2, time, mps
+f7,Volta,cutlass_sgemm_512,cutlass_sgemm_2048,spmv,Sgemm, 1, 1
 ```
 The first line is always the same headers. Each of the following line is a new test case.
 
@@ -109,16 +110,31 @@ in `$PROJECT_ROOT/scripts/run/run_path.sh`.
 `keyword_exec1` and `keyword_exec2` are user-friendly description of the benchmarks for 
 postprocessing scripts. 
 
+`time` indicates whether to run benchmark combination in time-multiplexed mode. A value of `1`
+indicates True while `0` indicates False.
+
+`mps` indicates whether to run benchmark combination in MPS mode. A value of `1`
+indicates True while `0` indicates False.
+
 ## Experiment Results Post-processing
 
 All profiled results generated will be stored under `PROJECT_ROOT/tests/experiment`. A set of
 postproecssing scripts written using Python Matplotlib are available for your convenience. They
-are located in `PROJECT_ROOT/scripts/process-data`.
+are located in `PROJECT_ROOT/scripts/process-data`. Follow the readme in that folder to set up
+Python virtual environment to use the sample scripts.
 
 #### Existing Processing Scripts
+Under the subfolder `process-data/primitives`, `frontend.py` includes some common functions 
+for reading/parsing experiment results while `backend.py` includes functions for calculating
+metrics (weighted throughput, weighted speedup, fairness). 
 
-
-
+Some sample wrapper scripts under the `process-data` are available to demonstrate how to 
+use these primitive scripts. `sample-individual.py` takes in a test.config file and outputs
+bar graphs (pyplot by default, uncomment tikz_save in the script to get pgfplot in Latex format) 
+showing weighted speedup and fairness of each individual test (benchmark combination). 
+`sameple-geomean` takes in a list of test.config file and outputs geomean of weighted speedup/
+fairness within all tests within each test.config file. This is useful for comparing test cases
+that fall into different categories such as compute+compute intensive, compute+memory intensive etc..
 
 
 ## To Add New Benchmark Source
@@ -135,7 +151,8 @@ the data processing script will calculate the delta of kernel elapased time betw
 and discard profiled statistics in the tail where only one application is running. The timing 
 relationship among A, B and the wrapper script is shown in the timing diagram below.
 
-![alt text](https://raw.githubusercontent.com/UofT-EcoSystem/GPU-Virtualization-Benchmarks/master/docs/wrapper_squence.png?token=AGTJ4mhfa8Np3Abqr4S5c7lwo1Ikuy1Cks5cGBVJwA%3D%3D)
+
+![alt text](docs/wrapper_squence.png "Wrapper Sequence")
 
 
 Each benchmark application should be structured similar to the code snippet 
@@ -148,6 +165,12 @@ information such as CUDA path, CUDA device compute capability etc..
 
 Also, modify the script `$PROJECT_ROOT/scripts/compile/compile.sh` to add support 
 for compilation through the main driver script `virbench.sh`.
+
+#### Add Benchmark Key ####
+Add a unique key for your benchmark and associated command to run the benchmark 
+in `$PROJECT_ROOT/scripts/run/run_path.sh`. The unique key will be used by your `test.config` file
+and the `run.sh` script will load the appropriate command based on keys listed in the 
+input `test.config`. from
 
 ## NVPROF Metrics Considered (#metrics)
 
