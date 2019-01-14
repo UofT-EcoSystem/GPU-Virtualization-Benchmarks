@@ -5,7 +5,7 @@ import sys
 import os
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(dir_path + '/../tbd/cli/')
+sys.path.append(dir_path + '/../benchmarks/tbd/cli/')
 
 from tbd_cli import add_tbd_cli, run_tbd
 from envs import add_env_cli, manage_env

@@ -87,14 +87,14 @@ def run_model(model, framework, args):
         suffix = ''
     else:
         if args.concurrent:
-            prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
+            prefix = '/usr/local/cuda-9.0/bin/nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
             suffix = ' --nvprof_on=True --concurrent=True'
         else:
             if not args.profile_metrics:
-                prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
+                prefix = '/usr/local/cuda-9.0/bin/nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
                 suffix = ' --nvprof_on=True'
             else:
-                prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
+                prefix = '/usr/local/cuda-9.0/bin/nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
                 suffix = ' --nvprof_on=True'
 
     flags = info['config']
@@ -105,7 +105,7 @@ def run_model(model, framework, args):
         environment = '_'.join(['tbd', model, framework])
     else:
         environment = args.environment
-    activate = os.path.join(dir_path, '..', '..', 'envs', environment, 'bin', 'activate_this.py')
+    activate = os.path.join(dir_path, '..', '..', '..', 'envs', environment, 'bin', 'activate_this.py')
     execfile(activate, dict(__file__=activate))
 
 

@@ -3,7 +3,7 @@ import os
 import subprocess
 dir_path = os.path.dirname(os.path.realpath(__file__))
 envs_path = dir_path + '/../'
-root_path = dir_path + '/../../'
+root_path = dir_path + '/../../benchmarks/'
 
 def env_paths(args):
     results = []
