@@ -299,7 +299,7 @@ cudaError_t AllocateMatrixInt(int **matrix, int ldm, int rows, int columns, int 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Naive reference GEMM computation.
+// Naive reference GEMM computation.
 __global__ void ReferenceGemm_kernel(
   int M,
   int N,

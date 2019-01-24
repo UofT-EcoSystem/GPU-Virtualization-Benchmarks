@@ -20,11 +20,21 @@
 # STRICT LIABILITY, OR TOR (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_subdirectory(00_basic_gemm)
-add_subdirectory(00_basic_gemm_int)
-add_subdirectory(stream_sgemm_igemm)
-add_subdirectory(01_tensor_view)
-add_subdirectory(02_cutlass_utilities)
-add_subdirectory(03_strided_batched_gemm)
-add_subdirectory(04_tile_iterator)
-add_subdirectory(05_wmma_gemm)
+
+set(EXAMPLES_BASIC_CUTLASS_GEMM_SOURCES
+  basic_gemm.cu
+  sgemm.cu
+  igemm.cu
+)
+
+if (NOT CUTLASS_NATIVE_CUDA)
+  # cuda_add_executable does not take interface include directories into account
+  # Let's fetch them and pass them to CUDA.
+  get_target_property(CUTLASS_INCLUDES CUTLASS INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories("${CUTLASS_INCLUDES}")
+endif()
+
+cutlass_add_executable(
+  stream_sgemm_igemm
+  ${EXAMPLES_BASIC_CUTLASS_GEMM_SOURCES}
+)
