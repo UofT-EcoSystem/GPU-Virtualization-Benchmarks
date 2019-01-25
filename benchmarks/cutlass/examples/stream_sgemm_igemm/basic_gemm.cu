@@ -85,7 +85,7 @@ void inline print_current_time_with_ms ()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // call a single-precision and integer CUTLASS GEMM kernel.
-cudaError_t RunGemm(float_mm_info sgemm_info, int_mm_info igemm_info,
+cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info igemm_info,
                     int niter) {
 
   cudaError_t result;
@@ -101,19 +101,26 @@ cudaError_t RunGemm(float_mm_info sgemm_info, int_mm_info igemm_info,
 
   int buffer_idx = 0;
   for (int i = 0; i < niter; i++) {
-      float* A_adj = &(sgemm_info.A[buffer_idx * sgemm_info.nitems_A]);
-      float* B_adj = &(sgemm_info.B[buffer_idx * sgemm_info.nitems_B]);
-      float* C_cutlass_adj = &(sgemm_info.C_cutlass[buffer_idx * sgemm_info.nitems_C]);
+      //float* A_adj = &(sgemm_info.A[buffer_idx * sgemm_info.nitems_A]);
+      //float* B_adj = &(sgemm_info.B[buffer_idx * sgemm_info.nitems_B]);
+      //float* C_cutlass_adj = &(sgemm_info.C_cutlass[buffer_idx * sgemm_info.nitems_C]);
+
+      float* A_adj = sgemm_info.A;
+      float* B_adj = sgemm_info.B;
+      float* C_cutlass_adj = sgemm_info.C_cutlass;
+
 
       result = CutlassSgemmNN(sgemm_info.M, sgemm_info.N, sgemm_info.K, 
                               sgemm_info.alpha, A_adj, sgemm_info.lda, B_adj, 
                               sgemm_info.ldb, sgemm_info.beta, C_cutlass_adj, 
                               sgemm_info.ldc, streams[0]);
 
+      buffer_idx++;
+
       if(buffer_idx >= sgemm_info.num_matrices) buffer_idx = 0;
   }
 
-    cudaProfilerStop();
+  cudaProfilerStop();
 
   if (result != cudaSuccess) {
       std::cerr << "CUTLASS GEMM kernel failed: "
@@ -186,6 +193,12 @@ int main(int argc, const char *arg[]) {
 
   if (result != cudaSuccess) {
     std::cout << "Failed sgemm input setup." << std::endl;
+
+    if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
+    if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
+    if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
+    if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
+
     return -1;
   }
 
@@ -193,15 +206,22 @@ int main(int argc, const char *arg[]) {
 
   if (result != cudaSuccess) {
     std::cout << "Failed gemm run." << std::endl;
+
+    if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
+    if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
+    if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
+    if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
+
     return -1;
   }
 
+  result = ValidateSgemm(sgemm_info, problem[3]);
 
 
-  //cudaFree(sgemm_info.C_reference);
-  cudaFree(sgemm_info.C_cutlass);
-  cudaFree(sgemm_info.B);
-  cudaFree(sgemm_info.A);
+  if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
+  if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
+  if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
+  if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
 
 
   if (result == cudaSuccess) {

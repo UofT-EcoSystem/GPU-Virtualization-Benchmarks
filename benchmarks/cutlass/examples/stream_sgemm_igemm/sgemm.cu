@@ -156,6 +156,7 @@ cudaError_t AllocateFloatMatrix(float **matrix, int ldm, int rows, int columns, 
   size_t sizeof_matrix = sizeof(float) * ldm * columns;
   size_t sizeof_matrices = sizeof_matrix * num_matrices;
 
+
   // Allocate device memory.
   result = cudaMalloc(reinterpret_cast<void **>(matrix), sizeof_matrices);
 
@@ -245,7 +246,7 @@ cudaError_t ReferenceGemm(
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Data setup
-cudaError_t SetupSgemm(float_mm_info sgemm_info) {
+cudaError_t SetupSgemm(float_mm_info& sgemm_info) {
   cudaError_t result;
 
   //
@@ -256,15 +257,14 @@ cudaError_t SetupSgemm(float_mm_info sgemm_info) {
   int max_size = std::max(sgemm_info.nitems_A, 
                           std::max(sgemm_info.nitems_B, sgemm_info.nitems_C));
 
-  int num_matrices = (1 << 30) / (max_size * sizeof(float));
-  printf("Number of matrices in the buffer: %d\n", num_matrices);
-
+  sgemm_info.num_matrices = (1 << 30) / (max_size * sizeof(float));
+  printf("Number of matrices in the buffer: %d\n", sgemm_info.num_matrices);
 
 
   int seed = time(0);
   printf("Seed for A: %d \n", seed);
   result = AllocateFloatMatrix(&(sgemm_info.A), sgemm_info.lda, sgemm_info.M, 
-                          sgemm_info.K, num_matrices, seed);
+                          sgemm_info.K, sgemm_info.num_matrices, seed);
 
   if (result !=  cudaSuccess) {
     return result;
@@ -274,59 +274,52 @@ cudaError_t SetupSgemm(float_mm_info sgemm_info) {
   seed = time(0) >> 3;
   printf("Seed for B: %d \n", seed);
   result = AllocateFloatMatrix(&(sgemm_info.B), sgemm_info.ldb, sgemm_info.K, 
-                          sgemm_info.N, num_matrices, seed);
+                          sgemm_info.N, sgemm_info.num_matrices, seed);
 
   if (result !=  cudaSuccess) {
     return result;
   }
 
   result = AllocateFloatMatrix(&(sgemm_info.C_cutlass), sgemm_info.ldc, sgemm_info.M, 
-                          sgemm_info.N, num_matrices, 101);
+                          sgemm_info.N, sgemm_info.num_matrices, 101);
 
   if (result != cudaSuccess) {
     return result;
   }
 
-  /*
-  result = AllocateFloatMatrix(&C_reference, ldc, M, N, 101);
-
-  if (result != cudaSuccess) {
-    cudaFree(A);
-    cudaFree(B);
-    cudaFree(C_cutlass);
-    return result;
-  }
-
-  result = cudaMemcpy(C_reference, C_cutlass, sizeof_C, cudaMemcpyDeviceToDevice);
-
-  if (result != cudaSuccess) {
-    std::cerr << "Failed to copy C_cutlass matrix to C_reference: "
-      << cudaGetErrorString(result) << std::endl;
-
-    cudaFree(C_reference);
-    cudaFree(C_cutlass);
-    cudaFree(B);
-    cudaFree(A);
-
-    return result;
-  }
-
-  */
+  
+  result = AllocateFloatMatrix(&(sgemm_info.C_reference), sgemm_info.ldc, sgemm_info.M, 
+                            sgemm_info.N, sgemm_info.num_matrices, 101);
 
   return result;
 }
 
 
 // Validate kernel results
-cudaError_t ValidateSgemm(float_mm_info sgemm_info, int niter) {
+cudaError_t ValidateSgemm(float_mm_info& sgemm_info, int niter) {
   //
   // Verify.
   //
   // Launch reference GEMM
-  cudaError_t result = ReferenceGemm(sgemm_info.M, sgemm_info.N, sgemm_info.K, 
-                         sgemm_info.alpha, sgemm_info.A, sgemm_info.lda, sgemm_info.B, 
-                         sgemm_info.ldb, sgemm_info.beta, sgemm_info.C_reference, 
+  cudaError_t result;
+
+  int buffer_idx = 0;
+
+  for (int i = 0; i < niter; i++) {
+      float* A_adj = &(sgemm_info.A[buffer_idx * sgemm_info.nitems_A]);
+      float* B_adj = &(sgemm_info.B[buffer_idx * sgemm_info.nitems_B]);
+      float* C_reference_adj = &(sgemm_info.C_reference[buffer_idx * sgemm_info.nitems_C]);
+
+      result = ReferenceGemm(sgemm_info.M, sgemm_info.N, sgemm_info.K, 
+                         sgemm_info.alpha, A_adj, sgemm_info.lda, B_adj, 
+                         sgemm_info.ldb, sgemm_info.beta, C_reference_adj, 
                          sgemm_info.ldc);
+
+
+
+      if(buffer_idx >= sgemm_info.num_matrices) buffer_idx = 0;
+  }
+
 
   if (result != cudaSuccess) {
     std::cerr << "Reference GEMM kernel failed: "
@@ -336,11 +329,14 @@ cudaError_t ValidateSgemm(float_mm_info sgemm_info, int niter) {
   }
 
   // Copy to host and verify equivalence.
-  std::vector<float> host_cutlass(sgemm_info.ldc * sgemm_info.N, 0);
-  std::vector<float> host_reference(sgemm_info.ldc * sgemm_info.N, 0);
+  std::vector<float> host_cutlass(sgemm_info.nitems_C * sgemm_info.num_matrices, 0);
+  std::vector<float> host_reference(sgemm_info.nitems_C * sgemm_info.num_matrices, 0);
+
+  size_t data_size = sizeof(float) * sgemm_info.nitems_C * sgemm_info.num_matrices;
 
   result = cudaMemcpy(host_cutlass.data(), sgemm_info.C_cutlass, 
-           sizeof(float) * sgemm_info.nitems_C, cudaMemcpyDeviceToHost);
+          data_size, cudaMemcpyDeviceToHost);
+
 
   if (result != cudaSuccess) {
     std::cerr << "Failed to copy CUTLASS GEMM results: "
@@ -350,7 +346,7 @@ cudaError_t ValidateSgemm(float_mm_info sgemm_info, int niter) {
   }
 
   result = cudaMemcpy(host_reference.data(), sgemm_info.C_reference, 
-                      sizeof(float) * sgemm_info.nitems_C, cudaMemcpyDeviceToHost);
+           sizeof(float) * sgemm_info.nitems_C * sgemm_info.num_matrices, cudaMemcpyDeviceToHost);
 
   if (result != cudaSuccess) {
     std::cerr << "Failed to copy Reference GEMM results: "
@@ -365,6 +361,8 @@ cudaError_t ValidateSgemm(float_mm_info sgemm_info, int niter) {
 
   if (host_cutlass != host_reference) {
     std::cerr << "CUTLASS results incorrect." << std::endl;
+
+    
 
     return cudaErrorUnknown;
   }

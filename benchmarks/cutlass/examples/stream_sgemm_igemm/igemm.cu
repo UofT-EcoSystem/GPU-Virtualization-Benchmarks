@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <iostream>
+#include <vector>
 
 #include "launch_gemm.h"
 
@@ -34,7 +35,8 @@ cudaError_t CutlassIgemmNN(
   int ldb,
   int8_t beta,
   int *C,
-  int ldc) {
+  int ldc,
+  cudaStream_t stream) {
 
   // Define type definition for single-precision CUTLASS GEMM with column-major
   // input matrices and 128x128x8 threadblock tile size.
@@ -89,7 +91,7 @@ cudaError_t CutlassIgemmNN(
   }
 
   // Launch the CUTLASS GEMM kernel.
-  Gemm::launch(params);
+  Gemm::launch(params, stream);
 
   // Return any errors associated with the launch or cudaSuccess if no error.
   return cudaGetLastError();
@@ -145,7 +147,7 @@ cudaError_t InitIntMatrix(int8_t *matrix, int ldm, int rows, int columns, int se
 
 // Allocates device memory for a matrix then fills with arbitrary small integers.
 // Input matrix for igemm
-cudaError_t AllocateMatrixInt8(int8_t **matrix, int ldm, int rows, int columns, int num_matrices, int seed = 0) {
+cudaError_t AllocateInt8Matrix(int8_t **matrix, int ldm, int rows, int columns, int num_matrices, int seed = 0) {
   cudaError_t result;
 
   size_t sizeof_matrix = sizeof(int8_t) * ldm * columns;
@@ -186,7 +188,7 @@ cudaError_t AllocateMatrixInt8(int8_t **matrix, int ldm, int rows, int columns, 
 
 // Allocates device memory for a matrix then fills with arbitrary small integers.
 // Output matrix for igemm
-cudaError_t AllocateMatrixInt(int **matrix, int ldm, int rows, int columns, int num_matrices, int seed = 0) {
+cudaError_t AllocateIntMatrix(int **matrix, int ldm, int rows, int columns, int num_matrices, int seed = 0) {
   cudaError_t result;
 
   size_t sizeof_matrix = sizeof(int) * ldm * columns;
@@ -267,5 +269,133 @@ cudaError_t ReferenceGemm(
 
   return cudaGetLastError();
 }
+
+// Data setup
+cudaError_t SetupIgemm(int_mm_info& igemm_info) {
+  cudaError_t result;
+
+  //
+  // Allocate matrices in GPU device memory with arbitrary seeds.
+  //
+
+  // Determine number of matrices in the ring buffer
+  int max_size = std::max(igemm_info.nitems_A, 
+                          std::max(igemm_info.nitems_B, igemm_info.nitems_C));
+
+  igemm_info.num_matrices = (1 << 30) / (max_size * sizeof(int));
+  printf("Number of matrices in the buffer: %d\n", igemm_info.num_matrices);
+
+
+
+  int seed = time(0);
+  printf("Seed for A: %d \n", seed);
+  result = AllocateInt8Matrix(&(igemm_info.A), igemm_info.lda, igemm_info.M, 
+                          igemm_info.K, igemm_info.num_matrices, seed);
+
+  if (result !=  cudaSuccess) {
+    return result;
+  }
+
+
+  seed = time(0) >> 3;
+  printf("Seed for B: %d \n", seed);
+  result = AllocateInt8Matrix(&(igemm_info.B), igemm_info.ldb, igemm_info.K, 
+                          igemm_info.N, igemm_info.num_matrices, seed);
+
+  if (result !=  cudaSuccess) {
+    return result;
+  }
+
+  result = AllocateIntMatrix(&(igemm_info.C_cutlass), igemm_info.ldc, igemm_info.M, 
+                          igemm_info.N, igemm_info.num_matrices, 101);
+
+  if (result != cudaSuccess) {
+    return result;
+  }
+
+  
+  result = AllocateIntMatrix(&(igemm_info.C_reference), igemm_info.ldc, igemm_info.M, 
+                            igemm_info.N, igemm_info.num_matrices, 101);
+
+  return result;
+}
+
+// Validate kernel results
+cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
+  //
+  // Verify.
+  //
+  // Launch reference GEMM
+  cudaError_t result;
+
+  int buffer_idx = 0;
+
+  for (int i = 0; i < niter; i++) {
+      int8_t* A_adj = &(igemm_info.A[buffer_idx * igemm_info.nitems_A]);
+      int8_t* B_adj = &(igemm_info.B[buffer_idx * igemm_info.nitems_B]);
+      int* C_reference_adj = &(igemm_info.C_reference[buffer_idx * igemm_info.nitems_C]);
+
+      result = ReferenceGemm(igemm_info.M, igemm_info.N, igemm_info.K, 
+                         igemm_info.alpha, A_adj, igemm_info.lda, B_adj, 
+                         igemm_info.ldb, igemm_info.beta, C_reference_adj, 
+                         igemm_info.ldc);
+
+
+
+      if(buffer_idx >= igemm_info.num_matrices) buffer_idx = 0;
+  }
+
+
+
+
+  if (result != cudaSuccess) {
+    std::cerr << "Reference GEMM kernel failed: "
+      << cudaGetErrorString(result) << std::endl;
+
+    return result;
+  }
+
+  // Copy to host and verify equivalence.
+  std::vector<int> host_cutlass(igemm_info.nitems_C * igemm_info.num_matrices, 0);
+  std::vector<int> host_reference(igemm_info.nitems_C * igemm_info.num_matrices, 0);
+
+  result = cudaMemcpy(host_cutlass.data(), &(igemm_info.C_cutlass), 
+           sizeof(int) * igemm_info.nitems_C * igemm_info.num_matrices, cudaMemcpyDeviceToHost);
+
+  if (result != cudaSuccess) {
+    std::cerr << "Failed to copy CUTLASS GEMM results: "
+      << cudaGetErrorString(result) << std::endl;
+
+    return result;
+  }
+
+  result = cudaMemcpy(host_reference.data(), &(igemm_info.C_reference), 
+           sizeof(int) * igemm_info.nitems_C * igemm_info.num_matrices, cudaMemcpyDeviceToHost);
+
+  if (result != cudaSuccess) {
+    std::cerr << "Failed to copy Reference GEMM results: "
+      << cudaGetErrorString(result) << std::endl;
+
+    return result;
+  }
+
+  //
+  // Test for bit equivalence of results.
+  //
+
+  if (host_cutlass != host_reference) {
+    std::cerr << "CUTLASS results incorrect." << std::endl;
+
+    return cudaErrorUnknown;
+  }
+  else {
+    std::cout << "Matched!" << std::endl;
+
+  }
+
+  return cudaSuccess;
+
+}
+
 
 
