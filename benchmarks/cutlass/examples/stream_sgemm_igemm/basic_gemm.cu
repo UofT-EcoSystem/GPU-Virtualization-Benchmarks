@@ -133,6 +133,10 @@ cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info& igemm_info,
   cudaDeviceSynchronize();
   cudaProfilerStop();
 
+  for (int i = 0; i < num_streams; ++i) {
+    cudaStreamDestroy(streams[i]);
+  }
+
   if (result != cudaSuccess) {
       std::cerr << "CUTLASS GEMM kernel failed: "
         << cudaGetErrorString(result) << std::endl;

@@ -38,9 +38,6 @@ cudaError_t CutlassIgemmNN(
   int ldc,
   cudaStream_t& stream) {
 
-  // Define type definition for single-precision CUTLASS GEMM with column-major
-  // input matrices and 128x128x8 threadblock tile size.
-  //
   // Note, GemmTraits<> is a generic template defined for various general matrix product
   // computations within CUTLASS. It is intended to be maximally flexible, and consequently
   // it contains numerous template arguments.
@@ -206,7 +203,7 @@ cudaError_t AllocateIntMatrix(int **matrix, int ldm, int rows, int columns, int 
   }
 
   // Clear the allocation.
-  result = cudaMemset(*matrix, 1, sizeof_matrices);
+  result = cudaMemset(*matrix, 0, sizeof_matrices);
 
   if (result != cudaSuccess) {
     std::cerr << "Failed to clear matrix device memory: "
