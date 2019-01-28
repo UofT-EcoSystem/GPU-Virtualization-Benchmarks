@@ -14,6 +14,7 @@ struct float_mm_info {
     int nitems_A;
     int nitems_B;
     int nitems_C;
+    int niter;
 
     int num_matrices;
 
@@ -37,6 +38,7 @@ struct int_mm_info {
     int nitems_A;
     int nitems_B;
     int nitems_C;
+    int niter;
 
     int num_matrices;
 

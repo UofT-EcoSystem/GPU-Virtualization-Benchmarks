@@ -315,7 +315,7 @@ cudaError_t ValidateSgemm(float_mm_info& sgemm_info, int niter) {
                          sgemm_info.ldb, sgemm_info.beta, C_reference_adj, 
                          sgemm_info.ldc);
 
-
+      buffer_idx++;
 
       if(buffer_idx >= sgemm_info.num_matrices) buffer_idx = 0;
   }
@@ -360,7 +360,7 @@ cudaError_t ValidateSgemm(float_mm_info& sgemm_info, int niter) {
   //
 
   if (host_cutlass != host_reference) {
-    std::cerr << "CUTLASS results incorrect." << std::endl;
+    std::cerr << "SGEMM CUTLASS results incorrect." << std::endl;
 
     
 

@@ -36,7 +36,7 @@ cudaError_t CutlassIgemmNN(
   int8_t beta,
   int *C,
   int ldc,
-  cudaStream_t stream) {
+  cudaStream_t& stream) {
 
   // Define type definition for single-precision CUTLASS GEMM with column-major
   // input matrices and 128x128x8 threadblock tile size.
@@ -51,7 +51,9 @@ cudaError_t CutlassIgemmNN(
   //
   typedef cutlass::gemm::IgemmTraits<
     cutlass::MatrixLayout::kColumnMajor,   // layout of A matrix
-    cutlass::MatrixLayout::kColumnMajor   // layout of B matrix
+    cutlass::MatrixLayout::kColumnMajor  // layout of B matrix
+//    cutlass::Shape<128, 128, 128>, 
+//    int8_t
   >
     GemmTraits;
 
@@ -204,7 +206,7 @@ cudaError_t AllocateIntMatrix(int **matrix, int ldm, int rows, int columns, int 
   }
 
   // Clear the allocation.
-  result = cudaMemset(*matrix, 0, sizeof_matrices);
+  result = cudaMemset(*matrix, 1, sizeof_matrices);
 
   if (result != cudaSuccess) {
     std::cerr << "Failed to clear matrix device memory: "
@@ -341,6 +343,7 @@ cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
                          igemm_info.ldc);
 
 
+      buffer_idx++;
 
       if(buffer_idx >= igemm_info.num_matrices) buffer_idx = 0;
   }
@@ -349,7 +352,7 @@ cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
 
 
   if (result != cudaSuccess) {
-    std::cerr << "Reference GEMM kernel failed: "
+    std::cerr << "Reference IGEMM kernel failed: "
       << cudaGetErrorString(result) << std::endl;
 
     return result;
@@ -359,21 +362,21 @@ cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
   std::vector<int> host_cutlass(igemm_info.nitems_C * igemm_info.num_matrices, 0);
   std::vector<int> host_reference(igemm_info.nitems_C * igemm_info.num_matrices, 0);
 
-  result = cudaMemcpy(host_cutlass.data(), &(igemm_info.C_cutlass), 
+  result = cudaMemcpy(host_cutlass.data(), igemm_info.C_cutlass, 
            sizeof(int) * igemm_info.nitems_C * igemm_info.num_matrices, cudaMemcpyDeviceToHost);
 
   if (result != cudaSuccess) {
-    std::cerr << "Failed to copy CUTLASS GEMM results: "
+    std::cerr << "Failed to copy CUTLASS IGEMM results: "
       << cudaGetErrorString(result) << std::endl;
 
     return result;
   }
 
-  result = cudaMemcpy(host_reference.data(), &(igemm_info.C_reference), 
+  result = cudaMemcpy(host_reference.data(), igemm_info.C_reference, 
            sizeof(int) * igemm_info.nitems_C * igemm_info.num_matrices, cudaMemcpyDeviceToHost);
 
   if (result != cudaSuccess) {
-    std::cerr << "Failed to copy Reference GEMM results: "
+    std::cerr << "Failed to copy Reference IGEMM results: "
       << cudaGetErrorString(result) << std::endl;
 
     return result;
@@ -384,7 +387,12 @@ cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
   //
 
   if (host_cutlass != host_reference) {
-    std::cerr << "CUTLASS results incorrect." << std::endl;
+    std::cerr << "IGEMM CUTLASS results incorrect." << std::endl;
+
+    for (int i = 0; i < 128; ++i) {
+      std::cout << host_cutlass[i] << "," << host_reference[i] << std::endl;
+    }
+
 
     return cudaErrorUnknown;
   }

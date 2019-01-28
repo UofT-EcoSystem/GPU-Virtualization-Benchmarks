@@ -85,7 +85,7 @@ void inline print_current_time_with_ms ()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // call a single-precision and integer CUTLASS GEMM kernel.
-cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info igemm_info,
+cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info& igemm_info,
                     int niter) {
 
   cudaError_t result;
@@ -99,15 +99,13 @@ cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info igemm_info,
 
   cudaProfilerStart();
 
-  int buffer_idx = 0;
-  for (int i = 0; i < niter; i++) {
-      //float* A_adj = &(sgemm_info.A[buffer_idx * sgemm_info.nitems_A]);
-      //float* B_adj = &(sgemm_info.B[buffer_idx * sgemm_info.nitems_B]);
-      //float* C_cutlass_adj = &(sgemm_info.C_cutlass[buffer_idx * sgemm_info.nitems_C]);
+  int sbuffer_idx = 0;
+  int ibuffer_idx = 0;
 
-      float* A_adj = sgemm_info.A;
-      float* B_adj = sgemm_info.B;
-      float* C_cutlass_adj = sgemm_info.C_cutlass;
+  for (int i = 0; i < niter; i++) {
+      float* A_adj = &(sgemm_info.A[sbuffer_idx * sgemm_info.nitems_A]);
+      float* B_adj = &(sgemm_info.B[sbuffer_idx * sgemm_info.nitems_B]);
+      float* C_cutlass_adj = &(sgemm_info.C_cutlass[sbuffer_idx * sgemm_info.nitems_C]);
 
 
       result = CutlassSgemmNN(sgemm_info.M, sgemm_info.N, sgemm_info.K, 
@@ -115,11 +113,24 @@ cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info igemm_info,
                               sgemm_info.ldb, sgemm_info.beta, C_cutlass_adj, 
                               sgemm_info.ldc, streams[0]);
 
-      buffer_idx++;
+      int8_t* iA_adj = &(igemm_info.A[ibuffer_idx * igemm_info.nitems_A]);
+      int8_t* iB_adj = &(igemm_info.B[ibuffer_idx * igemm_info.nitems_B]);
+      int* iC_cutlass_adj = &(igemm_info.C_cutlass[ibuffer_idx * igemm_info.nitems_C]);
 
-      if(buffer_idx >= sgemm_info.num_matrices) buffer_idx = 0;
+      result = CutlassIgemmNN(igemm_info.M, igemm_info.N, igemm_info.K, 
+                              igemm_info.alpha, iA_adj, igemm_info.lda, iB_adj, 
+                              igemm_info.ldb, igemm_info.beta, iC_cutlass_adj, 
+                              igemm_info.ldc, streams[1]);
+
+
+      sbuffer_idx++;
+      ibuffer_idx++;
+
+      if(sbuffer_idx >= sgemm_info.num_matrices) sbuffer_idx = 0;
+      if(ibuffer_idx >= igemm_info.num_matrices) ibuffer_idx = 0;
   }
 
+  cudaDeviceSynchronize();
   cudaProfilerStop();
 
   if (result != cudaSuccess) {
@@ -130,6 +141,19 @@ cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info igemm_info,
   }
 
   return cudaSuccess;
+}
+
+void cleanup(float_mm_info& sgemm_info, int_mm_info& igemm_info) {
+    if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
+    if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
+    if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
+    if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
+
+    if (igemm_info.C_reference != NULL) cudaFree(igemm_info.C_reference);
+    if (igemm_info.C_cutlass != NULL) cudaFree(igemm_info.C_cutlass);
+    if (igemm_info.B != NULL) cudaFree(igemm_info.B);
+    if (igemm_info.A != NULL) cudaFree(igemm_info.A);
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -173,6 +197,7 @@ int main(int argc, const char *arg[]) {
   sgemm_info.M = problem[0];
   sgemm_info.N = problem[1];
   sgemm_info.K = problem[2];
+  sgemm_info.niter = problem[3];
 
   sgemm_info.lda = sgemm_info.M;
   sgemm_info.ldb = sgemm_info.K;
@@ -185,7 +210,43 @@ int main(int argc, const char *arg[]) {
   sgemm_info.alpha = scalars[0];
   sgemm_info.beta = scalars[1];
 
+
+  // GEMM problem dimensions.
+
+  for (int i = 7; i < argc && i < 11; ++i) {
+    std::stringstream ss(arg[i]);
+    ss >> problem[i - 7];
+  }
+
+  // Scalars used for linear scaling the result of the matrix product.
+  int8_t iscalars[2] = { 1, 0 };
+
+  for (int i = 11; i < argc && i < 13; ++i) {
+    std::stringstream ss(arg[i]);
+    ss >> iscalars[i - 11];
+  }
+
+  printf("Run CUTLASS INT matrix multiply A(%d,%d) B(%d,%d) for %d times\n", 
+          problem[0], problem[2], problem[2], problem[1], problem[3]);
+
+
   int_mm_info igemm_info;
+
+  igemm_info.M = problem[0];
+  igemm_info.N = problem[1];
+  igemm_info.K = problem[2];
+  igemm_info.niter = problem[3];
+
+  igemm_info.lda = igemm_info.M;
+  igemm_info.ldb = igemm_info.K;
+  igemm_info.ldc = igemm_info.M;
+
+  igemm_info.nitems_A = igemm_info.lda * igemm_info.K;
+  igemm_info.nitems_B = igemm_info.ldb * igemm_info.N;
+  igemm_info.nitems_C = igemm_info.ldc * igemm_info.N;
+
+  igemm_info.alpha = iscalars[0];
+  igemm_info.beta = iscalars[1];
 
   cudaError_t result;
   
@@ -194,36 +255,48 @@ int main(int argc, const char *arg[]) {
   if (result != cudaSuccess) {
     std::cout << "Failed sgemm input setup." << std::endl;
 
-    if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
-    if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
-    if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
-    if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
+    cleanup(sgemm_info, igemm_info);
 
     return -1;
   }
 
-  result = RunGemm(sgemm_info, igemm_info, problem[3]);
+  result = SetupIgemm(igemm_info);
+
+  if (result != cudaSuccess) {
+    std::cout << "Failed igemm input setup." << std::endl;
+
+    cleanup(sgemm_info, igemm_info);
+
+    return -1;
+  }
+
+
+  result = RunGemm(sgemm_info, igemm_info, sgemm_info.niter);
 
   if (result != cudaSuccess) {
     std::cout << "Failed gemm run." << std::endl;
 
-    if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
-    if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
-    if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
-    if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
+    cleanup(sgemm_info, igemm_info);
 
     return -1;
   }
 
-  result = ValidateSgemm(sgemm_info, problem[3]);
+  result = ValidateSgemm(sgemm_info, sgemm_info.niter);
+
+  if (result != cudaSuccess) {
+    std::cout << "Failed sgemm validation." << std::endl;
+
+    cleanup(sgemm_info, igemm_info);
+
+    return -1;
+  }
 
 
-  if (sgemm_info.C_reference != NULL) cudaFree(sgemm_info.C_reference);
-  if (sgemm_info.C_cutlass != NULL) cudaFree(sgemm_info.C_cutlass);
-  if (sgemm_info.B != NULL) cudaFree(sgemm_info.B);
-  if (sgemm_info.A != NULL) cudaFree(sgemm_info.A);
+  result = ValidateIgemm(igemm_info, sgemm_info.niter);
 
 
+  cleanup(sgemm_info, igemm_info);
+  
   if (result == cudaSuccess) {
     std::cout << "Passed." << std::endl;
   }
