@@ -60,11 +60,6 @@
 
 #include "cuda_profiler_api.h"
 
-volatile bool done_sgemm = false;
-
-void CUDART_CB callback(cudaStream_t stream, cudaError_t status, void *userData) {
-    done_sgemm = true;
-}
 
 void inline print_current_time_with_ms ()
 {
@@ -133,7 +128,6 @@ cudaError_t RunGemm(float_mm_info& sgemm_info, int_mm_info& igemm_info) {
       if(ibuffer_idx >= igemm_info.num_matrices) ibuffer_idx = 0;
   }
 
-  cudaStreamAddCallback(streams[0], callback, 0, 0);
 
   // Keep launching igemm if sgemm is not done execution
   for(int i = 0; i < igemm_info.niter - sgemm_info.niter; ++i) {
