@@ -150,7 +150,8 @@ cudaError_t InitFloatMatrix(float *matrix, int ldm, int rows, int columns, int s
 }
 
 /// Allocates device memory for a matrix then fills with arbitrary small integers.
-cudaError_t AllocateFloatMatrix(float **matrix, int ldm, int rows, int columns, int num_matrices, int seed = 0) {
+cudaError_t AllocateFloatMatrix(float **matrix, int ldm, int rows, int columns, 
+                                int num_matrices, int seed = 0, bool random = true) {
   cudaError_t result;
 
   size_t sizeof_matrix = sizeof(float) * ldm * columns;
@@ -175,17 +176,11 @@ cudaError_t AllocateFloatMatrix(float **matrix, int ldm, int rows, int columns, 
     return result;
   }
 
-  // Initialize matrix elements to arbitrary small integers.
-  for (int i = 0; i < num_matrices; ++i) {
-      float *p_matrix = &((*matrix)[i * ldm * columns]);
-      result = InitFloatMatrix(p_matrix, ldm, rows, columns, seed + i);
-
-      if (result != cudaSuccess) {
-        std::cerr << "Failed to initialize matrix: "
-          << cudaGetErrorString(result) << std::endl;
-        return result;
-      }
+  if (random) {
+      // Initialize matrix elements to arbitrary small integers.
+      result = InitFloatMatrix(*matrix, ldm, rows, columns*num_matrices, seed);
   }
+  
   
   return result;
 }
@@ -256,15 +251,20 @@ cudaError_t SetupSgemm(float_mm_info& sgemm_info) {
   // Determine number of matrices in the ring buffer
   int max_size = std::max(sgemm_info.nitems_A, 
                           std::max(sgemm_info.nitems_B, sgemm_info.nitems_C));
+  size_t sizeof_maxmat = (max_size * sizeof(float));
 
-  sgemm_info.num_matrices = (1 << 30) / (max_size * sizeof(float));
+  // L1 cache on Volta is 128KB
+  // Avoid cache effects by allocating a circular buffer of at least that size
+  sgemm_info.num_matrices = (1 << 17) > sizeof_maxmat ?
+                            (1 << 17) / sizeof_maxmat: 1;
+
   printf("Number of matrices in the buffer: %d\n", sgemm_info.num_matrices);
 
 
   int seed = time(0);
   printf("Seed for A: %d \n", seed);
   result = AllocateFloatMatrix(&(sgemm_info.A), sgemm_info.lda, sgemm_info.M, 
-                          sgemm_info.K, sgemm_info.num_matrices, seed);
+                          sgemm_info.K, sgemm_info.num_matrices, seed, true);
 
   if (result !=  cudaSuccess) {
     return result;
@@ -274,14 +274,14 @@ cudaError_t SetupSgemm(float_mm_info& sgemm_info) {
   seed = time(0) >> 3;
   printf("Seed for B: %d \n", seed);
   result = AllocateFloatMatrix(&(sgemm_info.B), sgemm_info.ldb, sgemm_info.K, 
-                          sgemm_info.N, sgemm_info.num_matrices, seed);
+                          sgemm_info.N, sgemm_info.num_matrices, seed, true);
 
   if (result !=  cudaSuccess) {
     return result;
   }
 
   result = AllocateFloatMatrix(&(sgemm_info.C_cutlass), sgemm_info.ldc, sgemm_info.M, 
-                          sgemm_info.N, sgemm_info.num_matrices, 101);
+                          sgemm_info.N, sgemm_info.num_matrices, 101, false);
 
   if (result != cudaSuccess) {
     return result;
@@ -289,14 +289,14 @@ cudaError_t SetupSgemm(float_mm_info& sgemm_info) {
 
   
   result = AllocateFloatMatrix(&(sgemm_info.C_reference), sgemm_info.ldc, sgemm_info.M, 
-                            sgemm_info.N, sgemm_info.num_matrices, 101);
+                            sgemm_info.N, sgemm_info.num_matrices, 101, false);
 
   return result;
 }
 
 
 // Validate kernel results
-cudaError_t ValidateSgemm(float_mm_info& sgemm_info, int niter) {
+cudaError_t ValidateSgemm(float_mm_info& sgemm_info) {
   //
   // Verify.
   //
@@ -305,7 +305,7 @@ cudaError_t ValidateSgemm(float_mm_info& sgemm_info, int niter) {
 
   int buffer_idx = 0;
 
-  for (int i = 0; i < niter; i++) {
+  for (int i = 0; i < sgemm_info.niter; i++) {
       float* A_adj = &(sgemm_info.A[buffer_idx * sgemm_info.nitems_A]);
       float* B_adj = &(sgemm_info.B[buffer_idx * sgemm_info.nitems_B]);
       float* C_reference_adj = &(sgemm_info.C_reference[buffer_idx * sgemm_info.nitems_C]);

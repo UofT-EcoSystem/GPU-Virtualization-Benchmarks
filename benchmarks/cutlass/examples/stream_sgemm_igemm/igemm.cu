@@ -171,17 +171,15 @@ cudaError_t AllocateInt8Matrix(int8_t **matrix, int ldm, int rows, int columns, 
   }
 
   // Initialize matrix elements to arbitrary small integers.
-  for (int i = 0; i < num_matrices; ++i) {
-      int8_t *p_matrix = &((*matrix)[i * ldm * columns]);
-      result = InitIntMatrix(p_matrix, ldm, rows, columns, seed + i);
+  result = InitIntMatrix(*matrix, ldm, rows, columns*num_matrices, seed);
 
-      if (result != cudaSuccess) {
-        std::cerr << "Failed to initialize matrix: "
-          << cudaGetErrorString(result) << std::endl;
-        return result;
-      }
+  if (result != cudaSuccess) {
+    std::cerr << "Failed to initialize matrix: "
+      << cudaGetErrorString(result) << std::endl;
+    return result;
   }
-  
+
+
   return result;
 }
 
@@ -280,8 +278,13 @@ cudaError_t SetupIgemm(int_mm_info& igemm_info) {
   // Determine number of matrices in the ring buffer
   int max_size = std::max(igemm_info.nitems_A, 
                           std::max(igemm_info.nitems_B, igemm_info.nitems_C));
+  size_t sizeof_maxmat = (max_size * sizeof(int));
 
-  igemm_info.num_matrices = (1 << 30) / (max_size * sizeof(int));
+  // L1 cache on Volta is 128KB
+  // Avoid cache effects by allocating a circular buffer of at least that size
+  igemm_info.num_matrices = (1 << 17) > sizeof_maxmat ?
+                            (1 << 17) / sizeof_maxmat: 1;
+
   printf("Number of matrices in the buffer: %d\n", igemm_info.num_matrices);
 
 
@@ -320,7 +323,7 @@ cudaError_t SetupIgemm(int_mm_info& igemm_info) {
 }
 
 // Validate kernel results
-cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
+cudaError_t ValidateIgemm(int_mm_info& igemm_info) {
   //
   // Verify.
   //
@@ -329,7 +332,7 @@ cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter) {
 
   int buffer_idx = 0;
 
-  for (int i = 0; i < niter; i++) {
+  for (int i = 0; i < igemm_info.niter; i++) {
       int8_t* A_adj = &(igemm_info.A[buffer_idx * igemm_info.nitems_A]);
       int8_t* B_adj = &(igemm_info.B[buffer_idx * igemm_info.nitems_B]);
       int* C_reference_adj = &(igemm_info.C_reference[buffer_idx * igemm_info.nitems_C]);

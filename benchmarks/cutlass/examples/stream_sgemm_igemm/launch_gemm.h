@@ -71,7 +71,7 @@ cudaError_t CutlassSgemmNN(
 
 cudaError_t SetupSgemm(float_mm_info& sgemm_info);
 
-cudaError_t ValidateSgemm(float_mm_info& sgemm_info, int niter);
+cudaError_t ValidateSgemm(float_mm_info& sgemm_info);
 
 
 // IGEMM stuff
@@ -91,7 +91,7 @@ cudaError_t CutlassIgemmNN(
 
 cudaError_t SetupIgemm(int_mm_info& igemm_info);
 
-cudaError_t ValidateIgemm(int_mm_info& igemm_info, int niter);
+cudaError_t ValidateIgemm(int_mm_info& igemm_info);
 
 
 
