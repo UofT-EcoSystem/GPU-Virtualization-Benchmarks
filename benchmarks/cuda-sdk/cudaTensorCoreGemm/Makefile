@@ -34,7 +34,7 @@
 ################################################################################
 
 # Location of the CUDA Toolkit
-#CUDA_PATH ?= "/usr/local/cuda-10.0"
+CUDA_PATH ?= "/usr/local/cuda-9.0"
 include ../../../scripts/config
 
 ##############################
@@ -152,7 +152,7 @@ HOST_COMPILER ?= g++
 NVCC          := $(CUDAHOME)/bin/nvcc -ccbin $(HOST_COMPILER)
 
 # internal flags
-NVCCFLAGS   := -m${TARGET_SIZE}
+NVCCFLAGS   := -m${TARGET_SIZE} -lcudart
 CCFLAGS     :=
 LDFLAGS     :=
 
@@ -246,7 +246,7 @@ ALL_LDFLAGS += $(addprefix -Xlinker ,$(LDFLAGS))
 ALL_LDFLAGS += $(addprefix -Xlinker ,$(EXTRA_LDFLAGS))
 
 # Common includes and paths for CUDA
-INCLUDES  := -I../../common/inc
+INCLUDES  := -I../common/inc
 LIBRARIES :=
 
 ################################################################################

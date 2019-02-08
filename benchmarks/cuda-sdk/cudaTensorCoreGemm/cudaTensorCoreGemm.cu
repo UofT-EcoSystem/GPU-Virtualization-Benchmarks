@@ -61,6 +61,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#include "half.hpp"
+
 // GPU configuration.
 
 #define WARP_SIZE 32
@@ -71,11 +73,12 @@
 #define N 16
 #define K 16
 
+
 // GEMM configuration.
 
-#define M_TILES 256
-#define N_TILES 256
-#define K_TILES 256
+#define M_TILES 64
+#define N_TILES 64
+#define K_TILES 64
 
 #define M_GLOBAL (M * M_TILES)
 #define N_GLOBAL (N * N_TILES)
@@ -130,6 +133,7 @@
 
 using namespace nvcuda;
 
+#ifdef HARDWARE
 // Signal handler to start kernel execution
 volatile bool ready = false;
 volatile bool should_stop = false;
@@ -142,18 +146,21 @@ void start_handler(int sig) {
 void stop_handler(int sig) {
         should_stop = true;
 }
+#endif
 
-__host__ void init_host_matrices(float *a, float *b, float *c)
+__host__ void init_host_matrices(half *a, half *b, float *c)
 {
     for (int i = 0; i < M_GLOBAL; i++) {
         for (int j = 0; j < K_GLOBAL; j++) {
-            a[i*K_GLOBAL+j] = (float)(rand() % 3);
+            a[i*K_GLOBAL+j] = (half)half_float::half_cast<half_float::half>
+                                    ((float)(rand() % 3));
         }
     }
 
     for (int i = 0; i < N_GLOBAL; i++) {
         for (int j = 0; j < K_GLOBAL; j++) {
-            b[i*K_GLOBAL+j] = (float)(rand() % 3);
+            b[i*K_GLOBAL+j] = (half)half_float::half_cast<half_float::half>
+                                    ((float)(rand() % 3));
         }
     }
 
@@ -162,16 +169,13 @@ __host__ void init_host_matrices(float *a, float *b, float *c)
     }
 }
 
-__global__ void init_device_matrices(const float *A_h, const float *B_h, const float *C_h, half *A, half *B, float *C, float *D)
+__global__ void init_device_matrices(const float *A_h, const float *B_h, half *A, half *B, float *D)
 {
     for (int i = blockDim.x * blockIdx.x + threadIdx.x; i < M_GLOBAL * K_GLOBAL; i += gridDim.x * blockDim.x)
         A[i] = __float2half(A_h[i]);
 
     for (int i = blockDim.x * blockIdx.x + threadIdx.x; i < N_GLOBAL * K_GLOBAL; i += gridDim.x * blockDim.x)
         B[i] = __float2half(B_h[i]);
-
-    for (int i = blockDim.x * blockIdx.x + threadIdx.x; i < M_GLOBAL * N_GLOBAL; i += gridDim.x * blockDim.x)
-        C[i] = C_h[i];
 
     for (int i = blockDim.x * blockIdx.x + threadIdx.x; i < M_GLOBAL * N_GLOBAL; i += gridDim.x * blockDim.x)
         D[i] = 0;
@@ -353,11 +357,14 @@ __global__ void compute_gemm(const half *A, const half *B, const float *C, float
 
 int main(int argc, char **argv)
 {
+
+#ifdef HARDWARE
     if (signal(SIGUSR1, start_handler) < 0)
          perror("Signal error\n");
 
     if (signal(SIGUSR2, stop_handler) < 0)
          perror("Signal error\n");
+#endif
 
     printf("Initializing...\n");
 
@@ -376,14 +383,18 @@ int main(int argc, char **argv)
     printf("N: %d (%d x %d)\n", N_GLOBAL, N, N_TILES);
     printf("K: %d (%d x %d)\n", K_GLOBAL, K, K_TILES);
 
-    float *A_h = NULL;
-    float *B_h = NULL;
+    half *A_h = NULL;
+    half *B_h = NULL;
     float *C_h = NULL;
 
-    checkCudaErrors(cudaMallocManaged((void**)&A_h, sizeof(float) * M_GLOBAL * K_GLOBAL));
-    checkCudaErrors(cudaMallocManaged((void**)&B_h, sizeof(float) * K_GLOBAL * N_GLOBAL));
-    checkCudaErrors(cudaMallocManaged((void**)&C_h, sizeof(float) * M_GLOBAL * N_GLOBAL));
-
+    A_h = (half*)malloc(sizeof(half) * M_GLOBAL * K_GLOBAL);
+    B_h = (half*)malloc(sizeof(half) * K_GLOBAL * N_GLOBAL);
+    C_h = (float*)malloc(sizeof(float) * M_GLOBAL * N_GLOBAL);
+ 
+    //checkCudaErrors(cudaMallocManaged((void**)&A_h, sizeof(float) * M_GLOBAL * K_GLOBAL));
+    //checkCudaErrors(cudaMallocManaged((void**)&B_h, sizeof(float) * K_GLOBAL * N_GLOBAL));
+    //checkCudaErrors(cudaMallocManaged((void**)&C_h, sizeof(float) * M_GLOBAL * N_GLOBAL));
+    
     half *A = NULL;
     half *B = NULL;
     float *C = NULL;
@@ -394,6 +405,8 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMalloc((void**)&C, sizeof(float) * M_GLOBAL * N_GLOBAL));
     checkCudaErrors(cudaMalloc((void**)&D, sizeof(float) * M_GLOBAL * N_GLOBAL));
 
+    checkCudaErrors(cudaMemset((void**)&D, 0, sizeof(float) * M_GLOBAL * N_GLOBAL));
+
     assert(((unsigned long long)A) % 128 == 0);
     assert(((unsigned long long)B) % 128 == 0);
     assert(((unsigned long long)C) % 128 == 0);
@@ -403,7 +416,16 @@ int main(int argc, char **argv)
 
     printf("Preparing data for GPU...\n");
 
-    checkKernelErrors((init_device_matrices<<<deviceProp.multiProcessorCount, THREADS_PER_BLOCK>>>(A_h, B_h, C_h, A, B, C, D)));
+    // Copy A_h to A_d, B_h to B_d, C_h directly to C
+    checkCudaErrors(cudaMemcpy(A, A_h, sizeof(half) * M_GLOBAL * K_GLOBAL, 
+                               cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(B, B_h, sizeof(half) * K_GLOBAL * N_GLOBAL, 
+                               cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(C, C_h, sizeof(float) * M_GLOBAL * N_GLOBAL, 
+                               cudaMemcpyHostToDevice));
+
+    //checkKernelErrors((init_device_matrices<<<deviceProp.multiProcessorCount, THREADS_PER_BLOCK>>>(A_h, B_h, A, B, D)));
+    //checkKernelErrors((init_device_matrices<<<80, THREADS_PER_BLOCK>>>(A_h, B_h, A, B, D)));
 
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -411,7 +433,10 @@ int main(int argc, char **argv)
 
     printf("Required shared memory size: %lu Kb\n", SHMEM_SZ / 1024UL);
 
+
+#ifdef HARDWARE
     checkCudaErrors(cudaFuncSetAttribute(compute_gemm, cudaFuncAttributeMaxDynamicSharedMemorySize, SHMEM_SZ));
+#endif
 
     printf("Computing...\n");
 
@@ -420,6 +445,7 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaEventCreate(&start));    
     checkCudaErrors(cudaEventCreate(&stop));
 
+#ifdef HARDWARE
     char pid[10];
     sprintf(pid, "%d\n", getpid());
 
@@ -427,25 +453,38 @@ int main(int argc, char **argv)
     int res = write(fd, pid, strlen(pid));
     close(fd);
 
-    if (res > 0) printf("Cutlass write to pipe success!\n");
+    if (res > 0) printf("Tensor wmma write to pipe success!\n");
 
     // spin until the master signals me to start kernel execution
     while (!ready) {};
 
+#endif
+
     fprintf(stdout, "%lu\n", (unsigned long)time(NULL));
 
+
+#ifdef HARDWARE
     cudaProfilerStart();
+#endif
 
     checkCudaErrors(cudaEventRecord(start));
 
     const float alpha = 1.1f;
     const float beta = 1.2f;
 
+
+#ifdef HARDWARE
     while(!should_stop) {
-        checkKernelErrors((compute_gemm<<<deviceProp.multiProcessorCount, THREADS_PER_BLOCK, SHMEM_SZ>>>(A, B, C, D, alpha, beta)));
+#else
+    int niter = 1;
+    for (int i = 0; i < niter; ++i) {
+#endif
+        checkKernelErrors((compute_gemm<<<80, THREADS_PER_BLOCK, SHMEM_SZ>>>(A, B, C, D, alpha, beta)));
     }
 
+#ifdef HARDWARE
     cudaProfilerStop();
+#endif
 
     checkCudaErrors(cudaEventRecord(stop));
     checkCudaErrors(cudaEventSynchronize(stop));
