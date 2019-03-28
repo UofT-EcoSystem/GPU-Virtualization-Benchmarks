@@ -1,0 +1,10 @@
+data/*
+!data/.gitkeep
+results-*/
+
+*.o
+*.orig
+*.swp
+*.gch
+*.out
+profile.nsight-cuprof-report

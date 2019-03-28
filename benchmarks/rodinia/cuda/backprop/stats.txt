@@ -1,0 +1,33 @@
+Random number generator seed: 7
+Input layer size : 65536
+Starting training kernel
+Performing GPU computation
+Training done
+
+
+==PROF== Report: profile.nsight-cuprof-report
+"Kernel Name","Kernel Time","Section Name","Metric Name","Metric Unit","Metric Value"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","EXEC","inst","4,161,536"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","ADU","inst","294,912"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","INT","inst","1,310,720"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","CBU","inst","65,536"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","FP32","inst","1,212,416"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","FP16","inst","0"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","FP64","inst","0"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","IPA","inst","0"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","Load/Store","inst","819,200"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","Tensor","inst","0"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","UNIFORM","inst","65,536"
+"bpnn_layerforward_CUDA","2019-Mar-19 15:15:23","Instruction count for different pipelines","SPU","inst","393,216"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","EXEC","inst","1,376,279"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","ADU","inst","65,536"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","INT","inst","163,841"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","CBU","inst","32,769"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","FP32","inst","163,842"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","FP16","inst","0"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","FP64","inst","524,300"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","IPA","inst","0"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","Load/Store","inst","360,455"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","Tensor","inst","0"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","UNIFORM","inst","65,536"
+"bpnn_adjust_weights_cuda","2019-Mar-19 15:15:24","Instruction count for different pipelines","SPU","inst","0"
