@@ -1,0 +1,11 @@
+./parboil clean spmv
+./parboil clean stenci
+./parboil clean mri-gridding 
+./parboil clean cutcp 
+./parboil clean tpacf 
+./parboil clean sad 
+./parboil clean bfs 
+./parboil clean histo 
+./parboil clean sgemm 
+./parboil clean mri-q 
+./parboil clean lbm 
