@@ -19,7 +19,12 @@
 #include <vector>
 #include <parboil.h>
 #include <iostream>
+
+#include "interface.h"
+
 #include "sgemm_kernel.cu"
+
+
 
 // I/O routines
 extern bool readColMajorMatrixFile(const char *fn, int &nr_row, int &nr_col, std::vector<float>&v);
@@ -29,7 +34,11 @@ extern "C"
 void computeGold(float *, const float*, const float*, unsigned int, unsigned int, unsigned int);
 
 int
-main (int argc, char *argv[]) {
+main_sgemm (int argc, 
+            char** argv,
+            std::function<void(const int, cudaStream_t &)> & kernel,
+            std::function<void(void)> & cleanup) 
+{
 
   struct pb_Parameters *params;
   struct pb_TimerSet timers;
@@ -86,27 +95,37 @@ main (int argc, char *argv[]) {
 
   pb_SwitchToTimer( &timers, pb_TimerID_KERNEL );
 
-  // Use standard sgemm interface
-  regtileSgemm('N', 'T', matArow, matBcol, matAcol, 1.0f, \
-      dA, matArow, dB, matBcol, 0.0f, dC, matArow);
 
-  if (params->outFile) {
-    pb_SwitchToTimer( &timers, pb_TimerID_COPY );
-    cudaMemcpy(&matC.front(), dC, C_sz, cudaMemcpyDeviceToHost);
-    /* Write C to file */
-    pb_SwitchToTimer(&timers, pb_TimerID_IO);
-    writeColMajorMatrixFile(params->outFile,
-	matArow, matBcol, matC); 
-  }
+  kernel = [&](const int iter, cudaStream_t & stream)
+  {
+    // Use standard sgemm interface
+    regtileSgemm('N', 'T', matArow, matBcol, matAcol, 1.0f, \
+        dA, matArow, dB, matBcol, 0.0f, dC, matArow, iter, stream);
 
-  pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+  };
 
-  double GPUtime = pb_GetElapsedTime(&(timers.timers[pb_TimerID_KERNEL]));
-  std::cout<< "GFLOPs = " << 2.* matArow * matBcol * matAcol/GPUtime/1e9 << std::endl;
-  pb_PrintTimerSet(&timers);
-  pb_FreeParameters(params);
-  cudaFree(dA);
-  cudaFree(dB);
-  cudaFree(dC);
+  cleanup = [&]
+  {
+    if (params->outFile) {
+      pb_SwitchToTimer( &timers, pb_TimerID_COPY );
+      cudaMemcpy(&matC.front(), dC, C_sz, cudaMemcpyDeviceToHost);
+      /* Write C to file */
+      pb_SwitchToTimer(&timers, pb_TimerID_IO);
+      writeColMajorMatrixFile(params->outFile,
+    matArow, matBcol, matC); 
+    }
+
+    pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+
+    double GPUtime = pb_GetElapsedTime(&(timers.timers[pb_TimerID_KERNEL]));
+    std::cout<< "GFLOPs = " << 2.* matArow * matBcol * matAcol/GPUtime/1e9 << std::endl;
+    pb_PrintTimerSet(&timers);
+    pb_FreeParameters(params);
+    cudaFree(dA);
+    cudaFree(dB);
+    cudaFree(dC);
+  };
+
+
   return 0;
 }

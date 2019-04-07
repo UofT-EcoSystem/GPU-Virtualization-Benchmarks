@@ -12,6 +12,7 @@
  * at UC Berkeley.
  */
 
+#include <iostream>
 
 #define CHECK_ERROR(errorMessage) {                                    \
   cudaError_t err = cudaGetLastError();                                    \
@@ -75,7 +76,7 @@ __global__ void mysgemmNT( const float *A, int lda, const float *B, int ldb, flo
     }
 }
 
-void regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, const float *A, int lda, const float *B, int ldb, float beta, float *C, int ldc )
+void regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, const float *A, int lda, const float *B, int ldb, float beta, float *C, int ldc, const int iter, cudaStream_t & stream )
 {
   if ((transa != 'N') && (transa != 'n')) {
     std::cerr << "unsupported value of 'transa' in regtileSgemm()" << std::endl;
@@ -95,8 +96,10 @@ void regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, c
 
 
   dim3 grid( m/TILE_M, n/TILE_N ), threads( TILE_N, TILE_TB_HEIGHT );
-  mysgemmNT<<<grid, threads>>>( A, lda, B, ldb, C, ldc, k, alpha, beta);
-  CHECK_ERROR("mySgemm");
+  for (int i = 0; i < iter; i++) {
+    mysgemmNT<<<grid, threads, 0, stream>>>( A, lda, B, ldb, C, ldc, k, alpha, beta);
+    CHECK_ERROR("mySgemm");
+  }
 
 }
 

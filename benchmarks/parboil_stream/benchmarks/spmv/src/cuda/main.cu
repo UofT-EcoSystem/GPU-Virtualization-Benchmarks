@@ -2,13 +2,15 @@
 #include <parboil.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <functional>
 
 #include "file.h"
 #include "gpu_info.h"
 #include "spmv_jds.h"
-#include "jds_kernels.cu"
+//#include "jds_kernels.cu"
 #include "convert_dataset.h"
 
+#include "interface.h"
 
 /*
 static int generate_vector(float *x_vector, int dim) 
@@ -22,7 +24,11 @@ static int generate_vector(float *x_vector, int dim)
 }
 */
 
-int main(int argc, char** argv) {
+int main_spmv(int argc, 
+              char** argv, 
+              std::function<void(const int iter, cudaStream_t & stream)> & kernel,
+              std::function<void(void)> & cleanup ) 
+{
 	struct pb_TimerSet timers;
 	struct pb_Parameters *parameters;
 	
@@ -127,50 +133,61 @@ int main(int argc, char** argv) {
 	
   cudaFuncSetCacheConfig(spmv_jds, cudaFuncCachePreferL1);
 
-	//main execution
-	pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-	for (int i= 0; i<50; i++)
-	spmv_jds<<<grid, block>>>(d_Ax_vector,
-  				d_data,d_indices,d_perm,
-				d_x_vector,d_nzcnt,dim);
-							
-    CUERR // check and clear any existing errors
+  kernel = [&](const int iter, cudaStream_t & stream)
+  {
+    //main execution
+    pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
+    //for (int i= 0; i<50; i++)
+    for (int i= 0; i<iter; i++)
+    spmv_jds<<<grid, block, 0, stream>>>(d_Ax_vector,
+            d_data,d_indices,d_perm,
+          d_x_vector,d_nzcnt,dim);
+                
+      CUERR // check and clear any existing errors
+    
+    cudaThreadSynchronize();
+
+  };
+
+
+  cleanup = [&]()
+  {
+    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+    //HtoD memory copy
+    cudaMemcpy(h_Ax_vector, d_Ax_vector,dim*sizeof(float), cudaMemcpyDeviceToHost);	
+
+    cudaThreadSynchronize();
+
+    cudaFree(d_data);
+      cudaFree(d_indices);
+      cudaFree(d_ptr);
+    cudaFree(d_perm);
+      cudaFree(d_nzcnt);
+      cudaFree(d_x_vector);
+    cudaFree(d_Ax_vector);
+   
+    if (parameters->outFile) {
+      pb_SwitchToTimer(&timers, pb_TimerID_IO);
+      outputData(parameters->outFile,h_Ax_vector,dim);
+      
+    }
+    pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+    
+    free (h_data);
+    free (h_indices);
+    free (h_ptr);
+    free (h_perm);
+    free (h_nzcnt);
+    free (h_Ax_vector);
+    free (h_x_vector);
+    pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+
+    pb_PrintTimerSet(&timers);
+    pb_FreeParameters(parameters);
+
+
+  };
 	
-	cudaThreadSynchronize();
-	
-	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	//HtoD memory copy
-	cudaMemcpy(h_Ax_vector, d_Ax_vector,dim*sizeof(float), cudaMemcpyDeviceToHost);	
-
-	cudaThreadSynchronize();
-
-	cudaFree(d_data);
-    cudaFree(d_indices);
-    cudaFree(d_ptr);
-	cudaFree(d_perm);
-    cudaFree(d_nzcnt);
-    cudaFree(d_x_vector);
-	cudaFree(d_Ax_vector);
- 
-	if (parameters->outFile) {
-		pb_SwitchToTimer(&timers, pb_TimerID_IO);
-		outputData(parameters->outFile,h_Ax_vector,dim);
-		
-	}
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	
-	free (h_data);
-	free (h_indices);
-	free (h_ptr);
-	free (h_perm);
-	free (h_nzcnt);
-	free (h_Ax_vector);
-	free (h_x_vector);
-	pb_SwitchToTimer(&timers, pb_TimerID_NONE);
-
-	pb_PrintTimerSet(&timers);
-	pb_FreeParameters(parameters);
-
 	return 0;
 
 }

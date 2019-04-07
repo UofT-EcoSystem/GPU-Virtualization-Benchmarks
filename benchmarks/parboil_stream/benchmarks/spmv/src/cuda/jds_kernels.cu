@@ -1,6 +1,7 @@
 #define WARP_BITS 5
 #define WARP_SIZE 32
 
+#include "spmv_jds.h"
 
 __global__ void spmv_jds(float *dst_vector,
 						const float *d_data,const int *d_index, const int *d_perm,
