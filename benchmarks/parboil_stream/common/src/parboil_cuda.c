@@ -2,6 +2,8 @@
  * (c) 2007 The Board of Trustees of the University of Illinois.
  */
 
+#ifdef PARBOIL_DEFAULT
+
 #include <parboil.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +17,7 @@
 #if _POSIX_VERSION >= 200112L
 # include <sys/time.h>
 #endif
+
 
 /* Free an array of owned strings. */
 static void
@@ -901,4 +904,5 @@ void pb_DestroyTimerSet(struct pb_TimerSet * timers)
   }
 }
 
+#endif
 

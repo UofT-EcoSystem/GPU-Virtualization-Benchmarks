@@ -1,5 +1,5 @@
-file(GLOB SPMV_SRC RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" src/cuda/*.cu src/cuda/*.cc src/cuda/*.h)
-file(GLOB SPMV_COMSRC RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/common_src/convert-dataset/" *.c *.h)
+file(GLOB SPMV_SRC RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" src/cuda/*.cu src/cuda/*.cc)
+file(GLOB SPMV_COMSRC RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" common_src/convert-dataset/*.c)
 
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/common_src/convert-dataset/")

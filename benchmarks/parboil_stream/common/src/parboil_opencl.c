@@ -2,6 +2,8 @@
  * (c) 2007 The Board of Trustees of the University of Illinois.
  */
 
+#ifdef PARBOIL_OPENCL
+
 #include <parboil.h>
 #include <stdlib.h>
 #include <string.h>
@@ -980,4 +982,5 @@ void pb_DestroyTimerSet(struct pb_TimerSet * timers)
   }
 }
 
+#endif
 
