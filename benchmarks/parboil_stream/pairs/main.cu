@@ -10,28 +10,43 @@
 #include <stdio.h>
 #include <iostream>
 #include <functional>
+#include <string>
 
 #include "cuda_runtime.h"
 
 #include "interface.h"
 
 
-const int sgemm_argc = 4;
-char sgemm_argv[sgemm_argc][200] = {"-i", 
-                        "sgemm/medium/input/matrix1.txt, \
-                          sgemm/medium/input/matrix2t.txt, \
-                          sgemm/medium/input/matrix2t.txt",
-                        "-o",
-                        "sgemm/run/medium/matrix3.txt"};
+int main(int argc, char** argv) {
+  if (argc < 11 || argv[0] == "-h") {
+    std::cout << "Usage: ";
+    std::cout << "./PAIR <--APP1> <APP1 args> <--APP2> <APP2 args>";
+  } 
 
-const int spmv_argc = 4;
-char spmv_argv[spmv_argc][200] {"-i",
-                    "spmv/large/input/Dubcova3.mtx.bin, \
-                      spmv/large/input/vector.bin",
-                    "-o",
-                    "spmv/run/large/Dubcova3.mtx.out"};
+  // passing inputs
+  std::string A_str, B_str;
+  int A_idx, B_idx;
+  int idx = 1;
+  bool done_A = false;
 
-int main() {
+  while (idx < argc) {
+    if (strlen(argv[idx]) >= 3 && ( strncmp("--",argv[idx],2) == 0 )) {
+      if (!done_A) {
+        A_str = std::string(argv[idx]);
+        A_idx = idx + 1;
+
+        done_A = true;
+      } else {
+        B_str = std::string(argv[idx]);
+        B_idx = idx + 1;
+      }
+    }
+
+    idx++;
+  }
+
+  const int argc_A = B_idx-A_idx-1;
+  const int argc_B = argc-B_idx;
 
   // create two different cuda streams
   cudaStream_t stream_A, stream_B;
@@ -40,16 +55,20 @@ int main() {
   cudaStreamCreate(&stream_B);
 
   // grab kernel launch and exit function calls from benchmark A and B
-  std::function<void(const int, cudaStream_t &)> kernel_A, kernel_B;
+  std::function<int(const int, cudaStream_t &)> kernel_A, kernel_B;
   std::function<void(void)> exit_A, exit_B;
 
   // FIXME: temp pointing to sgemm and spmv
-  main_sgemm(sgemm_argc, (char**)sgemm_argv, kernel_A, exit_A);
-  main_spmv(spmv_argc, (char**)spmv_argv, kernel_B, exit_B);
+  main_sgemm(argc_A, &(argv[A_idx]), kernel_A, exit_A);
+
+  main_spmv(argc_B, &(argv[B_idx]), kernel_B, exit_B);
+
 
   // run the kernels
   kernel_A(1, stream_A);
+  std::cout << "done A" << std::endl;
   kernel_B(1, stream_B);
+  std::cout << "done B" << std::endl;
 
   exit_A();
   exit_B();

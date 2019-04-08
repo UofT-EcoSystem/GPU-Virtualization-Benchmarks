@@ -90,16 +90,16 @@ __global__ void mysgemmNT( const float *A, int lda, const float *B, int ldb, flo
     }
 }
 
-void regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, const float *A, int lda, const float *B, int ldb, float beta, float *C, int ldc, const int iter, cudaStream_t & stream )
+int regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, const float *A, int lda, const float *B, int ldb, float beta, float *C, int ldc, const int iter, cudaStream_t & stream )
 {
   if ((transa != 'N') && (transa != 'n')) {
     std::cerr << "unsupported value of 'transa' in regtileSgemm()" << std::endl;
-    return;
+    return -1;
   }
   
   if ((transb != 'T') && (transb != 't')) {
     std::cerr << "unsupported value of 'transb' in regtileSgemm()" << std::endl;
-    return;
+    return -1;
   }
   
   // In this code we assume the matrix sizes are multiple of tile size
@@ -115,6 +115,7 @@ void regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, c
     CHECK_ERROR("mySgemm");
   }
 
+  return 0;
 }
 
 /******************** End kernels *********************/
@@ -129,12 +130,11 @@ void computeGold(float *, const float*, const float*, unsigned int, unsigned int
 int
 main_sgemm (int argc, 
             char** argv,
-            std::function<void(const int, cudaStream_t &)> & kernel,
+            std::function<int(const int, cudaStream_t &)> & kernel,
             std::function<void(void)> & cleanup) 
 {
-
   struct pb_Parameters *params;
-  struct pb_TimerSet timers;
+  struct pb_TimerSet *timers = new pb_TimerSet();
 
   float *dA, *dB, *dC;
   size_t A_sz, B_sz, C_sz;
@@ -142,7 +142,7 @@ main_sgemm (int argc,
   int matBrow, matBcol;
   std::vector<float> matA, matBT;
 
-  pb_InitializeTimerSet(&timers);
+  pb_InitializeTimerSet(timers);
 
   /* Read command line. Expect 3 inputs: A, B and B^T 
      in column-major layout*/
@@ -157,7 +157,7 @@ main_sgemm (int argc,
     }
  
   /* Read in data */
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
+  pb_SwitchToTimer(timers, pb_TimerID_IO);
 
   // load A
   readColMajorMatrixFile(params->inpFiles[0],
@@ -169,54 +169,60 @@ main_sgemm (int argc,
   readColMajorMatrixFile(params->inpFiles[2],
       matBcol, matBrow, matBT);
 
-  pb_SwitchToTimer( &timers, pb_TimerID_COMPUTE );
+  pb_SwitchToTimer( timers, pb_TimerID_COMPUTE );
   B_sz = matBrow*matBcol*sizeof(float);
 
   // allocate space for C
   C_sz = matArow*matBcol*sizeof(float);
 
   // CUDA memory allocation
-  std::vector<float> matC(matArow*matBcol);
   cudaMalloc((void**)&dA, A_sz);
   cudaMalloc((void**)&dB, B_sz);
   cudaMalloc((void**)&dC, C_sz);
 
   // Copy A and B^T into device memory
-  pb_SwitchToTimer( &timers, pb_TimerID_COPY );
+  pb_SwitchToTimer( timers, pb_TimerID_COPY );
   cudaMemcpy(dA, &matA.front(), A_sz, cudaMemcpyHostToDevice); 
   cudaMemcpy(dB, &matBT.front(), B_sz, cudaMemcpyHostToDevice); 
 
-  pb_SwitchToTimer( &timers, pb_TimerID_KERNEL );
 
-
-  kernel = [&](const int iter, cudaStream_t & stream)
+  kernel = [=](const int iter, cudaStream_t & stream) -> int
   {
+    std::cout << timers << std::endl;
+    pb_SwitchToTimer( timers, pb_TimerID_KERNEL );
+
     // Use standard sgemm interface
-    regtileSgemm('N', 'T', matArow, matBcol, matAcol, 1.0f, \
+    return regtileSgemm('N', 'T', matArow, matBcol, matAcol, 1.0f, \
         dA, matArow, dB, matBcol, 0.0f, dC, matArow, iter, stream);
 
   };
 
-  cleanup = [&]
+  cleanup = [=]
   {
+
     if (params->outFile) {
-      pb_SwitchToTimer( &timers, pb_TimerID_COPY );
+      pb_SwitchToTimer( timers, pb_TimerID_COPY );
+
+      std::vector<float> matC(matArow*matBcol);
       cudaMemcpy(&matC.front(), dC, C_sz, cudaMemcpyDeviceToHost);
+
       /* Write C to file */
-      pb_SwitchToTimer(&timers, pb_TimerID_IO);
+      pb_SwitchToTimer(timers, pb_TimerID_IO);
       writeColMajorMatrixFile(params->outFile,
-    matArow, matBcol, matC); 
+                              matArow, matBcol, matC); 
     }
 
-    pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+    pb_SwitchToTimer(timers, pb_TimerID_NONE);
 
-    double GPUtime = pb_GetElapsedTime(&(timers.timers[pb_TimerID_KERNEL]));
+    double GPUtime = pb_GetElapsedTime(&(timers->timers[pb_TimerID_KERNEL]));
     std::cout<< "GFLOPs = " << 2.* matArow * matBcol * matAcol/GPUtime/1e9 << std::endl;
-    pb_PrintTimerSet(&timers);
+    pb_PrintTimerSet(timers);
     pb_FreeParameters(params);
     cudaFree(dA);
     cudaFree(dB);
     cudaFree(dC);
+    delete timers;
+
   };
 
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <functional>
+#include <iostream>
 
 #include "file.h"
 #include "gpu_info.h"
@@ -20,11 +21,17 @@
 
 #include "spmv_jds.h"
 
-#define CUERR { cudaError_t err; \
-  if ((err = cudaGetLastError()) != cudaSuccess) { \
-  printf("CUDA error: %s, line %d\n", cudaGetErrorString(err), __LINE__); \
-  return -1; }}
- 
+int check_error () {
+  cudaError_t err;
+
+  if ((err = cudaGetLastError()) != cudaSuccess) {
+    printf("CUDA error: %s, line %d\n", cudaGetErrorString(err), __LINE__);
+    return -1;
+  }
+
+  return 0;
+}
+
 //TEXTURE memory
 texture<float,1> tex_x_float;
 
@@ -114,10 +121,10 @@ static int generate_vector(float *x_vector, int dim)
 
 int main_spmv(int argc, 
               char** argv, 
-              std::function<void(const int iter, cudaStream_t & stream)> & kernel,
+              std::function<int(const int iter, cudaStream_t & stream)> & kernel,
               std::function<void(void)> & cleanup ) 
 {
-	struct pb_TimerSet timers;
+	struct pb_TimerSet* timers = new pb_TimerSet();
 	struct pb_Parameters *parameters;
 	
 	printf("CUDA accelerated sparse matrix vector multiplication****\n");
@@ -131,8 +138,8 @@ int main_spmv(int argc,
     }
 
 	
-	pb_InitializeTimerSet(&timers);
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+	pb_InitializeTimerSet(timers);
+	pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 	
 	//parameters declaration
 	int len;
@@ -164,7 +171,7 @@ int main_spmv(int argc,
     float *d_x_vector;
 	
     //load matrix from files
-	pb_SwitchToTimer(&timers, pb_TimerID_IO);
+	pb_SwitchToTimer(timers, pb_TimerID_IO);
 	//inputData(parameters->inpFiles[0], &len, &depth, &dim,&nzcnt_len,&pad,
 	//    &h_data, &h_indices, &h_ptr,
 	//    &h_perm, &h_nzcnt);
@@ -186,13 +193,13 @@ int main_spmv(int argc,
   h_x_vector=(float*)malloc(sizeof(float)*dim);
   input_vec( parameters->inpFiles[1],h_x_vector,dim);
 
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+	pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 	
 	cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
 	
 	
-	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+	pb_SwitchToTimer(timers, pb_TimerID_COPY);
 	//memory allocation
 	cudaMalloc((void **)&d_data, len*sizeof(float));
 	cudaMalloc((void **)&d_indices, len*sizeof(int));
@@ -211,8 +218,9 @@ int main_spmv(int argc,
 	cudaMemcpyToSymbol(jds_ptr_int, h_ptr, depth*sizeof(int));
 	cudaMemcpyToSymbol(sh_zcnt_int, h_nzcnt,nzcnt_len*sizeof(int));
 	
-    cudaThreadSynchronize();
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  cudaDeviceSynchronize();
+
+	pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 	unsigned int grid;
 	unsigned int block;
     compute_active_thread(&block, &grid,nzcnt_len,pad, deviceProp.major,deviceProp.minor,
@@ -221,30 +229,32 @@ int main_spmv(int argc,
 	
   cudaFuncSetCacheConfig(spmv_jds, cudaFuncCachePreferL1);
 
-  kernel = [&](const int iter, cudaStream_t & stream)
-  {
-    //main execution
-    pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-    //for (int i= 0; i<50; i++)
-    for (int i= 0; i<iter; i++)
-    spmv_jds<<<grid, block, 0, stream>>>(d_Ax_vector,
-            d_data,d_indices,d_perm,
-          d_x_vector,d_nzcnt,dim);
-                
-      CUERR // check and clear any existing errors
-    
-    cudaThreadSynchronize();
 
+  kernel = [=](const int iter, cudaStream_t & stream) -> int
+  {
+    pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
+    //main execution
+    //for (int i= 0; i<50; i++)
+    for (int i= 0; i<iter; i++) {
+      spmv_jds<<<grid, block, 0, stream>>>(d_Ax_vector,
+            d_data,d_indices,d_perm,
+            d_x_vector,d_nzcnt,dim);
+    }
+               
+    cudaDeviceSynchronize();
+
+    return check_error(); // check and clear any existing errors
+    
   };
 
 
-  cleanup = [&]()
+  cleanup = [=]()
   {
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+    pb_SwitchToTimer(timers, pb_TimerID_COPY);
     //HtoD memory copy
     cudaMemcpy(h_Ax_vector, d_Ax_vector,dim*sizeof(float), cudaMemcpyDeviceToHost);	
 
-    cudaThreadSynchronize();
+    cudaDeviceSynchronize();
 
     cudaFree(d_data);
       cudaFree(d_indices);
@@ -255,11 +265,11 @@ int main_spmv(int argc,
     cudaFree(d_Ax_vector);
    
     if (parameters->outFile) {
-      pb_SwitchToTimer(&timers, pb_TimerID_IO);
+      pb_SwitchToTimer(timers, pb_TimerID_IO);
       outputData(parameters->outFile,h_Ax_vector,dim);
       
     }
-    pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+    pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
     
     free (h_data);
     free (h_indices);
@@ -268,11 +278,12 @@ int main_spmv(int argc,
     free (h_nzcnt);
     free (h_Ax_vector);
     free (h_x_vector);
-    pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+    pb_SwitchToTimer(timers, pb_TimerID_NONE);
 
-    pb_PrintTimerSet(&timers);
+    pb_PrintTimerSet(timers);
     pb_FreeParameters(parameters);
 
+    free(timers);
 
   };
 	
