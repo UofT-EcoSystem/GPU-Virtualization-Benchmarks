@@ -14,7 +14,10 @@ int main_spmv (int argc,
                std::function<int(const int iter, cudaStream_t & stream)> & kernel,
                std::function<void(void)> & exit);
 
-
+int main_cutcp (int argc,
+               char** argv,
+               std::function<int(const int iter, cudaStream_t & stream)> & kernel,
+               std::function<void(void)> & exit);
 
 
 #endif

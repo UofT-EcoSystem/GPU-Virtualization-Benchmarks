@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(parboil LANGUAGES C CXX CUDA)
+cmake_policy(SET CMP0076 NEW)
+
 
 find_package(CUDA)
 
@@ -9,28 +11,19 @@ if (NOT (CMAKE_BUILD_TYPE OR CONFIGURATION_TYPES))
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "RelWithDebInfo" "Release")
 endif()
 
-set(CUTLASS_NVCC_ARCHS "75" CACHE STRING "The SM architectures to build code for.")
+#set(CUTLASS_NVCC_ARCHS "70" CACHE STRING "The SM architectures to build code for.")
 set(CUTLASS_NVCC_EMBED_CUBIN ON CACHE BOOL "Embed compiled CUDA kernel binaries into executables.")
 set(CUTLASS_NVCC_EMBED_PTX ON CACHE BOOL "Embed compiled PTX into executables.")
 
 string(APPEND NVCC_FLAGS " --cudart=shared -lcudart")
-string(APPEND NVCC_FLAGS " --default-stream per-thread")
+string(APPEND NVCC_FLAGS " -arch=sm_70")
+#string(APPEND NVCC_FLAGS " --default-stream per-thread")
 
 ###################################################################################################
 #
 # Configure CUDA build options
 #
 ###################################################################################################
-
-# Set NVCC arguments
-foreach(ARCH ${CUTLASS_NVCC_ARCHS})
-  if(CUTLASS_NVCC_EMBED_CUBIN)
-    string(APPEND NVCC_FLAGS " -gencode arch=compute_${ARCH},code=sm_${ARCH}")
-  endif()
-  if(CUTLASS_NVCC_EMBED_PTX)
-    string(APPEND NVCC_FLAGS " -gencode arch=compute_${ARCH},code=compute_${ARCH}")
-  endif()
-endforeach()
 
 string(APPEND NVCC_FLAGS_DEBUG " -g")
 string(APPEND NVCC_FLAGS_RELWITHDEBINFO " -O3")
@@ -44,28 +37,23 @@ set(CMAKE_CUDA_FLAGS_RELEASE "${NVCC_FLAGS_RELEASE}")
 set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${NVCC_FLAGS_RELWITHDEBINFO}")
 set(CMAKE_CUDA_FLAGS_DEBUG "${NVCC_FLAGS_DEBUG}")
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/common/include") 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/benchmarks")
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/spmv/common_src/convert-dataset")
+
+
+
+add_executable(PAIR pairs/main.cu)
+
 
 # include cuda dir
-include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-
-
-
-
-# hacky shit: just glob all the files and compile them together
-#file(GLOB HELPER RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} common/src/*.c)
-#file(GLOB SGEMM RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} benchmarks/sgemm/src/cuda/*.cu benchmarks/sgemm/src/cuda/*.cc)
-#file(GLOB SPMV RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} benchmarks/spmv/src/cuda/*.cu benchmarks/spmv/src/cuda/*.cc)
-#file(GLOB SPMV_COM RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} benchmarks/spmv/common_src/convert-dataset/*.c)
-
-
-
-#add_executable(PAIR ${HELPER} ${SGEMM} ${SPMV} ${SPMV_COM} pairs/main.cu)
-
-#target_compile_features(PAIR PUBLIC cxx_std_11)
+target_include_directories(PAIR PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 add_subdirectory(common)
 add_subdirectory(benchmarks)
-add_subdirectory(pairs)
+
+
+
+set_target_properties(PAIR PROPERTIES LINKER_LANGUAGE CUDA)
+add_compile_definitions(PARBOIL_STREAM)
+target_compile_features(PAIR PUBLIC cxx_std_11)
+
+set_target_properties(PAIR PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(PAIR PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

@@ -11,6 +11,8 @@
 
 #include <parboil.h>
 
+#include "cuda_runtime.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,7 +53,8 @@ extern "C" {
       Lattice *lattice,
       float cutoff,                      /* cutoff distance */
       Atoms *atoms,                      /* array of atoms */
-      int verbose                        /* print info/debug messages */
+      int verbose,                        /* print info/debug messages */
+      cudaStream_t* stream
     );
 
   int cpu_compute_cutoff_potential_lattice(

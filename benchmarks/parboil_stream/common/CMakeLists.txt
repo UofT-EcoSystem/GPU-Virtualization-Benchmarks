@@ -1,7 +1,11 @@
-file(GLOB PARBOIL_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.c")
 
-add_library(PARBOIL_HELPER ${PARBOIL_SRC})
 
-target_compile_features(PARBOIL_HELPER PUBLIC cxx_std_11)
-set_target_properties(PARBOIL_HELPER PROPERTIES LINKER_LANGUAGE CXX)
+target_sources(PAIR
+		PRIVATE
+			src/parboil.c
+			src/parboil_cuda.c
+)
+
+target_include_directories(PAIR PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
+
 

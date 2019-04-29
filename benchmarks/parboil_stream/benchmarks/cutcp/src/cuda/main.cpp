@@ -15,6 +15,9 @@
 #include "cutoff.h"
 #include "output.h"
 
+
+#include "interface.h"
+
 #define ERRTOL 1e-4f
 
 #define NOKERNELS             0
@@ -85,7 +88,11 @@ destroy_lattice(Lattice *lat)
   }
 }
 
-int main(int argc, char *argv[]) {
+int main_cutcp(int argc, 
+               char *argv[],
+               std::function<int(const int, cudaStream_t &)> & kernel,
+               std::function<void(void)> & cleanup) {
+  printf("argc: %d\n", argc);
   Atoms *atom;
 
   LatticeDim lattice_dim;
@@ -101,7 +108,7 @@ int main(int argc, char *argv[]) {
   int n;
 
   struct pb_Parameters *parameters;
-  struct pb_TimerSet timers;
+  struct pb_TimerSet *timers = new pb_TimerSet();
 
   /* Read input parameters */
   parameters = pb_ReadParameters(&argc, argv);
@@ -115,8 +122,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  pb_InitializeTimerSet(&timers);
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
+  pb_InitializeTimerSet(timers);
+  pb_SwitchToTimer(timers, pb_TimerID_IO);
 
   {
     const char *pqrfilename = parameters->inpFiles[0];
@@ -127,7 +134,7 @@ int main(int argc, char *argv[]) {
     }
     printf("read %d atoms from file '%s'\n", atom->size, pqrfilename);
   }
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 
   /* find extent of domain */
   get_atom_extent(&min_ext, &max_ext, atom);
@@ -147,36 +154,48 @@ int main(int argc, char *argv[]) {
    *  CUDA kernel, with overlapped GPU/CPU computation
    *  (enter and exit with the 'compute' timer active)
    */
-  if (gpu_compute_cutoff_potential_lattice6overlap(&timers, gpu_lattice, cutoff, atom, 0)) {
-    fprintf(stderr, "Computation failed\n");
-    exit(1);
-  }
+  kernel = [=](const int iter, cudaStream_t & stream) -> int
+  {
+    if (gpu_compute_cutoff_potential_lattice6overlap(timers, gpu_lattice, cutoff, atom, 0, &stream)) {
+      fprintf(stderr, "Computation failed\n");
+      return -1;
+    }
+
+    return 0;
+  };
+  
 
   /*
    * Zero the lattice points that are too close to an atom.  This is
    * necessary for numerical stability.
    */
-  if (remove_exclusions(gpu_lattice, exclcutoff, atom)) {
-    fprintf(stderr, "remove_exclusions() failed for gpu lattice\n");
-    exit(1);
-  }
+  cleanup = [=]
+  {
+    if (remove_exclusions(gpu_lattice, exclcutoff, atom)) {
+      fprintf(stderr, "remove_exclusions() failed for gpu lattice\n");
+      exit(1);
+    }
 
-  printf("\n");
+    printf("\n");
 
-  /* Print output */
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
-  if (parameters->outFile) {
-    write_lattice_summary(parameters->outFile, gpu_lattice);
-  }
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+    /* Print output */
+    pb_SwitchToTimer(timers, pb_TimerID_IO);
+    if (parameters->outFile) {
+      write_lattice_summary(parameters->outFile, gpu_lattice);
+    }
+    pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 
-  /* Cleanup */
-  destroy_lattice(gpu_lattice);
-  free_atom(atom);
+    /* Cleanup */
+    destroy_lattice(gpu_lattice);
+    free_atom(atom);
 
-  pb_SwitchToTimer(&timers, pb_TimerID_NONE);
-  pb_PrintTimerSet(&timers);
-  pb_FreeParameters(parameters);
+    pb_SwitchToTimer(timers, pb_TimerID_NONE);
+    pb_PrintTimerSet(timers);
+    pb_FreeParameters(parameters);
+
+    delete timers;
+  };
+  
 
   return 0;
 }

@@ -285,7 +285,8 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
     Lattice *lattice,
     float cutoff,                      /* cutoff distance */
     Atoms *atoms,                      /* array of atoms */
-    int verbose                        /* print info/debug messages */
+    int verbose,                        /* print info/debug messages */
+    cudaStream_t * stream
     )
 {
   int nx = lattice->dim.nx;
@@ -588,8 +589,8 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
     printf("\n");
 
 
-  cudaStream_t cutoffstream;
-  cudaStreamCreate(&cutoffstream);
+  // cudaStream_t cutoffstream;
+  // cudaStreamCreate(&cutoffstream);
 
   /* loop over z-dimension, invoke CUDA kernel for each x-y plane */
   pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
@@ -597,7 +598,7 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
   for (zRegionIndex = 0;  zRegionIndex < zRegionDim;  zRegionIndex++) {
     printf("  computing plane %d\r", zRegionIndex);
     fflush(stdout);
-    cuda_cutoff_potential_lattice6overlap<<<gridDim, blockDim, 0>>>(binDim.x, binDim.y,
+    cuda_cutoff_potential_lattice6overlap<<<gridDim, blockDim, 0, *stream>>>(binDim.x, binDim.y,
         binZeroCuda, h, cutoff2, inv_cutoff2, regionZeroCuda, zRegionIndex);
   }
 
@@ -616,10 +617,10 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
     printf("\n");
   }
 
-  cudaStreamSynchronize(cutoffstream);
+  cudaStreamSynchronize(*stream);
   CUERR;
   cudaThreadSynchronize();
-  cudaStreamDestroy(cutoffstream);
+  // cudaStreamDestroy(cutoffstream);
   printf("Finished CUDA kernel calls                        \n");
 
   /* copy result regions from CUDA device */

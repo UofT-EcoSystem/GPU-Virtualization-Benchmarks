@@ -2,7 +2,7 @@
  * (c) 2007 The Board of Trustees of the University of Illinois.
  */
 
-#ifdef PARBOIL_DEFAULT
+#ifndef PARBOIL_STREAM
 
 #include <parboil.h>
 #include <stdlib.h>
