@@ -51,6 +51,7 @@
     } \
   } while (0)
 
+#ifdef CUTCP
 /*
  * neighbor list:
  * stored in constant memory as table of offsets
@@ -679,3 +680,19 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
 
   return 0;
 }
+
+#else
+extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
+    struct pb_TimerSet *timers,        /* for measuring execution time */
+    Lattice *lattice,
+    float cutoff,                      /* cutoff distance */
+    Atoms *atoms,                      /* array of atoms */
+    int verbose,                        /* print info/debug messages */
+    cudaStream_t * stream
+    ) 
+{
+  printf("ERROR: Empty kernel!\n");
+  abort();
+}
+
+#endif

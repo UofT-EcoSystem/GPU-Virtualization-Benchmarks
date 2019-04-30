@@ -50,6 +50,13 @@ add_subdirectory(common)
 add_subdirectory(benchmarks)
 
 
+if($ENV{CUTCP})
+  target_compile_definitions(PAIR PRIVATE CUTCP)
+endif()
+
+if($ENV{MRIQ})
+  target_compile_definitions(PAIR PRIVATE MRIQ)
+endif()
 
 set_target_properties(PAIR PROPERTIES LINKER_LANGUAGE CUDA)
 add_compile_definitions(PARBOIL_STREAM)

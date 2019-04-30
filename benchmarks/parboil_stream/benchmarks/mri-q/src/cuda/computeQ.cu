@@ -31,6 +31,7 @@ struct kValues {
   float PhiMag;
 };
 
+#ifdef MRIQ
 /* Values in the k-space coordinate system are stored in constant memory
  * on the GPU */
 __constant__ __device__ kValues ck[KERNEL_Q_K_ELEMS_PER_GRID];
@@ -96,7 +97,7 @@ ComputeQ_GPU(int numK, int kGlobalIndex,
   Qi[xIndex] = sQi;
 }
 
-void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d)
+void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d, cudaStream_t& stream)
 {
   int phiMagBlocks = numK / KERNEL_PHI_MAG_THREADS_PER_BLOCK;
   if (numK % KERNEL_PHI_MAG_THREADS_PER_BLOCK)
@@ -104,14 +105,15 @@ void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d)
   dim3 DimPhiMagBlock(KERNEL_PHI_MAG_THREADS_PER_BLOCK, 1);
   dim3 DimPhiMagGrid(phiMagBlocks, 1);
 
-  ComputePhiMag_GPU <<< DimPhiMagGrid, DimPhiMagBlock >>> 
+  ComputePhiMag_GPU <<< DimPhiMagGrid, DimPhiMagBlock, 0, stream >>> 
     (phiR_d, phiI_d, phiMag_d, numK);
 }
 
 void computeQ_GPU(int numK, int numX,
                   float* x_d, float* y_d, float* z_d,
                   kValues* kVals,
-                  float* Qr_d, float* Qi_d)
+                  float* Qr_d, float* Qi_d,
+                  cudaStream_t& stream)
 {
   int QGrids = numK / KERNEL_Q_K_ELEMS_PER_GRID;
   if (numK % KERNEL_Q_K_ELEMS_PER_GRID)
@@ -130,16 +132,38 @@ void computeQ_GPU(int numK, int numX,
 
     cudaMemcpyToSymbol(ck, kValsTile, numElems * sizeof(kValues), 0);
 
-    ComputeQ_GPU <<< DimQGrid, DimQBlock >>>
+    ComputeQ_GPU <<< DimQGrid, DimQBlock, 0, stream >>>
       (numK, QGridBase, x_d, y_d, z_d, Qr_d, Qi_d);
   }
 }
 
-void createDataStructsCPU(int numK, int numX, float** phiMag,
-	 float** Qr, float** Qi)
+#else
+void computePhiMag_GPU(int numK, float* phiR_d, 
+                       float* phiI_d, float* phiMag_d, 
+                       cudaStream_t& stream) {
+  printf("ERROR: Empty kernel!\n");
+  abort();
+}
+
+void computeQ_GPU(int numK, int numX,
+    float* x_d, float* y_d, float* z_d,
+    kValues* kVals,
+    float* Qr_d, float* Qi_d,
+    cudaStream_t& stream)
 {
-  *phiMag = (float* ) memalign(16, numK * sizeof(float));
-  *Qr = (float*) memalign(16, numX * sizeof (float));
-  *Qi = (float*) memalign(16, numX * sizeof (float));
+  printf("ERROR: Empty kernel!\n");
+  abort();
+}
+
+#endif
+
+
+
+void createDataStructsCPU(int numK, int numX, float*& phiMag,
+	 float*& Qr, float*& Qi)
+{
+  phiMag = (float* ) memalign(16, numK * sizeof(float));
+  Qr = (float*) memalign(16, numX * sizeof (float));
+  Qi = (float*) memalign(16, numX * sizeof (float));
 }
 

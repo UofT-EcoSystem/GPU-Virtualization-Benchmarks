@@ -32,7 +32,11 @@ void invoke(std::string kernel_str,
   } else if (kernel_str.compare("+cutcp") == 0) {
     std::cout << "main: cutcp" << std::endl;
     main_cutcp(argc, argv, kernel, cleanup);
-  } else {
+  } else if (kernel_str.compare("+mri-q") == 0) {
+    std::cout << "main: mri-q" << std::endl;
+    main_mriq(argc, argv, kernel, cleanup);
+  }
+  else {
     std::cout << "Warning: No matching kernels!" << std::endl;
   }
 
