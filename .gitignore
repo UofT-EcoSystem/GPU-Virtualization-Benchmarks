@@ -40,6 +40,7 @@
 *.x86_64
 *.hex
 build/
+build-docker/
 bin/
 
 # Debug files
@@ -96,5 +97,13 @@ set*/
 
 # Parboil datasets
 benchmarks/parboil/datasets/*/
+
+# gpgpusim stuff
+_app_*
+*.ptx
+*.ptxas
+_cuobjdump_*
+results/
+
 
 # End of https://www.gitignore.io/api/c,cuda,linux
