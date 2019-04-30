@@ -4,4 +4,6 @@ add_subdirectory(spmv)
 add_subdirectory(sgemm)
 add_subdirectory(cutcp)
 add_subdirectory(mri-q)
+add_subdirectory(tpacf)
+add_subdirectory(lbm)
 

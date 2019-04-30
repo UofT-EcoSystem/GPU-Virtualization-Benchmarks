@@ -58,9 +58,14 @@ if($ENV{MRIQ})
   target_compile_definitions(PAIR PRIVATE MRIQ)
 endif()
 
+if($ENV{TPACF})
+  target_compile_definitions(PAIR PRIVATE TPACF)
+endif()
+
+
 set_target_properties(PAIR PROPERTIES LINKER_LANGUAGE CUDA)
 add_compile_definitions(PARBOIL_STREAM)
 target_compile_features(PAIR PUBLIC cxx_std_11)
 
-set_target_properties(PAIR PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(PAIR PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+#set_target_properties(PAIR PROPERTIES POSITION_INDEPENDENT_CODE ON)
+#set_target_properties(PAIR PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

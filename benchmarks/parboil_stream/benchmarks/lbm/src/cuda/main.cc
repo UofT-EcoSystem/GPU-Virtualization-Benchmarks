@@ -12,8 +12,11 @@
 #include "lbm.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 #include <sys/stat.h>
+
+#include "interface.h"
 
 /*############################################################################*/
 static LBM_Grid CUDA_srcGrid, CUDA_dstGrid;
@@ -22,14 +25,18 @@ static LBM_Grid CUDA_srcGrid, CUDA_dstGrid;
 /*############################################################################*/
 
 struct pb_TimerSet timers;
-int main( int nArgs, char* arg[] ) {
+int main_lbm( int nArgs, char* arg[], 
+	std::function<int(const int, cudaStream_t &)> & kernel,
+    std::function<void(void)> & cleanup) 
+{
+
 	MAIN_Param param;
-	int t;
 
 	pb_InitializeTimerSet(&timers);
         struct pb_Parameters* params;
         params = pb_ReadParameters(&nArgs, arg);
         
+
 
 	static LBM_GridPtr TEMP_srcGrid;
 	//Setup TEMP datastructures
@@ -39,28 +46,38 @@ int main( int nArgs, char* arg[] ) {
 
 	MAIN_initialize( &param );
 
-	for( t = 1; t <= param.nTimeSteps; t++ ) {
-                pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-		CUDA_LBM_performStreamCollide( CUDA_srcGrid, CUDA_dstGrid );
-                pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-		LBM_swapGrids( &CUDA_srcGrid, &CUDA_dstGrid );
+	kernel = [=](const int iter, cudaStream_t & stream) -> int
+	{
+		for( int t = 1; t <= param.nTimeSteps; t++ ) {
+	        pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
+			CUDA_LBM_performStreamCollide( CUDA_srcGrid, CUDA_dstGrid, stream );
+	        pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+			LBM_swapGrids( &CUDA_srcGrid, &CUDA_dstGrid );
 
-		if( (t & 63) == 0 ) {
-			printf( "timestep: %i\n", t );
+			if( (t & 63) == 0 ) {
+				printf( "timestep: %i\n", t );
 #if 0
-			CUDA_LBM_getDeviceGrid((float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid);
-			LBM_showGridStatistics( *TEMP_srcGrid );
+				CUDA_LBM_getDeviceGrid((float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid);
+				LBM_showGridStatistics( *TEMP_srcGrid );
 #endif
+			}
 		}
-	}
 
-	MAIN_finalize( &param );
+		return 0;
+	};
+	
+	cleanup = [=]
+    {
+		MAIN_finalize( &param );
 
-	LBM_freeGrid( (float**) &TEMP_srcGrid );
+		LBM_freeGrid( (float**) &TEMP_srcGrid );
 
         pb_SwitchToTimer(&timers, pb_TimerID_NONE);
         pb_PrintTimerSet(&timers);
         pb_FreeParameters(params);
+		return 0;
+	};
+
 	return 0;
 }
 

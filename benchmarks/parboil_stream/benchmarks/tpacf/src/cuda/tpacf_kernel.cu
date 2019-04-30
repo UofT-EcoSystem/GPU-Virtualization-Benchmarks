@@ -11,6 +11,7 @@
 #include <assert.h>
 #include "model.h"
 #include <math.h>
+#include <iostream>
 
 #define WARP_SIZE 32
 #define NUM_BANKS 16
@@ -26,10 +27,14 @@ REAL** g_scanBlockSums;
 unsigned int g_numEltsAllocated = 0;
 unsigned int g_numLevelsAllocated = 0;
 
-__constant__ REAL dev_binb[NUM_BINS+1];
 
 unsigned int NUM_SETS;
 unsigned int NUM_ELEMENTS;
+
+
+#ifdef TPACF
+__constant__ REAL dev_binb[NUM_BINS+1];
+
 
 // create the bin boundaries
 void initBinB( struct pb_TimerSet *timers )
@@ -198,17 +203,35 @@ void gen_hists( hist_t* histograms, REAL* all_x_data, REAL* all_y_data,
     }
 }
 
-void TPACF(hist_t * histograms, REAL* d_x_data, REAL* d_y_data, 
-	   REAL* d_z_data)
+void call_TPACF(hist_t * histograms, REAL* d_x_data, REAL* d_y_data, 
+	   REAL* d_z_data, cudaStream_t& stream)
 {
   dim3 dimBlock(BLOCK_SIZE);
   dim3 dimGrid(NUM_SETS*2 + 1);
 
-  gen_hists <<< dimGrid, dimBlock >>> ( histograms, d_x_data, 
+  gen_hists <<< dimGrid, dimBlock, 0, stream>>> ( histograms, d_x_data, 
 					d_y_data, d_z_data, NUM_SETS, 
 					NUM_ELEMENTS);
 }
 // **===-----------------------------------------------------------===**
+
+#else
+
+// create the bin boundaries
+void initBinB( struct pb_TimerSet *timers )
+{
+  std::cout << "Empty benchmark TPACF! Try compiling with the right flag!" << std::endl;
+  abort();
+}
+
+void call_TPACF(hist_t * histograms, REAL* d_x_data, REAL* d_y_data, 
+     REAL* d_z_data, cudaStream_t& stream)
+{
+  std::cout << "Empty benchmark TPACF! Try compiling with the right flag!" << std::endl;
+  abort();
+}
+
+#endif
 
 
 #endif // _PRESCAN_CU_

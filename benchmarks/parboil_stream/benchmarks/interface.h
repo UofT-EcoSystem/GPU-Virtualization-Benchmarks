@@ -25,4 +25,16 @@ int main_mriq (int argc,
            std::function<void(void)> & cleanup);
 
 
+
+int main_tpacf (int argc, 
+           char *argv[],
+           std::function<int(const int, cudaStream_t &)> & kernel,
+           std::function<void(void)> & cleanup);
+
+int main_lbm (int argc, 
+           char *argv[],
+           std::function<int(const int, cudaStream_t &)> & kernel,
+           std::function<void(void)> & cleanup);
+
+
 #endif

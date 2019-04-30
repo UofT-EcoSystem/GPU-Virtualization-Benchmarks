@@ -11,6 +11,9 @@
 #ifndef _LBM_H_
 #define _LBM_H_
 
+
+#include "cuda_runtime.h"
+
 /*############################################################################*/
 
 
@@ -52,7 +55,7 @@ void CUDA_LBM_allocateGrid( float** ptr );
 void CUDA_LBM_freeGrid( float** ptr );
 void CUDA_LBM_initializeGrid( float** d_grid, float** h_grid );
 void CUDA_LBM_getDeviceGrid( float** d_grid, float** h_grid );
-void CUDA_LBM_performStreamCollide( LBM_Grid srcGrid, LBM_Grid dstGrid );
+void CUDA_LBM_performStreamCollide( LBM_Grid srcGrid, LBM_Grid dstGrid, cudaStream_t & stream);
 #ifdef __cplusplus
 }
 #endif

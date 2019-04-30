@@ -35,6 +35,12 @@ void invoke(std::string kernel_str,
   } else if (kernel_str.compare("+mri-q") == 0) {
     std::cout << "main: mri-q" << std::endl;
     main_mriq(argc, argv, kernel, cleanup);
+  } else if (kernel_str.compare("+tpacf") == 0) {
+    std::cout << "main: tpacf" << std::endl;
+    main_tpacf(argc, argv, kernel, cleanup);
+  } else if (kernel_str.compare("+lbm") == 0) {
+    std::cout << "main: lbm" << std::endl;
+    main_lbm(argc, argv, kernel, cleanup);
   }
   else {
     std::cout << "Warning: No matching kernels!" << std::endl;
@@ -60,19 +66,19 @@ int main(int argc, char** argv) {
     if (strlen(argv[idx]) >= 3 && ( strncmp("+",argv[idx],1) == 0 )) {
       if (!done_A) {
         A_str = std::string(argv[idx]);
-        A_idx = idx + 1;
+        A_idx = idx;
 
         done_A = true;
       } else {
         B_str = std::string(argv[idx]);
-        B_idx = idx + 1;
+        B_idx = idx;
       }
     }
 
     idx++;
   }
 
-  const int argc_A = B_idx-A_idx-1;
+  const int argc_A = B_idx-A_idx;
   const int argc_B = argc-B_idx;
 
 
@@ -121,7 +127,7 @@ int main(int argc, char** argv) {
     invoke(A_str, argc_A, &(argv[A_idx]), kernel_A, cleanup_A);
     invoke(B_str, argc_B, &(argv[B_idx]), kernel_B, cleanup_B);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 5; i++) {
       kernel_A(1, stream_A);
       kernel_B(1, stream_B);
     }

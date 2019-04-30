@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <iostream>
 #include "parboil.h"
 #include "atom.h"
 #include "cutoff.h"
@@ -92,7 +93,6 @@ int main_cutcp(int argc,
                char *argv[],
                std::function<int(const int, cudaStream_t &)> & kernel,
                std::function<void(void)> & cleanup) {
-  printf("argc: %d\n", argc);
   Atoms *atom;
 
   LatticeDim lattice_dim;
@@ -156,6 +156,7 @@ int main_cutcp(int argc,
    */
   kernel = [=](const int iter, cudaStream_t & stream) -> int
   {
+    std::cout << "Launching cutcp!" << std::endl;
     if (gpu_compute_cutoff_potential_lattice6overlap(timers, gpu_lattice, cutoff, atom, 0, &stream)) {
       fprintf(stderr, "Computation failed\n");
       return -1;

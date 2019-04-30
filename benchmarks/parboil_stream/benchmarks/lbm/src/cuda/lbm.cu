@@ -15,6 +15,8 @@
 #include <string.h>
 #include <float.h>
 
+
+
 // includes, project
 #include "main.h"
 #include "lbm.h"
@@ -35,13 +37,13 @@
 #define TOTAL_MARGIN (2*PADDED_X*PADDED_Y*N_CELL_ENTRIES)
 
 /******************************************************************************/
-void CUDA_LBM_performStreamCollide( LBM_Grid srcGrid, LBM_Grid dstGrid ) {
+void CUDA_LBM_performStreamCollide( LBM_Grid srcGrid, LBM_Grid dstGrid, cudaStream_t & stream ) {
 	dim3 dimBlock, dimGrid;
-        dimBlock.x = SIZE_X;
+    dimBlock.x = SIZE_X;
 	dimGrid.x = SIZE_Y;
 	dimGrid.y = SIZE_Z;
 	dimBlock.y = dimBlock.z = dimGrid.z = 1;
-	performStreamCollide_kernel<<<dimGrid, dimBlock>>>(srcGrid, dstGrid);
+	performStreamCollide_kernel<<<dimGrid, dimBlock, 0, stream>>>(srcGrid, dstGrid);
   CUDA_ERRCK;
 }
 
