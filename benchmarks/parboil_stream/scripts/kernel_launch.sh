@@ -1,28 +1,37 @@
 #!/bin/bash
+
+if [ "$#" -lt 2 ]; then
+  echo "Illegal number of parameters"
+  echo "Usage: run.sh <benchmark> <sim|hw> [nsight|nvprof]"
+  echo "nsight/nvprof is only available for hw mode."
+fi
+
+
 PARBOIL_ROOT="$(dirname "$(pwd)")"
 PARBOIL_DATA=$PARBOIL_ROOT/datasets
 NSIGHT_SECTION=$PARBOIL_ROOT/../sections
+gpgpusim=/mnt/ecosystem-gpgpu-sim/
 
 # define benchmark to dataset pair (largest available set)
-#declare -A datamap=(["cutcp"]="large" ["histo"]="large" ["lbm"]="long" ["mri-gridding"]="small" \
-#  ["mri-q"]="large" ["sad"]="large" ["sgemm"]="medium" ["spmv"]="large" ["stencil"]="default" \
+#declare -A datamap=(["cutcp"]="large" ["histo"]="large" ["lbm"]="long" ["mri_gridding"]="small" \
+#  ["mri_q"]="large" ["sad"]="large" ["sgemm"]="medium" ["spmv"]="large" ["stencil"]="default" \
 #  ["tpacf"]="large")
 
 
-declare -A datamap=(["mri-q"]="large" ["sgemm"]="medium") 
+declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ) 
 
 PROFILE=""
 
 
-if [ "$1" == "sim" ]; then
+if [ "$2" == "sim" ]; then
   PARBOIL_BUILD=$PARBOIL_ROOT/build-docker
 else
   PARBOIL_BUILD=$PARBOIL_ROOT/build
 
-  if [ "$2" == "nsight" ]; then
+  if [ "$3" == "nsight" ]; then
     #PROFILE="nv-nsight-cu-cli -f --csv --section-folder $NSIGHT_SECTION --section Memory_Usage "
     PROFILE="nv-nsight-cu-cli -f --csv "
-  elif [ "$2" == "nvprof" ]; then
+  elif [ "$3" == "nvprof" ]; then
     PROFILE="/usr/local/cuda-10.0/bin/nvprof -f -o conc.prof "
   fi
 fi
@@ -79,6 +88,35 @@ function build_input() {
 
 mkdir -p results
 
+# isolated run:
+
+bench=$1
+
+# compile a new build!
+back=$(pwd)
+cd .. && mkdir -p build-$bench 
+cd build-$bench && rm -rf * && cmake -D$bench=ON .. && make -j8
+
+if [ "$2" == "sim" ]; then
+  # manually relink the executable with shared runtime
+  cp ../scripts/link.sh .
+  ./link.sh
+
+  # source gpgpusim setup scripts
+  cd $gpgpusim
+  source setup_environment
+fi
+
+cd $back
+
+IO=$(build_input "$bench" "${datamap[$bench]}")
+
+echo -e "\n\n>>>>>>>>>>>>>>>> Launching kernel in isolation: $bench <<<<<<<<<<<<<<<<\n\n"
+$PROFILE ../build-$bench/PAIR 1 +$bench $IO +$bench $IO | tee results/seq/$bench.txt
+
+
+exit 
+
 n=0
 for benchA in "${!datamap[@]}"; do 
   for benchB in "${!datamap[@]}"; do 
@@ -86,22 +124,21 @@ for benchA in "${!datamap[@]}"; do
       continue
     fi
   
+    # compile a new build!
+    (cd .. && mkdir -p build-$benchA-$benchB && cd build-$benchA-$benchB && $benchA=1 $benchB=1 cmake .. && make)
+
+
     IO_A=$(build_input "$benchA" "${datamap[$benchA]}")
     IO_B=$(build_input "$benchB" "${datamap[$benchB]}")
 
-#    echo -e "\n\n>>>>>>>>>>>>>>>> Launching first kernel <<<<<<<<<<<<<<<<\n\n"
-     gdb --args $PROFILE $PARBOIL_BUILD/PAIR b +$benchA $IO_A +$benchB $IO_B
-#    echo -e "\n\n>>>>>>>>>>>>>>>> Launching second kernel <<<<<<<<<<<<<<<<\n\n"
-#    echo $PROFILE $PARBOIL_BUILD/PAIR 2 +$benchA "$IO_A" +$benchB "$IO_B"
-#    echo -e "\n\n>>>>>>>>>>>>>>>> Launching both kernels <<<<<<<<<<<<<<<<\n\n"
-#    echo $PROFILE $PARBOIL_BUILD/PAIR b +$benchA "$IO_A" +$benchB "$IO_B"
+    echo -e "\n\n>>>>>>>>>>>>>>>> Launching both kernels: $bench_A and $bench_B <<<<<<<<<<<<<<<<\n\n"
+    $PROFILE ../build-$benchA-$benchB/PAIR b +$benchA $IO_A +$benchB $IO_B | tee results/conc/$benchA_$benchB.txt
 
   let "n += 1"
 
   done
 done
 
-echo $n
 
 
 
