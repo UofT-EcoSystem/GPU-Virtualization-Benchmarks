@@ -3,11 +3,12 @@
   #  ["tpacf"]="large")
 
 
-kernels=("cutcp" "sgemm" "tpacf" "lbm" "sad" "spmv") 
+#kernels=("cutcp" "sgemm" "tpacf" "lbm" "sad" "spmv" "stencil") 
+kernels=("stencil") 
 
 for bench in ${kernels[@]}; do 
   echo $bench
-  tmux new-window -n:seq_$bench ./kernel_launch.sh $bench hw; bash -i
+  tmux new-window -n:seq_$bench docker exec -it --user serinatan sim bash -c "cd /mnt/GPU-Virtualization-Benchmarks/benchmarks/parboil_stream/scripts/ && export CUDA_INSTALL_PATH=/usr/local/cuda && ./kernel_launch_stencil.sh $bench sim"
 done
 
 

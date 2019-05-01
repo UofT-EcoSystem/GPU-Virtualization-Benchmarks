@@ -5,6 +5,12 @@ cmake_policy(SET CMP0076 NEW)
 
 find_package(CUDA)
 
+option(cutcp "compiling cutcp kernels" OFF)
+option(mri_q "compiling mri-q kernels" OFF)
+option(tpacf "compiling tpacf kennels" OFF)
+option(spmv "compiling spmv kennels" OFF)
+
+
 # by default release build
 if (NOT (CMAKE_BUILD_TYPE OR CONFIGURATION_TYPES))
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose build level" FORCE)
@@ -50,15 +56,16 @@ add_subdirectory(common)
 add_subdirectory(benchmarks)
 
 
-if($ENV{CUTCP})
+if(cutcp)
+  MESSAGE ("cutcp!!!!.")
   target_compile_definitions(PAIR PRIVATE CUTCP)
 endif()
 
-if($ENV{MRIQ})
+if(mri_q)
   target_compile_definitions(PAIR PRIVATE MRIQ)
 endif()
 
-if($ENV{TPACF})
+if(tpacf)
   target_compile_definitions(PAIR PRIVATE TPACF)
 endif()
 

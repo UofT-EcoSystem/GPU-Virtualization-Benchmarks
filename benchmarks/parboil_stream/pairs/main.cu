@@ -33,7 +33,7 @@ void invoke(std::string kernel_str,
     std::cout << "main: cutcp" << std::endl;
     main_cutcp(argc, argv, kernel, cleanup);
   } else if (kernel_str.compare("+mri-q") == 0) {
-    std::cout << "main: mri-q" << std::endl;
+    std::cout << "main: mri_q" << std::endl;
     main_mriq(argc, argv, kernel, cleanup);
   } else if (kernel_str.compare("+tpacf") == 0) {
     std::cout << "main: tpacf" << std::endl;
@@ -41,6 +41,12 @@ void invoke(std::string kernel_str,
   } else if (kernel_str.compare("+lbm") == 0) {
     std::cout << "main: lbm" << std::endl;
     main_lbm(argc, argv, kernel, cleanup);
+  } else if (kernel_str.compare("+sad") == 0) {
+    std::cout << "main: sad" << std::endl;
+    main_sad(argc, argv, kernel, cleanup);
+  } else if (kernel_str.compare("+stencil") == 0) {
+    std::cout << "main: stencil" << std::endl;
+    main_stencil(argc, argv, kernel, cleanup);
   }
   else {
     std::cout << "Warning: No matching kernels!" << std::endl;
@@ -127,7 +133,7 @@ int main(int argc, char** argv) {
     invoke(A_str, argc_A, &(argv[A_idx]), kernel_A, cleanup_A);
     invoke(B_str, argc_B, &(argv[B_idx]), kernel_B, cleanup_B);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 1; i++) {
       kernel_A(1, stream_A);
       kernel_B(1, stream_B);
     }

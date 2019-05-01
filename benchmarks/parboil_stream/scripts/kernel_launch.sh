@@ -93,14 +93,18 @@ mkdir -p results
 bench=$1
 
 # compile a new build!
-back=$(pwd)
 cd .. && mkdir -p build-$bench 
 cd build-$bench && rm -rf * && cmake -D$bench=ON .. && make -j8
+back=$(pwd)
 
 if [ "$2" == "sim" ]; then
   # manually relink the executable with shared runtime
   cp ../scripts/link.sh .
   ./link.sh
+
+  # copy gpgpu-sim config
+  cp ../scripts/gpgpusim.config .
+  cp ../scripts/config_fermi_islip.icnt .
 
   # source gpgpusim setup scripts
   cd $gpgpusim
@@ -112,7 +116,8 @@ cd $back
 IO=$(build_input "$bench" "${datamap[$bench]}")
 
 echo -e "\n\n>>>>>>>>>>>>>>>> Launching kernel in isolation: $bench <<<<<<<<<<<<<<<<\n\n"
-$PROFILE ../build-$bench/PAIR 1 +$bench $IO +$bench $IO | tee results/seq/$bench.txt
+mkdir -p ../results/ && mkdir -p ../results/seq
+$PROFILE ./PAIR 1 +$bench $IO +$bench $IO | tee ../results/seq/$bench.txt
 
 
 exit 

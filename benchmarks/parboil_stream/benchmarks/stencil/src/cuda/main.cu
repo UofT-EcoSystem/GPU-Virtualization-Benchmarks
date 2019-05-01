@@ -15,6 +15,8 @@
 #include "cuerr.h"
 #include "kernels.cu"
 
+#include "interface.h"
+
 static int read_data(float *A0, int nx,int ny,int nz,FILE *fp) 
 {	
 	int s=0;
@@ -32,8 +34,11 @@ static int read_data(float *A0, int nx,int ny,int nz,FILE *fp)
 	return 0;
 }
 
-int main(int argc, char** argv) {
-	struct pb_TimerSet timers;
+int main_stencil(int argc, char** argv, 
+				std::function<int(const int, cudaStream_t &)> & kernel,
+           		std::function<void(void)> & cleanup) 
+{
+	struct pb_TimerSet* timers = new pb_TimerSet();
 	struct pb_Parameters *parameters;
 	
 
@@ -43,8 +48,8 @@ int main(int argc, char** argv) {
 	printf("This version maintained by Chris Rodrigues  ***********\n");
 	parameters = pb_ReadParameters(&argc, argv);
 
-	pb_InitializeTimerSet(&timers);
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+	pb_InitializeTimerSet(timers);
+	pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 	
 	//declaration
 	int nx,ny,nz;
@@ -91,12 +96,12 @@ int main(int argc, char** argv) {
 	
 	h_A0=(float*)malloc(sizeof(float)*size);
 	h_Anext=(float*)malloc(sizeof(float)*size);
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
-  FILE *fp = fopen(parameters->inpFiles[0], "rb");
+    pb_SwitchToTimer(timers, pb_TimerID_IO);
+    FILE *fp = fopen(parameters->inpFiles[0], "rb");
 	read_data(h_A0, nx,ny,nz,fp);
-  fclose(fp);
+    fclose(fp);
 	
-	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+	pb_SwitchToTimer(timers, pb_TimerID_COPY);
 	//memory allocation
 	cudaMalloc((void **)&d_A0, size*sizeof(float));
 	cudaMalloc((void **)&d_Anext, size*sizeof(float));
@@ -104,9 +109,9 @@ int main(int argc, char** argv) {
 
 	//memory copy
 	cudaMemcpy(d_A0, h_A0, size*sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_Anext, d_A0, size*sizeof(float), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(d_Anext, d_A0, size*sizeof(float), cudaMemcpyDeviceToDevice);
 
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+	pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
   
 	//only use tx-by-ty threads
 	int tx=32;
@@ -118,44 +123,54 @@ int main(int argc, char** argv) {
 	int sh_size = tx*2*ty*sizeof(float);	
  
   
+	kernel = [=](const int iter, cudaStream_t & stream) mutable -> int
+    {
 
+		//main execution
+		pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
+		for(int t=0;t<iteration;t++)
+		{
+			block2D_hybrid_coarsen_x<<<grid, block, sh_size, stream>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
+		    float *d_temp = d_A0;
+		    d_A0 = d_Anext;
+		    d_Anext = d_temp;
 
-	//main execution
-	pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-	for(int t=0;t<iteration;t++)
+		}
+	  	CUERR // check and clear any existing errors
+	  
+	    float *d_temp = d_A0;
+	    d_A0 = d_Anext;
+	    d_Anext = d_temp;
+
+	    return 0;
+	};
+	
+	
+	cleanup = [=]
 	{
-		block2D_hybrid_coarsen_x<<<grid, block,sh_size>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
-    float *d_temp = d_A0;
-    d_A0 = d_Anext;
-    d_Anext = d_temp;
+		pb_SwitchToTimer(timers, pb_TimerID_COPY);
+		cudaMemcpy(h_Anext, d_Anext,size*sizeof(float), cudaMemcpyDeviceToHost);
+		cudaFree(d_A0);
+	  cudaFree(d_Anext);
+	 
+		if (parameters->outFile) {
+			 pb_SwitchToTimer(timers, pb_TimerID_IO);
+			outputData(parameters->outFile,h_Anext,nx,ny,nz);
+			
+		}
+		pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
+			
+		free (h_A0);
+		free (h_Anext);
+		pb_SwitchToTimer(timers, pb_TimerID_NONE);
 
-	}
-  CUERR // check and clear any existing errors
-  
-  float *d_temp = d_A0;
-  d_A0 = d_Anext;
-  d_Anext = d_temp;  
-	
-	
-	
-	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	cudaMemcpy(h_Anext, d_Anext,size*sizeof(float), cudaMemcpyDeviceToHost);
-	cudaFree(d_A0);
-  cudaFree(d_Anext);
- 
-	if (parameters->outFile) {
-		 pb_SwitchToTimer(&timers, pb_TimerID_IO);
-		outputData(parameters->outFile,h_Anext,nx,ny,nz);
-		
-	}
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-		
-	free (h_A0);
-	free (h_Anext);
-	pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+		pb_PrintTimerSet(timers);
+		pb_FreeParameters(parameters);
 
-	pb_PrintTimerSet(&timers);
-	pb_FreeParameters(parameters);
+		delete timers;
+	};
+	
+	
 
 	return 0;
 

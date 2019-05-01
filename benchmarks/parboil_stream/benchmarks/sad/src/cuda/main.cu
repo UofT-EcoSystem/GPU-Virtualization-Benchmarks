@@ -19,23 +19,28 @@
 #include "file.h"
 #include "image.h"
 
+#include "interface.h"
+
 #define CUDA_ERRCK \
   {cudaError_t err = cudaGetLastError(); \
     if (err) fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(err)); \
   }
 
-static unsigned short *
-load_sads(char *filename);
+
 static void
 write_sads(char *filename,
 	   int image_width_macroblocks,
 	   int image_height_macroblocks,
 	   unsigned short *sads);
+
+#if 0  /* Debugging */
 static void
 write_sads_directly(char *filename,
 		    int width,
 		    int height,
 		    unsigned short *sads);
+static unsigned short *
+load_sads(char *filename);
 
 /* FILE I/O */
 
@@ -71,6 +76,8 @@ load_sads(char *filename)
 
   return sads;
 }
+
+#endif
 
 /* Compare the reference SADs to the expected SADs.
  */
@@ -192,7 +199,7 @@ write_sads(char *filename,
 }
 
 /* FILE I/O for debugging */
-
+#if 0  /* Debugging */
 static void
 write_sads_directly(char *filename,
 		    int width,
@@ -234,11 +241,14 @@ print_test_sads(unsigned short *sads_computed,
       puts("\n");
     }
 }
+#endif
 
 /* MAIN */
 
 int
-main(int argc, char **argv)
+main_sad(int argc, char **argv, 
+        std::function<int(const int, cudaStream_t &)> & kernel,
+          std::function<void(void)> & cleanup)
 {
   struct image_i16 *ref_image;
   struct image_i16 *cur_image;
@@ -248,10 +258,10 @@ main(int argc, char **argv)
   int image_width_macroblocks, image_height_macroblocks;
   int image_size_macroblocks;
 
-  struct pb_TimerSet timers;
+  struct pb_TimerSet *timers = new pb_TimerSet();
   struct pb_Parameters *params;
 
-  pb_InitializeTimerSet(&timers);
+  pb_InitializeTimerSet(timers);
   params = pb_ReadParameters(&argc, argv);
 
   if (pb_Parameters_CountInputs(params) != 2)
@@ -261,10 +271,10 @@ main(int argc, char **argv)
     }
 
   /* Read input files */
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
+  pb_SwitchToTimer(timers, pb_TimerID_IO);
   ref_image = load_image(params->inpFiles[0]);
   cur_image = load_image(params->inpFiles[1]);
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 
   if ((ref_image->width != cur_image->width) ||
       (ref_image->height != cur_image->height))
@@ -288,51 +298,57 @@ main(int argc, char **argv)
     malloc(41 * MAX_POS_PADDED * image_size_macroblocks * sizeof(short));
 
   /* Run the kernel code */
+
+  struct cudaArray *ref_ary;  /* Reference image on the device */
+  short *d_cur_image;         /* Current image on the device */
+  unsigned short *d_sads;     /* SADs on the device */
+  dim3 macroblock_grid(image_width_macroblocks, image_height_macroblocks);
+
+  pb_SwitchToTimer(timers, pb_TimerID_COPY);
+  cudaMalloc((void **)&d_cur_image, image_size_bytes);
+  CUDA_ERRCK
+  cudaMallocArray(&ref_ary, &get_ref().channelDesc,
+                  ref_image->width, ref_image->height);
+  CUDA_ERRCK
+
+  /* Transfer current image to device */
+  cudaMemcpy(d_cur_image, cur_image->data, image_size_bytes,
+             cudaMemcpyHostToDevice);
+  CUDA_ERRCK
+
+  /* Transfer reference image to device */
+  cudaMemcpy2DToArray(ref_ary,
+                      0, 0,
+                      ref_image->data,
+                      ref_image->width * sizeof(unsigned short),
+                      ref_image->width * sizeof(unsigned short),
+                      ref_image->height,
+                      cudaMemcpyHostToDevice);
+  CUDA_ERRCK
+  cudaBindTextureToArray(get_ref(), ref_ary);
+  CUDA_ERRCK
+
+  /* Allocate SAD data on the device */
+  cudaMalloc((void **)&d_sads, 41 * MAX_POS_PADDED * image_size_macroblocks *
+       sizeof(unsigned short));
+  CUDA_ERRCK
+  cudaMemset(d_sads, 0, 41 * MAX_POS_PADDED * image_size_macroblocks *
+       sizeof(unsigned short));
+  CUDA_ERRCK
+
+
+
+  kernel = [=](const int iter, cudaStream_t & stream) -> int
   {
-    struct cudaArray *ref_ary;  /* Reference image on the device */
-    short *d_cur_image;         /* Current image on the device */
-    unsigned short *d_sads;     /* SADs on the device */
-    dim3 macroblock_grid(image_width_macroblocks, image_height_macroblocks);
 
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-    cudaMalloc((void **)&d_cur_image, image_size_bytes);
-    CUDA_ERRCK
-    cudaMallocArray(&ref_ary, &get_ref().channelDesc,
-                    ref_image->width, ref_image->height);
-    CUDA_ERRCK
 
-    /* Transfer current image to device */
-    cudaMemcpy(d_cur_image, cur_image->data, image_size_bytes,
-               cudaMemcpyHostToDevice);
-    CUDA_ERRCK
-
-    /* Transfer reference image to device */
-    cudaMemcpy2DToArray(ref_ary,
-                        0, 0,
-                        ref_image->data,
-                        ref_image->width * sizeof(unsigned short),
-                        ref_image->width * sizeof(unsigned short),
-                        ref_image->height,
-                        cudaMemcpyHostToDevice);
-    CUDA_ERRCK
-    cudaBindTextureToArray(get_ref(), ref_ary);
-    CUDA_ERRCK
-
-    /* Allocate SAD data on the device */
-    cudaMalloc((void **)&d_sads, 41 * MAX_POS_PADDED * image_size_macroblocks *
-	       sizeof(unsigned short));
-    CUDA_ERRCK
-    cudaMemset(d_sads, 0, 41 * MAX_POS_PADDED * image_size_macroblocks *
-	       sizeof(unsigned short));
-    CUDA_ERRCK
-
-    pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
+    pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
 
     /* Run the 4x4 kernel */
     mb_sad_calc<<<dim3(CEIL(ref_image->width / 4, THREADS_W),
 		       CEIL(ref_image->height / 4, THREADS_H)),
       dim3(CEIL(MAX_POS, POS_PER_THREAD) * THREADS_W * THREADS_H),
-      SAD_LOC_SIZE_BYTES>>>
+      SAD_LOC_SIZE_BYTES, stream>>>
       (d_sads,
        (unsigned short *)d_cur_image,
        image_width_macroblocks,
@@ -340,26 +356,34 @@ main(int argc, char **argv)
     CUDA_ERRCK
 
     /* Run the larger-blocks kernels */
-    larger_sad_calc_8<<<macroblock_grid, dim3(32, 4)>>>
+    larger_sad_calc_8<<<macroblock_grid, dim3(32, 4), 0, stream>>>
       (d_sads,
        image_width_macroblocks,
        image_height_macroblocks);
     CUDA_ERRCK
 
-    larger_sad_calc_16<<<macroblock_grid, dim3(32, 1)>>>
+    larger_sad_calc_16<<<macroblock_grid, dim3(32, 1), 0, stream>>>
       (d_sads,
        image_width_macroblocks,
        image_height_macroblocks);
     CUDA_ERRCK
 
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+    pb_SwitchToTimer(timers, pb_TimerID_COPY);
 
+    return 0;
+  };
+
+
+
+
+
+  cleanup = [=]
+  {
     /* Transfer SAD data to the host */
     cudaMemcpy(sads_computed,// + 25 * MAX_POS_PADDED * image_size_macroblocks,
-	       d_sads,// + 25 * MAX_POS_PADDED * image_size_macroblocks,
-	       41 * MAX_POS_PADDED * image_size_macroblocks * sizeof(unsigned short)
-,
-           cudaMemcpyDeviceToHost);
+         d_sads,// + 25 * MAX_POS_PADDED * image_size_macroblocks,
+         41 * MAX_POS_PADDED * image_size_macroblocks * sizeof(unsigned short),
+         cudaMemcpyDeviceToHost);
     CUDA_ERRCK
 
     /* Free GPU memory */
@@ -372,35 +396,43 @@ main(int argc, char **argv)
     cudaFree(d_cur_image);
     CUDA_ERRCK
 
-    pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-  }
+    pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
+
 
   /* Print output */
   if (params->outFile)
     {
-      pb_SwitchToTimer(&timers, pb_TimerID_IO);
+      pb_SwitchToTimer(timers, pb_TimerID_IO);
       write_sads(params->outFile,
-		 image_width_macroblocks,
-		 image_height_macroblocks,
-		 sads_computed);
-      pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+     image_width_macroblocks,
+     image_height_macroblocks,
+     sads_computed);
+      pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
     }
 
 #if 0  /* Debugging */
   print_test_sads(sads_computed, image_size_macroblocks);
   write_sads_directly("sad-debug.bin",
-		      ref_image->width / 16, ref_image->height / 16,
-		      sads_computed);
+          ref_image->width / 16, ref_image->height / 16,
+          sads_computed);
 #endif
 
-  /* Free memory */
-  free(sads_computed);
-  free_image(ref_image);
-  free_image(cur_image);
+    /* Free memory */
+    free(sads_computed);
+    free_image(ref_image);
+    free_image(cur_image);
 
-  pb_SwitchToTimer(&timers, pb_TimerID_NONE);
-  pb_PrintTimerSet(&timers);
-  pb_FreeParameters(params);
+    pb_SwitchToTimer(timers, pb_TimerID_NONE);
+    pb_PrintTimerSet(timers);
+    pb_FreeParameters(params);
+
+    delete timers;
+
+    return 0;
+  };
+
+
+
 
   return 0;
 }
