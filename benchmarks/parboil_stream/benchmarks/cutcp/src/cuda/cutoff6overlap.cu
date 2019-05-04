@@ -11,7 +11,8 @@
 #include <string.h>
 #include <math.h>
 #include "atom.h"
-#include "cutoff.h"
+//#include "cutoff.h"
+#include "cutgpu.h"
 #include "parboil.h"
 
 #ifdef __DEVICE_EMULATION__
@@ -281,13 +282,14 @@ __global__ static void cuda_cutoff_potential_lattice6overlap(
 
 
 
-extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
+int gpu_compute_cutoff_potential_lattice6overlap(
     struct pb_TimerSet *timers,        /* for measuring execution time */
     Lattice *lattice,
     float cutoff,                      /* cutoff distance */
     Atoms *atoms,                      /* array of atoms */
     int verbose,                        /* print info/debug messages */
-    cudaStream_t * stream
+    std::function<int(const int, cudaStream_t &)> & kernel,
+    std::function<void(void)> & cleanup
     )
 {
   int nx = lattice->dim.nx;
@@ -593,102 +595,113 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
   // cudaStream_t cutoffstream;
   // cudaStreamCreate(&cutoffstream);
 
-  /* loop over z-dimension, invoke CUDA kernel for each x-y plane */
-  pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
-  printf("Invoking CUDA kernel on %d region planes...\n", zRegionDim);
-  for (zRegionIndex = 0;  zRegionIndex < zRegionDim;  zRegionIndex++) {
-    printf("  computing plane %d\r", zRegionIndex);
-    fflush(stdout);
-    cuda_cutoff_potential_lattice6overlap<<<gridDim, blockDim, 0, *stream>>>(binDim.x, binDim.y,
-        binZeroCuda, h, cutoff2, inv_cutoff2, regionZeroCuda, zRegionIndex);
-  }
-
-
-  /* 
-   * handle extra atoms on the CPU, concurrently with the GPU calculations
-   */
-  pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
-  if (extra->size > 0) {
-    printf("computing extra atoms on CPU\n");
-    if (cpu_compute_cutoff_potential_lattice(lattice, cutoff, extra)) {
-      fprintf(stderr, "cpu_compute_cutoff_potential_lattice() failed "
-          "for extra atoms\n");
-      return -1;
+  kernel = [=] (const int iter, cudaStream_t & stream) mutable -> int
+  {
+    /* loop over z-dimension, invoke CUDA kernel for each x-y plane */
+    pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
+    printf("Invoking CUDA kernel on %d region planes...\n", zRegionDim);
+    for (zRegionIndex = 0;  zRegionIndex < zRegionDim;  zRegionIndex++) {
+      printf("  computing plane %d\r", zRegionIndex);
+      fflush(stdout);
+      cuda_cutoff_potential_lattice6overlap<<<gridDim, blockDim, 0, stream>>>(binDim.x, binDim.y,
+          binZeroCuda, h, cutoff2, inv_cutoff2, regionZeroCuda, zRegionIndex);
     }
-    printf("\n");
-  }
 
-  cudaStreamSynchronize(*stream);
-  CUERR;
-  cudaThreadSynchronize();
-  // cudaStreamDestroy(cutoffstream);
-  printf("Finished CUDA kernel calls                        \n");
+    return 0;
 
-  /* copy result regions from CUDA device */
-  pb_SwitchToTimer(timers, pb_TimerID_COPY);
-  cudaMemcpy(regionZeroAddr, regionZeroCuda, lnall * sizeof(ener_t),
-      cudaMemcpyDeviceToHost);
-  CUERR;
+  };
 
-  /* free CUDA memory allocations */
-  cudaFree(regionZeroCuda);
-  cudaFree(binBaseCuda);
+//   cudaStreamSynchronize(*stream);
+//   CUERR;
+//   cudaThreadSynchronize();
+//   // cudaStreamDestroy(cutoffstream);
+//   printf("Finished CUDA kernel calls                        \n");
 
-  /*
-   * transpose on CPU, updating, producing the final lattice
-   */
-  /* transpose regions back into lattice */
-  pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
-  for (k = 0;  k < nz;  k++) {
-    zRegionIndex = (k >> 3);
-    zOffset = (k & 7);
+  cleanup = [=] () mutable
+  {
+    /* 
+     * handle extra atoms on the CPU, concurrently with the GPU calculations
+     */
+    pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
+    if (extra->size > 0) {
+      printf("computing extra atoms on CPU\n");
+      if (cpu_compute_cutoff_potential_lattice(lattice, cutoff, extra)) {
+        fprintf(stderr, "cpu_compute_cutoff_potential_lattice() failed "
+            "for extra atoms\n");
+        return -1;
+      }
+      printf("\n");
+    }
 
-    for (j = 0;  j < ny;  j++) {
-      yRegionIndex = (j >> 3);
-      yOffset = (j & 7);
 
-      for (i = 0;  i < nx;  i++) {
-        xRegionIndex = (i >> 3);
-        xOffset = (i & 7);
+    /* copy result regions from CUDA device */
+    pb_SwitchToTimer(timers, pb_TimerID_COPY);
+    cudaMemcpy(regionZeroAddr, regionZeroCuda, lnall * sizeof(ener_t),
+        cudaMemcpyDeviceToHost);
+    CUERR;
 
-        thisRegion = regionZeroAddr
-          + ((zRegionIndex * yRegionDim + yRegionIndex) * xRegionDim
-              + xRegionIndex) * REGION_SIZE;
+    /* free CUDA memory allocations */
+    cudaFree(regionZeroCuda);
+    cudaFree(binBaseCuda);
 
-        indexRegion = (zOffset * 8 + yOffset) * 8 + xOffset;
-        index = (k * ny + j) * nx + i;
+    /*
+     * transpose on CPU, updating, producing the final lattice
+     */
+    /* transpose regions back into lattice */
+    pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
+    for (k = 0;  k < nz;  k++) {
+      zRegionIndex = (k >> 3);
+      zOffset = (k & 7);
+
+      for (j = 0;  j < ny;  j++) {
+        yRegionIndex = (j >> 3);
+        yOffset = (j & 7);
+
+        for (i = 0;  i < nx;  i++) {
+          xRegionIndex = (i >> 3);
+          xOffset = (i & 7);
+
+          thisRegion = regionZeroAddr
+            + ((zRegionIndex * yRegionDim + yRegionIndex) * xRegionDim
+                + xRegionIndex) * REGION_SIZE;
+
+          indexRegion = (zOffset * 8 + yOffset) * 8 + xOffset;
+          index = (k * ny + j) * nx + i;
 
 #ifndef NEIGHBOR_COUNT
-        lattice->lattice[index] += thisRegion[indexRegion];
+          lattice->lattice[index] += thisRegion[indexRegion];
 #else
-	neighbor_count += thisRegion[indexRegion];
+          neighbor_count += thisRegion[indexRegion];
 #endif
+        }
       }
     }
-  }
 
 #ifdef NEIGHBOR_COUNT
-  printf("Neighbor count: %f\n", (float)neighbor_count);
+    printf("Neighbor count: %f\n", (float)neighbor_count);
 #endif
 
 
-  /* cleanup memory allocations */
-  free(regionZeroAddr);
-  free(binBaseAddr);
-  free(bincntBaseAddr);
-  free_atom(extra);
+    /* cleanup memory allocations */
+    free(regionZeroAddr);
+    free(binBaseAddr);
+    free(bincntBaseAddr);
+    free_atom(extra);
 
+
+  };
   return 0;
 }
 
 #else
-extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
+int gpu_compute_cutoff_potential_lattice6overlap(
     struct pb_TimerSet *timers,        /* for measuring execution time */
     Lattice *lattice,
     float cutoff,                      /* cutoff distance */
     Atoms *atoms,                      /* array of atoms */
     int verbose,                        /* print info/debug messages */
-    cudaStream_t * stream
+    std::function<int(const int, cudaStream_t &)> & kernel,
+    std::function<void(void)> & cleanup
     ) 
 {
   printf("ERROR: Empty kernel!\n");

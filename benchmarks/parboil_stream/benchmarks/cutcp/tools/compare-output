@@ -3,6 +3,7 @@
 # (c) Copyright 2008-2010 The Board of Trustees of the University of Illinois.
 
 import sys
+sys.path.insert(0, '../../../common/python/')
 import itertools
 
 import filecompare as fc

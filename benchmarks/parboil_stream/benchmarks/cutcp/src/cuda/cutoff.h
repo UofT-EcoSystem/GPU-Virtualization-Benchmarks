@@ -48,15 +48,6 @@ extern "C" {
   Lattice *create_lattice(LatticeDim dim);
   void destroy_lattice(Lattice *);
 
-  int gpu_compute_cutoff_potential_lattice6overlap(
-      struct pb_TimerSet *timers,        /* for measuring execution time */
-      Lattice *lattice,
-      float cutoff,                      /* cutoff distance */
-      Atoms *atoms,                      /* array of atoms */
-      int verbose,                        /* print info/debug messages */
-      cudaStream_t* stream
-    );
-
   int cpu_compute_cutoff_potential_lattice(
       Lattice *lattice,                  /* the lattice */
       float cutoff,                      /* cutoff distance */

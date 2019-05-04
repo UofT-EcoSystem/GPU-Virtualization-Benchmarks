@@ -15,6 +15,7 @@
 #include "atom.h"
 #include "cutoff.h"
 #include "output.h"
+#include "cutgpu.h"
 
 
 #include "interface.h"
@@ -154,17 +155,13 @@ int main_cutcp(int argc,
    *  CUDA kernel, with overlapped GPU/CPU computation
    *  (enter and exit with the 'compute' timer active)
    */
-  kernel = [=](const int iter, cudaStream_t & stream) -> int
-  {
-    std::cout << "Launching cutcp!" << std::endl;
-    if (gpu_compute_cutoff_potential_lattice6overlap(timers, gpu_lattice, cutoff, atom, 0, &stream)) {
-      fprintf(stderr, "Computation failed\n");
-      return -1;
-    }
-
-    return 0;
-  };
-  
+  std::function<void(void)> cleanup2;
+  std::cout << "Launching cutcp!" << std::endl;
+  if (gpu_compute_cutoff_potential_lattice6overlap(timers, gpu_lattice, 
+        cutoff, atom, 0, kernel, cleanup2)) {
+    fprintf(stderr, "Computation failed\n");
+    return -1;
+  }
 
   /*
    * Zero the lattice points that are too close to an atom.  This is
@@ -172,6 +169,8 @@ int main_cutcp(int argc,
    */
   cleanup = [=]
   {
+    cleanup2();
+
     if (remove_exclusions(gpu_lattice, exclcutoff, atom)) {
       fprintf(stderr, "remove_exclusions() failed for gpu lattice\n");
       exit(1);
