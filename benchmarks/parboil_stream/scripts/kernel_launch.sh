@@ -2,7 +2,7 @@
 
 if [ "$#" -lt 2 ]; then
   echo "Illegal number of parameters"
-  echo "Usage: run.sh <benchmark> <sim|hw> [nsight|nvprof]"
+  echo "Usage: run.sh <benchmark[:benchmark...]> <sim|hw> [nsight|nvprof]"
   echo "nsight/nvprof is only available for hw mode."
 fi
 
@@ -18,7 +18,7 @@ gpgpusim=/mnt/ecosystem-gpgpu-sim/
 #  ["tpacf"]="large")
 
 
-declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ) 
+declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large") 
 
 PROFILE=""
 
@@ -88,62 +88,86 @@ function build_input() {
 
 mkdir -p results
 
-# isolated run:
+# check benchmarks numbers
 
-bench=$1
+IFS=':' read -ra benchmarks <<< "$1"
 
-# compile a new build!
-cd .. && mkdir -p build-$bench 
-cd build-$bench && rm -rf * && cmake -D$bench=ON .. && make -j8
-back=$(pwd)
+if [ ${#benchmarks[@]} -eq 1 ]; then
+  #isolated run
+  bench=benchmarks[0]
 
-if [ "$2" == "sim" ]; then
-  # manually relink the executable with shared runtime
-  cp ../scripts/link.sh .
-  ./link.sh
+  # compile a new build!
+  cd .. && mkdir -p build-$bench 
+  cd build-$bench # && rm -rf * && cmake -D$bench=ON .. && make -j8
+  back=$(pwd)
+  PARBOIL_BUILD=$back
 
-  # copy gpgpu-sim config
-  cp ../scripts/gpgpusim.config .
-  cp ../scripts/config_fermi_islip.icnt .
+  if [ "$2" == "sim" ]; then
+    # manually relink the executable with shared runtime
+    cp ../scripts/link.sh .
+    ./link.sh
 
-  # source gpgpusim setup scripts
-  cd $gpgpusim
-  source setup_environment
+    # copy gpgpu-sim config
+    cp ../scripts/gpgpusim.config .
+    cp ../scripts/config_fermi_islip.icnt .
+
+    # source gpgpusim setup scripts
+    #cd $gpgpusim
+    #source setup_environment
+  fi
+
+  cd $back
+
+  IO=$(build_input "$bench" "${datamap[$bench]}")
+
+  echo -e "\n\n>>>>>>>>>>>>>>>> Launching kernel in isolation: $bench <<<<<<<<<<<<<<<<\n\n"
+  mkdir -p ../results/ && mkdir -p ../results/seq
+  $PROFILE ./PAIR 1 +$bench $IO +$bench $IO | tee ../results/seq/$bench.txt
+
+else
+  #concurrent runs
+  benchA=${benchmarks[0]}
+  benchB=${benchmarks[1]}
+
+  if [[ -v "datamap[$benchA]" ]] && [[ -v "datamap[$benchB]" ]]; then
+    echo "Running two kernels: $benchA and $benchB"
+  else
+    echo "Benchmarks do not exist: $benchA and $benchB"
+    exit
+  fi
+
+  # compile a new build!
+  cd .. && mkdir -p build-$benchA-$benchB
+  cd build-$benchA-$benchB && rm -rf * && cmake -D$benchA=ON -D$benchB=ON .. && make -j8
+  back=$(pwd)
+  PARBOIL_BUILD=$back
+
+  if [ "$2" == "sim" ]; then
+    # manually relink the executable with shared runtime
+    cp ../scripts/link.sh .
+    ./link.sh
+
+    # copy gpgpu-sim config
+    cp ../scripts/gpgpusim.config .
+    cp ../scripts/config_fermi_islip.icnt .
+
+    # source gpgpusim setup scripts
+    cd $gpgpusim
+    source setup_environment
+  fi
+
+  cd $back
+
+  IO_A=$(build_input "$benchA" "${datamap[$benchA]}")
+  IO_B=$(build_input "$benchB" "${datamap[$benchB]}")
+
+  echo -e "\n\n>>>>>>>>>>>>>>>> Launching kernel concurrently: $benchA and $benchB <<<<<<<<<<<<<<<<\n\n"
+  mkdir -p ../results/ && mkdir -p ../results/conc
+  ldd ./PAIR
+  echo $LD_LIBRARY_PATH
+  $PROFILE ./PAIR b +$benchA $IO_A +$benchB $IO_B | tee ../results/conc/$benchA-$benchB.txt
+
+
 fi
-
-cd $back
-
-IO=$(build_input "$bench" "${datamap[$bench]}")
-
-echo -e "\n\n>>>>>>>>>>>>>>>> Launching kernel in isolation: $bench <<<<<<<<<<<<<<<<\n\n"
-mkdir -p ../results/ && mkdir -p ../results/seq
-$PROFILE ./PAIR 1 +$bench $IO +$bench $IO | tee ../results/seq/$bench.txt
-
-
-exit 
-
-n=0
-for benchA in "${!datamap[@]}"; do 
-  for benchB in "${!datamap[@]}"; do 
-    if [ "$benchA" == "$benchB" ] || [[ "$benchA" > "$benchB" ]]; then
-      continue
-    fi
-  
-    # compile a new build!
-    (cd .. && mkdir -p build-$benchA-$benchB && cd build-$benchA-$benchB && $benchA=1 $benchB=1 cmake .. && make)
-
-
-    IO_A=$(build_input "$benchA" "${datamap[$benchA]}")
-    IO_B=$(build_input "$benchB" "${datamap[$benchB]}")
-
-    echo -e "\n\n>>>>>>>>>>>>>>>> Launching both kernels: $bench_A and $bench_B <<<<<<<<<<<<<<<<\n\n"
-    $PROFILE ../build-$benchA-$benchB/PAIR b +$benchA $IO_A +$benchB $IO_B | tee results/conc/$benchA_$benchB.txt
-
-  let "n += 1"
-
-  done
-done
-
-
 
 

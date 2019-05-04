@@ -3,8 +3,7 @@
   #  ["tpacf"]="large")
 
 
-#kernels=("cutcp" "sgemm" "tpacf" "lbm" "sad" "spmv" "stencil") 
-kernels=("stencil") 
+kernels=("cutcp" "sgemm" "tpacf" "lbm" "sad" "spmv" "stencil") 
 
 for bench in ${kernels[@]}; do 
   echo $bench
