@@ -133,7 +133,14 @@ int main(int argc, char** argv) {
     invoke(A_str, argc_A, &(argv[A_idx]), kernel_A, cleanup_A);
     invoke(B_str, argc_B, &(argv[B_idx]), kernel_B, cleanup_B);
 
-    for (int i = 0; i < 10; i++) {
+    int iters = 15;
+
+    if (A_str.compare("+spmv") == 0 || B_str.compare("+spmv") == 0) {
+      iters = 30;
+      std::cout << "Launching 30 iters." << std::endl;
+    }
+
+    for (int i = 0; i < iters; i++) {
       kernel_A(1, stream_A);
       kernel_B(1, stream_B);
     }

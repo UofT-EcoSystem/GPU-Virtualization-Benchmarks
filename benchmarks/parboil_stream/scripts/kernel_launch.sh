@@ -18,13 +18,17 @@ gpgpusim=/mnt/ecosystem-gpgpu-sim/
 #  ["tpacf"]="large")
 
 
-declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large") 
+declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ["stencil"]="default") 
 
 PROFILE=""
 
 
 if [ "$2" == "sim" ]; then
   PARBOIL_BUILD=$PARBOIL_ROOT/build-docker
+  if [ "$3" == "gdb" ]; then
+    PROFILE="gdb --args "
+  fi
+ 
 else
   PARBOIL_BUILD=$PARBOIL_ROOT/build
 
@@ -94,11 +98,11 @@ IFS=':' read -ra benchmarks <<< "$1"
 
 if [ ${#benchmarks[@]} -eq 1 ]; then
   #isolated run
-  bench=benchmarks[0]
+  bench=${benchmarks[0]}
 
   # compile a new build!
   cd .. && mkdir -p build-$bench 
-  cd build-$bench # && rm -rf * && cmake -D$bench=ON .. && make -j8
+  cd build-$bench && rm -rf * && cmake -D$bench=ON .. && make -j8
   back=$(pwd)
   PARBOIL_BUILD=$back
 
@@ -112,8 +116,8 @@ if [ ${#benchmarks[@]} -eq 1 ]; then
     cp ../scripts/config_fermi_islip.icnt .
 
     # source gpgpusim setup scripts
-    #cd $gpgpusim
-    #source setup_environment
+    cd $gpgpusim
+    source setup_environment
   fi
 
   cd $back
@@ -153,7 +157,7 @@ else
 
     # source gpgpusim setup scripts
     cd $gpgpusim
-    source setup_environment
+    source setup_environment 
   fi
 
   cd $back
