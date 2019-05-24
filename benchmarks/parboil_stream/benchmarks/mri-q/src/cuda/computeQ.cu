@@ -105,7 +105,7 @@ void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d, 
   dim3 DimPhiMagBlock(KERNEL_PHI_MAG_THREADS_PER_BLOCK, 1);
   dim3 DimPhiMagGrid(phiMagBlocks, 1);
 
-  ComputePhiMag_GPU <<< DimPhiMagGrid, DimPhiMagBlock, 0, stream >>> 
+  ComputePhiMag_GPU <<< DimPhiMagGrid, DimPhiMagBlock, 0, 0 >>> 
     (phiR_d, phiI_d, phiMag_d, numK);
 }
 
@@ -132,7 +132,7 @@ void computeQ_GPU(int numK, int numX,
 
     cudaMemcpyToSymbol(ck, kValsTile, numElems * sizeof(kValues), 0);
 
-    ComputeQ_GPU <<< DimQGrid, DimQBlock, 0, stream >>>
+    ComputeQ_GPU <<< DimQGrid, DimQBlock, 0, 0 >>>
       (numK, QGridBase, x_d, y_d, z_d, Qr_d, Qi_d);
   }
 }
