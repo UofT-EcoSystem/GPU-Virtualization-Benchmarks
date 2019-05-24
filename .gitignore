@@ -40,7 +40,7 @@
 *.x86_64
 *.hex
 build/
-build-docker/
+build-*/
 bin/
 
 # Debug files
@@ -107,3 +107,9 @@ results/
 
 
 # End of https://www.gitignore.io/api/c,cuda,linux
+
+benchmarks/cuda-sdk/cudaTensorCoreGemm/cudaTensorCoreGemm
+
+benchmarks/cuda-sdk/cudaTensorCoreGemm/NsightEclipse\.xml
+
+benchmarks/cuda-sdk/cudaTensorCoreGemm/profile\.nsight-cuprof-report
