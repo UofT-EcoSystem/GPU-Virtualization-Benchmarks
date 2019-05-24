@@ -6,6 +6,17 @@
  *cr
  ***************************************************************************/
 
+#include "cuda_profiler_api.h"
+#include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
+
+volatile bool ready = false;
+volatile bool should_stop = false;
+
+const char * ready_fifo = "/tmp/ready"; 
+
+
 /* 
  * Kernel of dense matrix-matrix multiplication kernel.
  * The algorithm is based on CUDA sgemm code from Vasily Volkov
@@ -93,10 +104,104 @@ void regtileSgemm( char transa, char transb, int m, int n, int k, float alpha, c
       << "; n should be multiple of " << TILE_N << std::endl;
   }
 
+    /* Create CUDA start & stop events to record total elapsed time of kernel execution */
+    cudaEvent_t start;
+    cudaError_t error = cudaEventCreate(&start);
 
-  dim3 grid( m/TILE_M, n/TILE_N ), threads( TILE_N, TILE_TB_HEIGHT );
-  mysgemmNT<<<grid, threads>>>( A, lda, B, ldb, C, ldc, k, alpha, beta);
-  CHECK_ERROR("mySgemm");
+    if (error != cudaSuccess)
+    {   
+        fprintf(stderr, "Failed to create start event (error code %s)!\n", 
+                                                cudaGetErrorString(error));   
+        exit(EXIT_FAILURE);
+    }
+
+    cudaEvent_t stop;
+    error = cudaEventCreate(&stop);
+
+    if (error != cudaSuccess)
+    {   
+        fprintf(stderr, "Failed to create stop event (error code %s)!\n", 
+                                                cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+
+    /* End event creation */ 
+    
+    
+    /* Write to pipe to signal the wrapper script that we are done with data setup */
+    char pid[10];
+    sprintf(pid, "%d", getpid());
+
+    int fd = open(ready_fifo, O_WRONLY);
+    int res = write(fd, pid, strlen(pid));
+    close(fd);
+
+    if (res > 0) printf("Parboil sgemm write success to the pipe!\n");
+    /* End pipe writing */
+    
+    
+    /* Spin until master tells me to start kernels */
+    while (!ready);
+    /* End spinning */
+    
+    
+    /* Record the start event and start nvprof profiling */
+    cudaProfilerStart();
+    
+    error = cudaEventRecord(start, NULL);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to record start event (error code %s)!\n", 
+                                                cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+    
+    /* End CUDA start records */
+ 
+
+    dim3 grid( m/TILE_M, n/TILE_N ), threads( TILE_N, TILE_TB_HEIGHT );
+
+    while(!should_stop) 
+      mysgemmNT<<<grid, threads>>>( A, lda, B, ldb, C, ldc, k, alpha, beta);
+
+    CHECK_ERROR("mySgemm");
+
+    /* Record and wait for the stop event */
+    error = cudaEventRecord(stop, NULL);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to record stop event (error code %s)!\n", 
+                                                cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+    
+    cudaThreadSynchronize();
+
+    error = cudaEventSynchronize(stop);
+
+    if (error != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to synchronize on the stop event (error code %s)!\n", 
+                                                            cudaGetErrorString(error));
+        exit(EXIT_FAILURE);
+    }
+    
+    cudaProfilerStop();
+    
+    /* End stop CUDA event handling */
+    
+    
+    /* Output total elapsed time */
+    float msecTotal = 0.0f;
+    // !!! Important: must use this print format, the data processing 
+    // script requires this information 
+    error = cudaEventElapsedTime(&msecTotal, start, stop);
+    printf("Total elapsed time: %f ms\n", msecTotal);
+    /* End elpased time recording */
+
+
 
 }
 

@@ -21,6 +21,22 @@
 #include <iostream>
 #include "sgemm_kernel.cu"
 
+#include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
+
+#include "cuda_profiler_api.h"
+
+
+
+void start_handler(int sig) {
+    ready = true;
+}
+
+void stop_handler(int sig) {
+    should_stop = true;
+}
+
 // I/O routines
 extern bool readColMajorMatrixFile(const char *fn, int &nr_row, int &nr_col, std::vector<float>&v);
 extern bool writeColMajorMatrixFile(const char *fn, int, int, std::vector<float>&);
@@ -30,6 +46,12 @@ void computeGold(float *, const float*, const float*, unsigned int, unsigned int
 
 int
 main (int argc, char *argv[]) {
+
+  if (signal(SIGUSR1, start_handler) < 0)
+      perror("Signal error");
+
+  if (signal(SIGUSR2, stop_handler) < 0)
+      perror("Signal error");
 
   struct pb_Parameters *params;
   struct pb_TimerSet timers;
