@@ -466,6 +466,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, int niter, int8_t alpha, int8_t
         exit(EXIT_FAILURE);
     }
 
+#ifdef HARDWARE
 
     char pid[10];
     sprintf(pid, "%d", getpid());
@@ -480,6 +481,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, int niter, int8_t alpha, int8_t
     while (!ready) {};
 
     fprintf(stdout, "%lu\n", (unsigned long)time(NULL));
+#endif
 
     cudaProfilerStart();
 
@@ -493,8 +495,12 @@ cudaError_t TestCutlassGemm(int M, int N, int K, int niter, int8_t alpha, int8_t
     }
 
     int buffer_idx = 0;
-    //for (int i = 0; i < niter; i++) {
+
+#ifdef HARDWARE
     while (!should_stop) {
+#else
+    for (int i = 0; i < niter; i++) {
+#endif
         int8_t* A_adj = &(A[buffer_idx * nitems_A]);
         int8_t* B_adj = &(B[buffer_idx * nitems_B]);
         int* C_cutlass_adj = &(C_cutlass[buffer_idx * nitems_C]);
