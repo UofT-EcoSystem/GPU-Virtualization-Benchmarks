@@ -7,9 +7,9 @@ PARBOIL_PATH="$ROOT/benchmarks/parboil"
 
 TENSOR_PATH="$ROOT/benchmarks/cuda-sdk/cudaTensorCoreGemm"
 
-parboil_spmv="$PARBOIL_PATH/benchmarks/spmv/build/cuda_default/spmv -i /home/serinatan/gpu-sharing-exp/parboil/datasets/spmv/large/input/Dubcova3.mtx.bin,/home/serinatan/gpu-sharing-exp/parboil/datasets/spmv/large/input/vector.bin -o /home/serinatan/gpu-sharing-exp/parboil/benchmarks/spmv/run/large/Dubcova3.mtx.out" 
+parboil_spmv="$PARBOIL_PATH/benchmarks/spmv/build/cuda_default/spmv -i $PARBOIL_PATH/datasets/spmv/large/input/Dubcova3.mtx.bin,$PARBOIL_PATH/datasets/spmv/large/input/vector.bin -o $PARBOIL_PATH/benchmarks/spmv/run/large/Dubcova3.mtx.out" 
 
-parboil_sgemm="$PARBOIL_PATH/benchmarks/sgemm/build/cuda_default/sgemm -i /home/serinatan/gpu-sharing-exp/parboil/datasets/sgemm/medium/input/matrix1.txt,/home/serinatan/gpu-sharing-exp/parboil/datasets/sgemm/medium/input/matrix2t.txt,/home/serinatan/gpu-sharing-exp/parboil/datasets/sgemm/medium/input/matrix2t.txt -o /home/serinatan/gpu-sharing-exp/parboil/benchmarks/sgemm/run/medium/matrix3.txt"
+parboil_sgemm="$PARBOIL_PATH/benchmarks/sgemm/build/cuda_default/sgemm -i $PARBOIL_PATH/datasets/sgemm/medium/input/matrix1.txt,$PARBOIL_PATH/datasets/sgemm/medium/input/matrix2t.txt,$PARBOIL_PATH/datasets/sgemm/medium/input/matrix2t.txt -o $PARBOIL_PATH/benchmarks/sgemm/run/medium/matrix3.txt"
 
 parboil_mri_gridding="$PARBOIL_PATH/benchmarks/mri-gridding/build/cuda_default/mri-gridding -i /home/serinatan/gpu-sharing-exp/parboil/datasets/mri-gridding/small/input/small.uks -o /home/serinatan/gpu-sharing-exp/parboil/benchmarks/mri-gridding/run/small/output.txt -- 32 0"
 
@@ -17,7 +17,7 @@ parboil_stencil="$PARBOIL_PATH/benchmarks/stencil/build/cuda_default/stencil -i 
 
 parboil_cutcp="$PARBOIL_PATH/benchmarks/cutcp/build/cuda_default/cutcp -i /home/serinatan/gpu-sharing-exp/parboil/datasets/cutcp/large/input/watbox.sl100.pqr -o /home/serinatan/gpu-sharing-exp/parboil/benchmarks/cutcp/run/large/lattice.dat"
 
-parboil_histo="$PARBOIL_PATH/benchmarks/histo/build/cuda_default/histo -i /home/serinatan/gpu-sharing-exp/parboil/datasets/histo/large/input/img.bin -o /home/serinatan/gpu-sharing-exp/parboil/benchmarks/histo/run/large/ref.bmp -- 10000 4"
+parboil_histo="$PARBOIL_PATH/benchmarks/histo/build/cuda_default/histo -i $PARBOIL_PATH/datasets/histo/large/input/img.bin -o $PARBOIL_PATH/benchmarks/histo/run/large/ref.bmp -- 10000 4"
 
 parboil_sad="$PARBOIL_PATH/benchmarks/sad/build/cuda_default/sad -i /home/serinatan/gpu-sharing-exp/parboil/datasets/sad/large/input/reference.bin,/home/serinatan/gpu-sharing-exp/parboil/datasets/sad/large/input/frame.bin -o /home/serinatan/gpu-sharing-exp/parboil/benchmarks/sad/run/large/out.bin"
 

@@ -57,6 +57,8 @@ run_single() {
     # usage: run_single filepath app1 app1_out
     eval "$2 > $1/$3.txt &"
     local pid=$( echo $! )
+    echo "scripts: " 
+    echo $pid
 
     cat $pipe
     echo "get pipe"
