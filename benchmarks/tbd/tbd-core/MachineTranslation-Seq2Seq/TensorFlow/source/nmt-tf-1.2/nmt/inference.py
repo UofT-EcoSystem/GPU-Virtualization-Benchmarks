@@ -59,7 +59,7 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
     src_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
     batch_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
 
-    src_dataset = tf.contrib.data.Dataset.from_tensor_slices(
+    src_dataset = tf.data.Dataset.from_tensor_slices(
         src_placeholder)
     iterator = iterator_utils.get_infer_iterator(
         src_dataset,
