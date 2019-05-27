@@ -2,6 +2,8 @@ FROM tensorflow/tensorflow:1.13.1-gpu-py3
 RUN apt-get update && \
 apt-get install -y --no-install-recommends \
 vim-gnome g++ make pkg-config \
+cuda-nsight-compute-10-1 \
+virtualenv \
 libopencv-dev \
 libopenblas-dev \
 libjemalloc-dev \
