@@ -237,6 +237,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, args)
 
+        '''
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
 
@@ -253,6 +254,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
             }, is_best)
+        '''
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -268,13 +270,19 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     model.train()
 
     end = time.time()
+
     for i, (images, target) in enumerate(train_loader):
+        print("iteration: {}".format(i))
         # measure data loading time
         data_time.update(time.time() - end)
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
         target = target.cuda(args.gpu, non_blocking=True)
+
+        if i == 500:
+            torch.cuda.profiler.start()
+            print("############ Start profiling ############")
 
         # compute output
         output = model(images)
@@ -294,6 +302,15 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
+
+        if i == 510:
+            torch.cuda.profiler.stop()
+            print("############ Stop profiling ############")
+
+        if i > 510:
+            # exit if we are done profiling
+            return
+
 
         if i % args.print_freq == 0:
             progress.print(i)
