@@ -9,6 +9,8 @@ from tensorflow.python.client import timeline
 from tensorflow.python.lib.io import file_io
 from tensorflow.python.platform import tf_logging as logging
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(dir_path + '/../../../../ProfileSignal')
 from profile_signal import profiling_period
 
 def train_step(sess, train_op, global_step, train_step_kwargs):
@@ -46,10 +48,10 @@ def train_step(sess, train_op, global_step, train_step_kwargs):
         if 'concurrent' not in train_step_kwargs:
             import numba.cuda as cuda
             if np_global_step == train_step_kwargs['nvprof_start_step']:
-                print '=== START PROFILING ==='
+                print('=== START PROFILING ===')
                 cuda.profile_start()
             if np_global_step == train_step_kwargs['nvprof_stop_step']:
-                print '===    END PROFILING    ==='
+                print('===    END PROFILING    ===')
                 cuda.profile_stop()
                 exit()
         else:

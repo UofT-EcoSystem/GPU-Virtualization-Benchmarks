@@ -113,3 +113,6 @@ benchmarks/cuda-sdk/cudaTensorCoreGemm/cudaTensorCoreGemm
 benchmarks/cuda-sdk/cudaTensorCoreGemm/NsightEclipse\.xml
 
 benchmarks/cuda-sdk/cudaTensorCoreGemm/profile\.nsight-cuprof-report
+
+# vim temp files
+*.swp
