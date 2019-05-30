@@ -87,14 +87,18 @@ def run_model(model, framework, args):
         suffix = ''
     else:
         if args.concurrent:
-            prefix = '/usr/local/cuda-9.0/bin/nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
+            prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework, os.getpid())
             suffix = ' --nvprof_on=True --concurrent=True'
         else:
             if not args.profile_metrics:
-                prefix = '/usr/local/cuda-9.0/bin/nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
+                #prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}.nvvp -f --print-summary'.format(args.output_directory, args.output, model, framework)
+                prefix = 'nvprof --profile-from-start off -f -o seq2seq.nvprof'
                 suffix = ' --nvprof_on=True'
             else:
-                prefix = '/usr/local/cuda-9.0/bin/nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
+                folder = os.path.join(dir_path, "../../../sections/")
+                section = "PertSustainedActive"
+                #prefix = 'nvprof --profile-from-start off --export-profile {}/{}_{}_{}_{}.nvvp -f --metrics {}--print-summary'.format(args.output_directory, args.output, model, framework, '_'.join(args.metrics), ' '.join(metrics))
+                prefix = '/usr/local/cuda-10.1/NsightCompute-2019.3/nv-nsight-cu-cli --csv --profile-from-start off -o {}/{}_{}_{} -f --target-processes all --section-folder {} --section {}'.format(args.output_directory, args.output, model, framework, folder, section)
                 suffix = ' --nvprof_on=True'
 
     flags = info['config']
@@ -105,7 +109,7 @@ def run_model(model, framework, args):
         environment = '_'.join(['tbd', model, framework])
     else:
         environment = args.environment
-    #activate = os.path.join(dir_path, '..', '..', 'envs', environment, 'bin', 'activate_this.py')
+    activate = os.path.join(dir_path, '..', '..', 'envs', environment, 'bin', 'activate_this.py')
     #execfile(activate, dict(__file__=activate))
 
 

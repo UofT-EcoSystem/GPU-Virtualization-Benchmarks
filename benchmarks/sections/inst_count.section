@@ -11,7 +11,7 @@ Header {
     Name: "smsp__inst_executed_pipe_alu.sum"
    }
   Metrics {
-    Label: "FP32"
+    Label: "FMA"
     Name: "smsp__inst_executed_pipe_fma.sum"
   }
   Metrics {

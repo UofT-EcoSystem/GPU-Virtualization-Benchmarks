@@ -13,17 +13,17 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 def start_profiling(sig, frame):
-    print '=== START PROFILING ==='
+    print('=== START PROFILING ===')
     cuda.profile_start()
 
 def stop_profiling(sig, frame):
-    print '=== STOP PROFILING ==='
+    print('=== STOP PROFILING ===')
     cuda.profile_stop()
     exit()
 
 def profiling_period():
     signal.signal(signal.SIGUSR1, start_profiling)
-    print bcolors.OKGREEN + '[Signal Handler] [{}] Waiting for SIGUSR1 to start.'.format(os.getpid()) + bcolors.ENDC
+    print(bcolors.OKGREEN + '[Signal Handler] [{}] Waiting for SIGUSR1 to start.'.format(os.getpid()) + bcolors.ENDC)
     signal.pause()
     signal.signal(signal.SIGUSR2, stop_profiling)
-    print bcolors.OKGREEN + '[Signal Handler] [{}] Started profiling, waiting for SIGUSR2 to stop.'.format(os.getpid()) + bcolors.ENDC
+    print(bcolors.OKGREEN + '[Signal Handler] [{}] Started profiling, waiting for SIGUSR2 to stop.'.format(os.getpid()) + bcolors.ENDC)
