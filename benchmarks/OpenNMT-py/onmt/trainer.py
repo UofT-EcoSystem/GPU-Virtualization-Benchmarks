@@ -217,6 +217,8 @@ class Trainer(object):
             logger.info('Start training loop and validate every %d steps...',
                         valid_steps)
 
+        torch.backends.cudnn.benchmark = True
+
         total_stats = onmt.utils.Statistics()
         report_stats = onmt.utils.Statistics()
         self._start_report_manager(start_time=total_stats.start_time)
@@ -228,6 +230,9 @@ class Trainer(object):
         for i, (batches, normalization) in enumerate(
                 self._accum_batches(train_iter)):
             step = self.optim.training_step
+
+            if i > 100 and i < 110:
+                torch.cuda.profiler.start()
 
             # UPDATE DROPOUT
             self._maybe_update_dropout(step)
@@ -286,6 +291,15 @@ class Trainer(object):
             if train_steps > 0 and step >= train_steps:
                 break
 
+            if i > 100 and i < 110:
+                torch.cuda.profiler.stop()
+
+            if i > 110:
+                # return early cuz we are done profiling 
+                return
+
+
+        # donezo
         if self.model_saver is not None:
             self.model_saver.save(step, moving_average=self.moving_average)
         return total_stats
