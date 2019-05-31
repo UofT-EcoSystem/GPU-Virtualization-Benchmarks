@@ -34,30 +34,5 @@ Header {
     Label: "Load/Store"
     Name: "smsp__inst_executed_pipe_lsu.sum"
   }
-  Metrics {
-    Label: "ADU"
-    Name: "smsp__inst_executed_pipe_adu.sum"
-  }
-  Metrics {
-    Label: "CBU"
-    Name: "smsp__inst_executed_pipe_cbu.sum"
-  }
-  Metrics {
-    Label: "ADU"
-    Name: "smsp__inst_executed_pipe_adu.sum"
-  }
-  Metrics {
-    Label: "IPA"
-    Name: "smsp__inst_executed_pipe_ipa.sum"
-  }
-  Metrics {
-    Label: "UNIFORM"
-    Name: "smsp__inst_executed_pipe_uniform.sum"
-  }
-
-
-
-
-
 }
 
