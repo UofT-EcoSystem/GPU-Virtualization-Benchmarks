@@ -1,4 +1,3 @@
-#!/mnt/env/torch/bin/python
 import argparse
 import os
 import random
@@ -18,6 +17,8 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
+
+import datetime
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -74,6 +75,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
+parser.add_argument('--profile', type=int, default=1,
+                    help="iteration to be profiled")
 
 best_acc1 = 0
 
@@ -272,6 +275,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
     end = time.time()
 
+    print("before enumerate {}".format(datetime.datetime.now()))
+
     for i, (images, target) in enumerate(train_loader):
         print("iteration: {}".format(i))
         # measure data loading time
@@ -281,7 +286,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             images = images.cuda(args.gpu, non_blocking=True)
         target = target.cuda(args.gpu, non_blocking=True)
 
-        if i == 500:
+        if i == args.profile:
             torch.cuda.profiler.start()
             print("############ Start profiling ############")
 
@@ -304,11 +309,11 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i == 510:
+        if i == args.profile + 1:
             torch.cuda.profiler.stop()
             print("############ Stop profiling ############")
 
-        if i > 510:
+        if i > args.profile + 1:
             # exit if we are done profiling
             return
 
