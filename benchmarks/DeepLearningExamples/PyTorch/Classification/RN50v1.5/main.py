@@ -125,6 +125,7 @@ def add_parser_arguments(parser):
 
     parser.add_argument('--no-checkpoints', action='store_false', dest='save_checkpoints')
 
+    parser.add_argument('--profile', type=int, default=10, help='iteration to profile with')
     parser.add_argument('--workspace', type=str, default='./')
 
 
@@ -281,7 +282,8 @@ def main(args):
         model_and_loss, optimizer,
         lr_policy,
         train_loader, val_loader, args.epochs,
-        args.fp16, logger, should_backup_checkpoint(args), use_amp=args.amp,
+        args.fp16, logger, should_backup_checkpoint(args), 
+        profile=args.profile, use_amp=args.amp,
         batch_size_multiplier = batch_size_multiplier,
         start_epoch = args.start_epoch, best_prec1 = best_prec1, prof=args.prof,
         skip_training = args.evaluate, skip_validation = args.training_only,
@@ -296,6 +298,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
     add_parser_arguments(parser)
+    print('hi ')
     args = parser.parse_args()
     cudnn.benchmark = True
 

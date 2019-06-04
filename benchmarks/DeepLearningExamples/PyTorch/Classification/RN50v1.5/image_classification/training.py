@@ -199,7 +199,7 @@ def get_train_step(model_and_loss, optimizer, fp16, use_amp = False, batch_size_
     return _step
 
 
-def train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, epoch, use_amp=False, prof=-1, batch_size_multiplier=1, register_metrics=True):
+def train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, epoch, profile, use_amp=False, prof=-1, batch_size_multiplier=1, register_metrics=True):
 
     if register_metrics and logger is not None:
         logger.register_metric('train.top1', log.AverageMeter(), log_level = 0)
@@ -222,6 +222,7 @@ def train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, e
         data_iter = logger.iteration_generator_wrapper(data_iter)
 
     for i, (input, target) in data_iter:
+        print('Iteration {}'.format(i))
         bs = input.size(0)
         lr_scheduler(optimizer, i, epoch)
         data_time = time.time() - end
@@ -229,6 +230,15 @@ def train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, e
         if prof > 0:
             if i >= prof:
                 break
+
+        if i == profile:
+            torch.cuda.profiler.start()
+            print('==================== Start profiling ===================')
+
+        if i == profile + 1:
+            torch.cuda.profiler.stop()
+            print('==================== Stop profiling ===================')
+            return
 
         optimizer_step = ((i + 1) % batch_size_multiplier) == 0
         loss, prec1, prec5 = step(input, target, optimizer_step = optimizer_step)
@@ -326,7 +336,7 @@ def calc_ips(batch_size, time):
     return tbs/time
 
 def train_loop(model_and_loss, optimizer, lr_scheduler, train_loader, val_loader, epochs, fp16, logger,
-               should_backup_checkpoint, use_amp=False,
+               should_backup_checkpoint, use_amp=False, profile=10,
                batch_size_multiplier = 1,
                best_prec1 = 0, start_epoch = 0, prof = -1, skip_training = False, skip_validation = False, save_checkpoints = True, checkpoint_dir='./'):
 
@@ -337,7 +347,7 @@ def train_loop(model_and_loss, optimizer, lr_scheduler, train_loader, val_loader
         epoch_iter = logger.epoch_generator_wrapper(epoch_iter)
     for epoch in epoch_iter:
         if not skip_training:
-            train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, epoch, use_amp = use_amp, prof = prof, register_metrics=epoch==start_epoch, batch_size_multiplier=batch_size_multiplier)
+            train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, epoch, profile, use_amp = use_amp, prof = prof, register_metrics=epoch==start_epoch, batch_size_multiplier=batch_size_multiplier)
 
         if not skip_validation:
             prec1 = validate(val_loader, model_and_loss, fp16, logger, epoch, prof = prof, register_metrics=epoch==start_epoch)
