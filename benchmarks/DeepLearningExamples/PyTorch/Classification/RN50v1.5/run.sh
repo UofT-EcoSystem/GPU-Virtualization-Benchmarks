@@ -5,7 +5,8 @@ export CUDA_VISIBLE_DEVICES=$3
 
 nsight_path=/usr/local/NVIDIA-Nsight-Compute-2019.3/
 
-train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 --fp16 --static-loss-scale 256 -b 32 --training-only /dataset/ --epochs 1 --profile 15"
+#--fp16 --static-loss-scale 256 
+train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 40 --training-only /dataset/ --epochs 1 --profile 15"
 
 # FIXME: update inference for resnet50
 infer="/opt/conda/bin/python3 translate.py \
