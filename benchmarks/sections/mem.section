@@ -18,18 +18,6 @@ Header {
     Name: "sm__warps_active.avg.pct_of_peak_sustained_active"
    }
   Metrics {
-    Label: "LD/ST util"
-    Name: "smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active"
-  }
-  Metrics {
-    Label: "DRAM_READ_BYTES"
-    Name: "dram__bytes_read.sum.pct_of_peak_sustained_active"
-  }
-  Metrics {
-    Label: "DRAM_WRITE_BYTES"
-    Name: "dram__bytes_write.sum.pct_of_peak_sustained_active"
-  }
-  Metrics {
     Label: "DRAM_UTIL_PCT"
     Name: "dram__throughput.avg.pct_of_peak_sustained_elapsed"
   }
