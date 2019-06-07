@@ -6,7 +6,7 @@ export CUDA_VISIBLE_DEVICES=$3
 nsight_path=/usr/local/NVIDIA-Nsight-Compute-2019.3/
 
 #--fp16 --static-loss-scale 256 
-train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 40 --training-only /dataset/ --epochs 1 --profile 15"
+train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/imagenet --epochs 1 --profile 15"
 
 # FIXME: update inference for resnet50
 infer="/opt/conda/bin/python3 translate.py \
@@ -18,6 +18,7 @@ infer="/opt/conda/bin/python3 translate.py \
 sec_folder="../../../../sections"
 util_sec="PertSustainedActive"
 inst_sec="InstCounter"
+mem_sec="Memory_Usage"
 
 if [ $1 == "train" ]; then
   cmd=$train
@@ -27,13 +28,14 @@ fi
 
 if [ $2 == "util" ]; then
   section=$util_sec
-else
+elif [ $2 == "inst" ]; then
   section=$inst_sec
+else
+  section=$mem_sec
 fi
 
 mkdir -p profile
-mkdir -p profile/util
-mkdir -p profile/inst
+mkdir -p profile/$2
 
 # training: comp unit utilization
 $nsight_path/nv-nsight-cu-cli --target-processes all --section-folder $sec_folder --section $section \
