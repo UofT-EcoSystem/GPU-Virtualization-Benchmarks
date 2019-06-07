@@ -166,11 +166,11 @@ def draw_bar(results, legends, title, xlabel, ylabel, outfile='util.pdf', pwidth
 
         if i == 1:
             ax = ax1 = plt.subplot(len(legends), 1, i)
-            plt.bar(idx, results[:, i], color=colors[i], label=legends[i-1])
+            plt.bar(idx, results[:, i], color=colors[i-1], label=legends[i-1])
             plt.title(title, fontsize=22)
         else:
             ax = plt.subplot(len(legends), 1, i, sharex=ax1, sharey=ax1)
-            plt.bar(idx, results[:, i], color=colors[i], label=legends[i-1])
+            plt.bar(idx, results[:, i], color=colors[i-1], label=legends[i-1])
             
 
         #plt.setp(ax.get_xticklabels(), visible=False)
@@ -229,7 +229,7 @@ def util(args):
 
             results = trans_df.values
 
-            legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
+            legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
             draw_bar(results, legends, bench_name, 'Kernel ID', 
                     'Utilization during Active Cycles (%)',
                     os.path.join(outdir, bench_name+'-util.pdf'), pwidth=25)
@@ -261,7 +261,9 @@ def mem(args):
             df_map = {}
             df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
 
-            metrics = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'DYNAMIC_SHARED_USAGE', 'STATIC_SHARED_USAGE', 'L2 Hit Rate', 'OCCUPANCY', 'L1 Hit Rate']
+            metrics = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'DYNAMIC_SHARED_USAGE', 
+                    'STATIC_SHARED_USAGE', 'L2 Hit Rate', 'OCCUPANCY', 
+                    'L1 Hit Rate', 'Block Size', 'Shm Config Size']
 
             # I really hope no one sees this: re-organize the table
             for metric in metrics:
@@ -272,12 +274,17 @@ def mem(args):
             cols = ['Kernel Name'] + metrics
             trans_df = trans_df[cols]
             trans_df['REGISTER_USAGE'] = trans_df['REGISTER_USAGE'] * 1024 * trans_df['OCCUPANCY'] / (64 * 1024)
+            blocks_per_sm = trans_df['OCCUPANCY'] * 32 * 32 / trans_df['Block Size']
+            trans_df['SHARED_USAGE'] = (trans_df['DYNAMIC_SHARED_USAGE'] 
+                                       + trans_df['STATIC_SHARED_USAGE'] ) * (blocks_per_sm) / trans_df['Shm Config Size']
 
+            #'L2 Hit Rate' is bogus, bug in nsight
+            cols = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'SHARED_USAGE', 
+                     'OCCUPANCY', 'L1 Hit Rate']
+            trans_df = trans_df[['Kernel Name'] + cols]
             results = trans_df.values
 
-            legends = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'DYNAMIC_SHARED_USAGE', 'STATIC_SHARED_USAGE', 
-                    'L2 Hit Rate', 'OCCUPANCY', 'L1 Hit Rate', 'Other']
-            draw_bar(results, legends, bench_name, 'Kernel ID', 
+            draw_bar(results, cols, bench_name, 'Kernel ID', 
                     'Memory Utilization during Active Cycles (%)',
                     os.path.join(outdir, bench_name+'-util.pdf'), pwidth=25)
  
