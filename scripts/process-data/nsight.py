@@ -9,43 +9,41 @@ import cxxfilt
 import re
 import difflib
 
+from primitives.draw_bar import *
+
 
 def parse_csv(directory, graph_type):
     results = {}
-    subfolder = [graph_type, 'time']
+    types = graph_type + ['time']
 
-    for subf in subfolder:
-        for filename in os.listdir(os.path.join(directory, subf)):
-            full_filename = os.path.join(directory, subf, filename)
+    for t in types:
+        full_filename = os.path.join(directory, t+'.txt')
 
-            # find out number of lines to skip in file
-            n_skip = 0
-            output_exists = False
+        # find out number of lines to skip in file
+        n_skip = 0
+        output_exists = False
 
-            if not filename.endswith(".txt"):
-                continue
+        with open(full_filename) as search:
+            for num, line in enumerate(search, 1):
+                # Sketchy, might break
+                if '\"Metric Value\"' in line or '\"Duration\"' in line:
+                    n_skip = num - 1
+                    output_exists = True
+                    
+        if not output_exists:
+            print(full_filename, "went wrong!")
+            continue
 
-            with open(full_filename) as search:
-                for num, line in enumerate(search, 1):
-                    # Sketchy, might break
-                    if '\"Metric Value\"' in line or '\"Duration\"' in line:
-                        n_skip = num - 1
-                        output_exists = True
-                        
-            if not output_exists:
-                print(filename, "went wrong!")
-                continue
+        print("Parsing", full_filename)
 
-            print("Parsing", filename)
+        # read data using pandas
+        if t == 'time':
+            skip_call = lambda x: x in range(n_skip) or x == (n_skip + 1)
+        else:
+            skip_call = lambda x: x in range(n_skip) 
 
-            # read data using pandas
-            if subf == 'time':
-                skip_call = lambda x: x in range(n_skip) or x == (n_skip + 1)
-            else:
-                skip_call = lambda x: x in range(n_skip) 
-
-            data = pd.read_csv(full_filename, delimiter=',', skiprows=skip_call, thousands=',')
-            results[subf] = data
+        data = pd.read_csv(full_filename, delimiter=',', skiprows=skip_call, thousands=',')
+        results[t] = data
 
     # return a map of metric type to pandas dataframe
     return results
@@ -59,49 +57,6 @@ def print_kernel(kernels):
         name = re.sub(">\((.+)\)$", '>', dm, 1)
         #name = re.sub("^([a-z]+)\s", '', name, 1)
         plt.text(0.1, 0.6-i/kernels.shape[0]*0.4, '{}: {}'.format(i, name), transform=plt.gcf().transFigure)
-
-def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf', pwidth=20):
-    plt.rcParams["figure.figsize"] = (pwidth, 40)
-
-    # draw stack bars
-    idx = np.arange(results.shape[0])
-    width = 0.35
-
-    accum = np.zeros(results.shape[0], dtype=np.float32)
-
-    p = []
-    # colors = sns.color_palette("husl", len(cols)-1)
-    colors = sns.color_palette("Set2", len(legends))
-
-    for i, col in enumerate(results.T):
-        if i == 0 :
-            continue
-        #FIXME: remove this, this logic should go to top level
-        #height = np.divide(col, results[:,-2])
-        p.append(plt.bar(idx, col, width, bottom=accum, color=colors[i-1]))
-        accum += col.astype(np.float32)
-
-    # add the other uncaptured types
-    #p.append(plt.bar(idx, 1-accum, width, bottom=accum))
-
-    #plt.xticks(idx, results[:, 0], fontsize=16, rotation=30)
-    plt.xticks(idx, np.arange(results.shape[0]), fontsize=16, rotation=30)
-    plt.yticks(fontsize=16)
-    
-    plt.title(title, fontsize=22)
-    plt.xlabel(xlabel, fontsize=18)
-    plt.ylabel(ylabel, fontsize=18)
-
-    #plt.ylim([0, 1])
-    # flip legends
-    p.reverse()
-    legends.reverse()
-
-    plt.legend(p, legends, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0., fontsize=18)
-    print_kernel(results[:, 0])
-
-    plt.savefig(outfile,  bbox_inches='tight')
-    plt.close()
 
 def time(time_df):
     # get the total runtime
@@ -151,18 +106,9 @@ def join(df_time, df):
 
     return result
 
-
-def instmix(args):
-    # parse inputs
-    df_read = parse_csv(args.indir, 'inst')
-    outdir = args.outdir if args.outdir else args.indir
-
-    # get kernel importance from runtime info
-    df_time = time(df_read['time'])
-
-    # read the instruction mix
-    df = df_read['inst']
+def instmix(args, df_time, df):
     bench_name = args.name
+    outdir = args.outdir if args.outdir else args.indir
 
     # divide by 1 million
     df['Metric Value'] /= 1000000
@@ -186,6 +132,7 @@ def instmix(args):
     trans_df = pd.DataFrame(df_map)
 
     # inner join the two tables: importance and metric values
+    # also sort the table rows by descending importance
     df_join = join(df_time, trans_df)
 
     # normalize each benchmark mixture and scale it by importance
@@ -200,52 +147,18 @@ def instmix(args):
 
     results = df_join.values
 
+    # set graph size
+    plt.rcParams["figure.figsize"] = (25, 40)
+
+    # print the list of kernels
+    print_kernel(results[:, 0])
+
     legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
     draw_stack(results, legends, bench_name.capitalize(), 'Kernel ID', 
-            'Percentage of Total Executed Instructions',
-            os.path.join(outdir, 'inst', 'plot.pdf'), pwidth=25)
- 
-def draw_bar(results, legends, title, xlabel, ylabel, outfile='util.pdf', pwidth=20):
-    plt.rcParams["figure.figsize"] = (pwidth, 20)
+            'Normalized Instruction Count Scaled by Runtime Weight',
+            os.path.join(outdir, 'inst.pdf'))
 
-    num_metrics = results.shape[1]
-    idx = np.arange(results.shape[0])
-
-    p = []
-    colors = sns.color_palette("husl", len(legends))
-    #colors = sns.color_palette("Set2", len(legends))
-
-    ax1 = None
-    for i, col in enumerate(results.T):
-        if i == 0:
-            continue
-
-        if i == 1:
-            ax = ax1 = plt.subplot(len(legends), 1, i)
-            plt.bar(idx, results[:, i], color=colors[i-1], label=legends[i-1])
-            plt.title(title, fontsize=22)
-        else:
-            ax = plt.subplot(len(legends), 1, i, sharex=ax1, sharey=ax1)
-            plt.bar(idx, results[:, i], color=colors[i-1], label=legends[i-1])
-            
-
-        #plt.setp(ax.get_xticklabels(), visible=False)
-        plt.legend(fontsize=18)
-        plt.ylim([0, 100])
-        plt.yticks(fontsize=16)
-
-
-        if i == num_metrics//2:
-            plt.ylabel(ylabel, fontsize=18)
-        if i == num_metrics - 1:
-            plt.xlabel(xlabel, fontsize=18)
-
-    plt.xticks(idx, idx, fontsize=14)
-    plt.savefig(outfile, bbox_inches='tight')
-    plt.close()
-     
-
-def util(args):
+def comp(args, df_time, df):
     # parse inputs
     df_read = parse_csv(args.indir)
     outdir = args.outdir if args.outdir else args.indir
@@ -282,7 +195,7 @@ def util(args):
             'Utilization during Active Cycles (%)',
             os.path.join(outdir, 'util', 'plot.pdf'), pwidth=25)
 
-def mem(args):
+def mem(args, df_time, df):
     # parse inputs
     df_read = parse_csv(args.indir)
     outdir = args.outdir if args.outdir else args.indir
@@ -336,65 +249,41 @@ def mem(args):
                     'Memory Utilization during Active Cycles (%)',
                     os.path.join(outdir, bench_name+'-util.pdf'), pwidth=25)
  
-
 def main():
-
-    def add_io_dir(par):
-        par.add_argument('--indir', required=True, 
-                help='Input directory of nsight compute dumps')
-        par.add_argument('--outdir', required=False, 
-                help='Output directory of graphs. Default is the same as input dir.')
-
-    def add_aggregate_flag(par):
-        par.add_argument('--aggregate', action='store_true', default=False,
-                help='''Produce averaged results for all benchmarks in the input dir. 
-
-                Otherwise, output verbose results for each benchmark.
-                Default is false.''')
-
-    def add_name(par):
-        par.add_argument('--name', required=True,
-                help='Title of the generated graph.')
     # cmd parser
     parser = argparse.ArgumentParser('Parse nsight compute raw csv output.',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
-    subparsers = parser.add_subparsers(title='Nsight compute process data types.',
-            help='additional help')
+    types = ['inst', 'comp', 'mem']
+    parser.add_argument('--types', required=True, nargs='+', 
+            choices=types, help='Types of plots to make.')
 
-    instmix_parser = subparsers.add_parser('instmix')
-    add_io_dir(instmix_parser)
-    add_aggregate_flag(instmix_parser)
-    add_name(instmix_parser)
-    instmix_parser.set_defaults(func=instmix)
+    parser.add_argument('--indir', required=True, 
+            help='Input directory of nsight compute dumps')
+    parser.add_argument('--outdir', required=False, 
+            help='Output directory of graphs. Default is the same as input dir.')
 
-    util_parser = subparsers.add_parser('util')
-    add_io_dir(util_parser)
-    add_aggregate_flag(util_parser)
-    add_name(util_parser)
-    util_parser.set_defaults(func=util)
-
-    mem_parser = subparsers.add_parser('mem')
-    add_io_dir(mem_parser)
-    add_aggregate_flag(mem_parser)
-    add_name(mem_parser)
-    mem_parser.set_defaults(func=mem)
+    parser.add_argument('--name', required=True,
+            help='Title of the generated graph.')
 
     # parse arguments
     args = parser.parse_args()
 
-    # call function of each subparser
-    args.func(args)
+    # parse all text files including timeline information
+    df_read = parse_csv(args.indir, args.types)
 
+    # get kernel importance from runtime info
+    df_time = time(df_read['time'])
 
-
-
-
-
-
-
-
-       
+    if 'inst' in args.types:
+        # generate plot for instruction mix
+        instmix(args, df_time, df_read['inst'])
+    elif 'comp' in args.types:
+        # generate plot for compute unit utilization 
+        comp(args, df_time, df_read['comp'])
+    elif 'mem' in args.types:
+        # generate plot for memory unit utilization 
+        mem(args, df_time, df_read['mem'])
 
 if __name__ == '__main__':
     main()
