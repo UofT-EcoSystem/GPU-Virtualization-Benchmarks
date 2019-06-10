@@ -109,6 +109,7 @@ def time(time_df):
 
     # drop rows with NaN (cudamemset has NaN grid size)
     time_df = time_df.dropna(subset=['Grid X'])
+    print('num invoks:{}'.format(time_df.shape))
 
     # group duration of the kernels
     time_df = time_df[['Name', 'Duration']]
@@ -123,6 +124,7 @@ def join(df_time, df):
     # kernel names produced by nvprof and nsight are slightly different 
     # need to manually equate them
     col_import = []
+    matches = []
 
     for index, row in df.iterrows():
         # append importance to list
@@ -133,11 +135,19 @@ def join(df_time, df):
             exit(1)
             col_import.append(0)
         else:
-            col_import.append(matched.iloc[0]['Importance'])
+            if matched.shape[0] != 1:
+                print('{} has {} matches'.format(row['Kernel Name'], matched.shape[0]))
+            matches.append(matched)
+            col_import.append(matched['Importance'].sum())
 
     result = df
     result['Importance'] = col_import
     result = result.sort_values(by='Importance', ascending=False)
+
+    # debug: find out which ones are leftover from time
+    match_time = pd.concat(matches)
+    diff = pd.concat([match_time, df_time]).drop_duplicates(keep=False)
+    print(diff['Kernel Name'])
 
     return result
 
