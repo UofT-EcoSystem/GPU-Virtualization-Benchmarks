@@ -7,43 +7,47 @@ import seaborn as sns
 import argparse
 import cxxfilt
 import re
+import difflib
 
 
-
-def parse_csv(directory):
+def parse_csv(directory, graph_type):
     results = {}
+    subfolder = [graph_type, 'time']
 
-    for filename in os.listdir(directory):
-        full_filename = os.path.join(directory, filename)
+    for subf in subfolder:
+        for filename in os.listdir(os.path.join(directory, subf)):
+            full_filename = os.path.join(directory, subf, filename)
 
-        # find out number of lines to skip in file
-        n_skip = 0
-        output_exists = False
+            # find out number of lines to skip in file
+            n_skip = 0
+            output_exists = False
 
-        if not filename.endswith(".txt"):
-            continue
+            if not filename.endswith(".txt"):
+                continue
 
-        with open(full_filename) as search:
-            for num, line in enumerate(search, 1):
-                # Sketchy, might break
-                if '\"Metric Value\"' in line:
-                    n_skip = num - 1
-                    output_exists = True
-                    
+            with open(full_filename) as search:
+                for num, line in enumerate(search, 1):
+                    # Sketchy, might break
+                    if '\"Metric Value\"' in line or '\"Duration\"' in line:
+                        n_skip = num - 1
+                        output_exists = True
+                        
+            if not output_exists:
+                print(filename, "went wrong!")
+                continue
 
-        # exit if ==prof== is on the last line
-        if not output_exists:
-            print(filename, "went wrong!")
-            continue
+            print("Parsing", filename)
 
-        print("Parsing", filename)
+            # read data using pandas
+            if subf == 'time':
+                skip_call = lambda x: x in range(n_skip) or x == (n_skip + 1)
+            else:
+                skip_call = lambda x: x in range(n_skip) 
 
-        # read data using pandas
-        data = pd.read_csv(full_filename, delimiter=',', skiprows=n_skip, thousands=',')
+            data = pd.read_csv(full_filename, delimiter=',', skiprows=skip_call, thousands=',')
+            results[subf] = data
 
-        results[filename] = data
-
-    # return a map of benchmark/filename to pandas dataframe
+    # return a map of metric type to pandas dataframe
     return results
 
 def print_kernel(kernels):
@@ -70,14 +74,15 @@ def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf', pwid
     colors = sns.color_palette("Set2", len(legends))
 
     for i, col in enumerate(results.T):
-        if i == 0 or i == len(legends):
+        if i == 0 :
             continue
-        height = np.divide(col, results[:,-1])
-        p.append(plt.bar(idx, height, width, bottom=accum, color=colors[i]))
-        accum += height.astype(np.float32)
+        #FIXME: remove this, this logic should go to top level
+        #height = np.divide(col, results[:,-2])
+        p.append(plt.bar(idx, col, width, bottom=accum, color=colors[i-1]))
+        accum += col.astype(np.float32)
 
     # add the other uncaptured types
-    p.append(plt.bar(idx, 1-accum, width, bottom=accum))
+    #p.append(plt.bar(idx, 1-accum, width, bottom=accum))
 
     #plt.xticks(idx, results[:, 0], fontsize=16, rotation=30)
     plt.xticks(idx, np.arange(results.shape[0]), fontsize=16, rotation=30)
@@ -87,7 +92,7 @@ def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf', pwid
     plt.xlabel(xlabel, fontsize=18)
     plt.ylabel(ylabel, fontsize=18)
 
-    plt.ylim([0, 1])
+    #plt.ylim([0, 1])
     # flip legends
     p.reverse()
     legends.reverse()
@@ -98,57 +103,98 @@ def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf', pwid
     plt.savefig(outfile,  bbox_inches='tight')
     plt.close()
 
+def time(time_df):
+    # get the total runtime
+    total = time_df.iloc[-1]['Start'] + time_df.iloc[-1]['Duration'] - time_df.iloc[0]['Start']
+
+    # drop rows with NaN (cudamemset has NaN grid size)
+    time_df = time_df.dropna(subset=['Grid X'])
+
+    # group duration of the kernels
+    time_df = time_df[['Name', 'Duration']]
+    result = time_df.groupby(['Name'], as_index=False).sum()
+    result['Duration'] = result['Duration'] / total * 100
+    result.rename(columns={'Name': 'Kernel Name', 'Duration':'Importance'}, inplace=True)
+    print('kernels in time df: {}'.format(result['Kernel Name'].unique().shape))
+
+    return result
+
+def join(df_time, df):
+    # kernel names produced by nvprof and nsight are slightly different 
+    # need to manually equate them
+    col_import = []
+
+    for index, row in df.iterrows():
+        # append importance to list
+        matched = df_time[df_time['Kernel Name'].str.contains(row['Kernel Name'])]
+        if matched.size == 0:
+            print('No matching kernel in time df!')
+            print(row['Kernel Name'])
+            exit(1)
+            col_import.append(0)
+        else:
+            col_import.append(matched.iloc[0]['Importance'])
+
+    result = df
+    result['Importance'] = col_import
+    result = result.sort_values(by='Importance', ascending=False)
+
+    return result
+
+
 def instmix(args):
     # parse inputs
-    df_read = parse_csv(args.indir)
+    df_read = parse_csv(args.indir, 'inst')
     outdir = args.outdir if args.outdir else args.indir
 
-    aggr_result = pd.DataFrame()
+    # get kernel importance from runtime info
+    df_time = time(df_read['time'])
 
-    for benchmark in df_read:
-        df = df_read[benchmark]
-        bench_name = benchmark.split('.')[0]
+    # read the instruction mix
+    df = df_read['inst']
+    bench_name = args.name
 
-        # divide by 1 million
-        df['Metric Value'] /= 1000000
+    # divide by 1 million
+    df['Metric Value'] /= 1000000
 
-        if args.aggregate:
-            groups = df.groupby('Metric Name')[['Metric Value']].sum().T
-            groups['Benchmark'] = bench_name
-            #groups['Control'] = groups['ADU'] + groups['CBU']
+    # process each benchmark individually
+    k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].sum()
+    #k_metrics = k_metrics.reset_index(level=['Kernel Name','Metric Name'])
 
-            aggr_result = aggr_result.append(groups)
-            print('unimplemented error')
+    df_map = {}
+    df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
+    print('kernels in inst:{} '.format(df_map['Kernel Name'].size))
 
-        else:
-            # process each benchmark individually
-            k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].sum()
-            #k_metrics = k_metrics.reset_index(level=['Kernel Name','Metric Name'])
+    metrics = ['FP16', 'FMA', 'FP64', 'INT', 
+            'SPU', 'Tensor', 'Load/Store', 'EXEC' ]
 
-            df_map = {}
-            df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
+    # I really hope no one sees this: re-organize the table
+    for metric in metrics:
+       metric_col = k_metrics.loc[k_metrics['Metric Name'] == metric]['Metric Value'].array
+       df_map[metric] = metric_col
 
-            metrics = ['FP16', 'FMA', 'FP64', 'INT', 
-                    'SPU', 'Tensor', 'Load/Store', 'EXEC' ]
+    trans_df = pd.DataFrame(df_map)
 
-            print(k_metrics.loc[k_metrics['Kernel Name'] == 'wgrad_alg0_engine'])
-            # I really hope no one sees this: re-organize the table
-            for metric in metrics:
-               metric_col = k_metrics.loc[k_metrics['Metric Name'] == metric]['Metric Value'].array
-               df_map[metric] = metric_col
+    # inner join the two tables: importance and metric values
+    df_join = join(df_time, trans_df)
 
-            trans_df = pd.DataFrame(df_map)
-            cols = ['Kernel Name'] + metrics
-            trans_df = trans_df[cols]
-            print(trans_df.head())
+    # normalize each benchmark mixture and scale it by importance
+    df_join[metrics] = df_join[metrics].div(df_join['EXEC'], axis=0) \
+                                       .multiply(df_join['Importance'], axis=0)
+    metrics.remove('EXEC')
+    df_join['Other'] = df_join['EXEC'].subtract(df_join[metrics].sum(axis=1))
 
-            results = trans_df.values
+    cols = ['Kernel Name', 'FP16', 'FMA', 'FP64', 'INT', 
+            'SPU', 'Tensor', 'Load/Store', 'Other' ]
+    df_join = df_join[cols]
 
-            legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
-            draw_stack(results, legends, bench_name.capitalize(), 'Kernel ID', 
-                    'Percentage of Total Executed Instructions',
-                    os.path.join(outdir, bench_name+'-inst.pdf'), pwidth=25)
-         
+    results = df_join.values
+
+    legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
+    draw_stack(results, legends, bench_name.capitalize(), 'Kernel ID', 
+            'Percentage of Total Executed Instructions',
+            os.path.join(outdir, 'inst', 'plot.pdf'), pwidth=25)
+ 
 def draw_bar(results, legends, title, xlabel, ylabel, outfile='util.pdf', pwidth=20):
     plt.rcParams["figure.figsize"] = (pwidth, 20)
 
@@ -194,46 +240,38 @@ def util(args):
     df_read = parse_csv(args.indir)
     outdir = args.outdir if args.outdir else args.indir
 
-    aggr_result = pd.DataFrame()
+    df_time = time(df_read['time'])
 
-    for benchmark in df_read:
-        df = df_read[benchmark]
-        bench_name = benchmark.split('.')[0]
+    df = df_read['util']
+    bench_name = args.name
 
-        if args.aggregate:
-            groups = df.groupby('Metric Name')[['Metric Value']].mean().T
-            groups['Benchmark'] = bench_name
-            #groups['Control'] = groups['ADU'] + groups['CBU']
+    # process each benchmark individually
+    k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].mean()
+    #k_metrics = k_metrics.reset_index(level=['Kernel Name','Metric Name'])
 
-            aggr_result = aggr_result.append(groups)
-            print('unimplemented error')
+    df_map = {}
+    df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
 
-        else:
-            # process each benchmark individually
-            k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].mean()
-            #k_metrics = k_metrics.reset_index(level=['Kernel Name','Metric Name'])
+    metrics = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Load/Store']
 
-            df_map = {}
-            df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
+    # I really hope no one sees this: re-organize the table
+    for metric in metrics:
+        metric_col = k_metrics.loc[k_metrics['Metric Name'] == metric]['Metric Value'].array
+        df_map[metric] = metric_col
 
-            metrics = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Load/Store']
+    trans_df = pd.DataFrame(df_map)
+    cols = ['Kernel Name'] + metrics
+    trans_df = trans_df[cols]
 
-            # I really hope no one sees this: re-organize the table
-            for metric in metrics:
-                metric_col = k_metrics.loc[k_metrics['Metric Name'] == metric]['Metric Value'].array
-                df_map[metric] = metric_col
+    df_join = join(df_time, trans_df)
 
-            trans_df = pd.DataFrame(df_map)
-            cols = ['Kernel Name'] + metrics
-            trans_df = trans_df[cols]
+    results = df_join.values
 
-            results = trans_df.values
+    legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
+    draw_bar(results, legends, bench_name, 'Kernel ID', 
+            'Utilization during Active Cycles (%)',
+            os.path.join(outdir, 'util', 'plot.pdf'), pwidth=25)
 
-            legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
-            draw_bar(results, legends, bench_name, 'Kernel ID', 
-                    'Utilization during Active Cycles (%)',
-                    os.path.join(outdir, bench_name+'-util.pdf'), pwidth=25)
- 
 def mem(args):
     # parse inputs
     df_read = parse_csv(args.indir)
@@ -304,6 +342,9 @@ def main():
                 Otherwise, output verbose results for each benchmark.
                 Default is false.''')
 
+    def add_name(par):
+        par.add_argument('--name', required=True,
+                help='Title of the generated graph.')
     # cmd parser
     parser = argparse.ArgumentParser('Parse nsight compute raw csv output.',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -314,16 +355,19 @@ def main():
     instmix_parser = subparsers.add_parser('instmix')
     add_io_dir(instmix_parser)
     add_aggregate_flag(instmix_parser)
+    add_name(instmix_parser)
     instmix_parser.set_defaults(func=instmix)
 
     util_parser = subparsers.add_parser('util')
     add_io_dir(util_parser)
     add_aggregate_flag(util_parser)
+    add_name(util_parser)
     util_parser.set_defaults(func=util)
 
     mem_parser = subparsers.add_parser('mem')
     add_io_dir(mem_parser)
     add_aggregate_flag(mem_parser)
+    add_name(mem_parser)
     mem_parser.set_defaults(func=mem)
 
     # parse arguments
