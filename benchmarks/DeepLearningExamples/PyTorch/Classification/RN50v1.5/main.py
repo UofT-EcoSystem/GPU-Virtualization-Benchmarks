@@ -298,8 +298,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
     add_parser_arguments(parser)
-    print('hi ')
     args = parser.parse_args()
     cudnn.benchmark = True
+    #cudnn.benchmark = False
+    cudnn.deterministic = True
 
     main(args)

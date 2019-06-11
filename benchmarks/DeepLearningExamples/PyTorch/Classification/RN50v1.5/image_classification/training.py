@@ -282,7 +282,7 @@ def get_val_step(model_and_loss):
     return _step
 
 
-def validate(val_loader, model_and_loss, fp16, logger, epoch, prof=-1, register_metrics=True):
+def validate(val_loader, model_and_loss, fp16, logger, epoch, profile, prof=-1, register_metrics=True):
     if register_metrics and logger is not None:
         logger.register_metric('val.top1',         log.AverageMeter(), log_level = 0)
         logger.register_metric('val.top5',         log.AverageMeter(), log_level = 0)
@@ -305,6 +305,16 @@ def validate(val_loader, model_and_loss, fp16, logger, epoch, prof=-1, register_
         data_iter = logger.iteration_generator_wrapper(data_iter, val=True)
 
     for i, (input, target) in data_iter:
+        print('iteration: {}'.format(i))
+        if i == profile:
+            torch.cuda.profiler.start()
+            print('==================== Start profiling ===================')
+
+        if i == profile + 1:
+            torch.cuda.profiler.stop()
+            print('==================== Stop profiling ===================')
+            return
+
         bs = input.size(0)
         data_time = time.time() - end
         if prof > 0:
@@ -350,7 +360,7 @@ def train_loop(model_and_loss, optimizer, lr_scheduler, train_loader, val_loader
             train(train_loader, model_and_loss, optimizer, lr_scheduler, fp16, logger, epoch, profile, use_amp = use_amp, prof = prof, register_metrics=epoch==start_epoch, batch_size_multiplier=batch_size_multiplier)
 
         if not skip_validation:
-            prec1 = validate(val_loader, model_and_loss, fp16, logger, epoch, prof = prof, register_metrics=epoch==start_epoch)
+            prec1 = validate(val_loader, model_and_loss, fp16, logger, epoch, profile, prof = prof, register_metrics=epoch==start_epoch)
 
         if save_checkpoints and (not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0):
             is_best = prec1 > best_prec1
