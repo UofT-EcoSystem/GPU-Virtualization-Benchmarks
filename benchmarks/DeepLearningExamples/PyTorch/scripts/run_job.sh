@@ -1,5 +1,7 @@
+#!/bin/bash
+
 # Usage
-# run.sh [resnet | gnmt] [train|infer] [util|inst|mem|time] GPU_ID
+# run.sh [resnet | gnmt] [train|infer] [comp|inst|mem|time] GPU_ID
 
 
 ########### Constant vars ##############
@@ -9,7 +11,7 @@ nsight=/usr/local/cuda/NsightCompute-2019.3/nv-nsight-cu-cli
 nvprof=/usr/local/cuda/bin/nvprof
 
 sec_folder="../../../../sections"
-util_sec="PertSustainedActive"
+comp_sec="PertSustainedActive"
 inst_sec="InstCounter"
 mem_sec="Memory_Usage"
 
@@ -19,7 +21,7 @@ mem_sec="Memory_Usage"
 resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/ --epochs 1 --profile 15"
 
 # FIXME: update inference for resnet50
-resnet_infer=""
+resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/ --profile 15 --epochs 1 --fp16 -b 512"
 
 # gnmt (FP16)
 gnmt_train="./train.py --seed 2 --train-batch-size 64 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
@@ -47,8 +49,8 @@ else
 fi
 
 ########### Arg 3: profile metric type ###########
-if [ $3 == "util" ]; then
-  section=$util_sec
+if [ $3 == "comp" ]; then
+  section=$comp_sec
   tool="nsight"
 elif [ $3 == "inst" ]; then
   section=$inst_sec
