@@ -299,8 +299,8 @@ if __name__ == '__main__':
 
     add_parser_arguments(parser)
     args = parser.parse_args()
-    cudnn.benchmark = True
-    #cudnn.benchmark = False
+    #cudnn.benchmark = True
+    cudnn.benchmark = False
     cudnn.deterministic = True
 
     main(args)

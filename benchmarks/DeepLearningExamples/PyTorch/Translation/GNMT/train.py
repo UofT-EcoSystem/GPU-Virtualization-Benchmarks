@@ -263,6 +263,8 @@ def main():
 
     if not args.cudnn:
         torch.backends.cudnn.enabled = False
+        cudnn.benchmark = False
+        cudnn.deterministic = True
 
     # create directory for results
     save_path = os.path.join(args.results_dir, args.save)
