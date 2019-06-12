@@ -9,7 +9,7 @@ import difflib
 
 
 # draw stacked bar charts (verticle)
-def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf'):
+def draw_stack(results, legends, title, xlabel, ylabel, xticks, outfile='inst.pdf'):
     # draw stack bars
     idx = np.arange(results.shape[0])
     width = 0.35
@@ -32,7 +32,7 @@ def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf'):
     #p.append(plt.bar(idx, 1-accum, width, bottom=accum))
 
     #plt.xticks(idx, results[:, 0], fontsize=16, rotation=30)
-    plt.xticks(idx, np.arange(results.shape[0]), fontsize=16, rotation=30)
+    plt.xticks(idx, xticks, fontsize=16)
     plt.yticks(fontsize=16)
 
     plt.title(title, fontsize=22)
@@ -44,16 +44,14 @@ def draw_stack(results, legends, title, xlabel, ylabel, outfile='inst.pdf'):
     p.reverse()
     legends.reverse()
 
-    plt.legend(p, legends, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0., fontsize=18)
+    plt.legend(p, legends, bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0., fontsize=18)
     # TODO: print kernels in xticks
 
     plt.savefig(outfile,  bbox_inches='tight')
     plt.close()
 
 # draw normal single bar chart
-def draw_bar(results, legends, title, xlabel, ylabel, outfile='util.pdf', pwidth=20):
-    plt.rcParams["figure.figsize"] = (pwidth, 20)
-
+def draw_bar(results, legends, title, xlabel, ylabel, xticks, outfile='util.pdf'):
     num_metrics = results.shape[1]
     idx = np.arange(results.shape[0])
 
@@ -86,7 +84,7 @@ def draw_bar(results, legends, title, xlabel, ylabel, outfile='util.pdf', pwidth
         if i == num_metrics - 1:
             plt.xlabel(xlabel, fontsize=18)
 
-    plt.xticks(idx, idx, fontsize=14)
+    plt.xticks(idx, xticks, fontsize=14)
     plt.savefig(outfile, bbox_inches='tight')
     plt.close()
 

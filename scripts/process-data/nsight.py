@@ -87,7 +87,7 @@ def join(df_time, df):
         if matched.size == 0:
             print('No matching kernel in time df!')
             print(row['Kernel Name'])
-            exit(1)
+            #exit(1)
             col_import.append(0)
         else:
             if matched.shape[0] != 1:
@@ -104,7 +104,17 @@ def join(df_time, df):
     diff = pd.concat([match_time, df_time]).drop_duplicates(keep=False)
     print(diff['Kernel Name'])
 
-    return result
+    # xticks with importance
+    xticks = ['{}\n{:.1f}%'.format(i, result.iloc[i]['Importance']) for i in range(result.shape[0])]
+
+    # drop rows with importance below 1%
+    neglible = result[ result['Importance'] < 1 ].index
+    result.drop(neglible, inplace=True)
+
+    # drop the importance column
+    result = result.drop(columns='Importance')
+
+    return result, xticks
 
 def instmix(args, df_time, df):
     bench_name = args.name
@@ -133,11 +143,12 @@ def instmix(args, df_time, df):
 
     # inner join the two tables: importance and metric values
     # also sort the table rows by descending importance
-    df_join = join(df_time, trans_df)
+    df_join, xticks = join(df_time, trans_df)
 
     # normalize each benchmark mixture and scale it by importance
-    df_join[metrics] = df_join[metrics].div(df_join['EXEC'], axis=0) \
-                                       .multiply(df_join['Importance'], axis=0)
+    df_join[metrics] = df_join[metrics].div(df_join['EXEC'], axis=0)
+    #.multiply(df_join['Importance'], axis=0)
+                                       
     metrics.remove('EXEC')
     df_join['Other'] = df_join['EXEC'].subtract(df_join[metrics].sum(axis=1))
 
@@ -148,7 +159,7 @@ def instmix(args, df_time, df):
     results = df_join.values
 
     # set graph size
-    plt.rcParams["figure.figsize"] = (25, 40)
+    plt.rcParams["figure.figsize"] = (30, 40)
 
     # print the list of kernels
     print_kernel(results[:, 0])
@@ -156,17 +167,12 @@ def instmix(args, df_time, df):
     legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
     draw_stack(results, legends, bench_name.capitalize(), 'Kernel ID', 
             'Normalized Instruction Count Scaled by Runtime Weight',
-            os.path.join(outdir, 'inst.pdf'))
+            xticks=xticks,
+            outfile=os.path.join(outdir, 'inst.pdf'))
 
 def comp(args, df_time, df):
-    # parse inputs
-    df_read = parse_csv(args.indir)
-    outdir = args.outdir if args.outdir else args.indir
-
-    df_time = time(df_read['time'])
-
-    df = df_read['util']
     bench_name = args.name
+    outdir = args.outdir if args.outdir else args.indir
 
     # process each benchmark individually
     k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].mean()
@@ -186,69 +192,68 @@ def comp(args, df_time, df):
     cols = ['Kernel Name'] + metrics
     trans_df = trans_df[cols]
 
-    df_join = join(df_time, trans_df)
+    df_join, xticks = join(df_time, trans_df)
+
+    #df_join = df_join[cols]
 
     results = df_join.values
+
+    # set graph size
+    plt.rcParams["figure.figsize"] = (30, 20)
 
     legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
     draw_bar(results, legends, bench_name, 'Kernel ID', 
             'Utilization during Active Cycles (%)',
-            os.path.join(outdir, 'util', 'plot.pdf'), pwidth=25)
+            xticks=xticks,
+            outfile=os.path.join(outdir, 'comp.pdf'))
 
 def mem(args, df_time, df):
-    # parse inputs
-    df_read = parse_csv(args.indir)
+    bench_name = args.name
     outdir = args.outdir if args.outdir else args.indir
 
-    aggr_result = pd.DataFrame()
+    # process each benchmark individually
+    k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].mean()
+    #k_metrics = k_metrics.reset_index(level=['Kernel Name','Metric Name'])
 
-    for benchmark in df_read:
-        df = df_read[benchmark]
-        bench_name = benchmark.split('.')[0]
+    df_map = {}
+    df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
 
-        if args.aggregate:
-            groups = df.groupby('Metric Name')[['Metric Value']].mean().T
-            groups['Benchmark'] = bench_name
-            #groups['Control'] = groups['ADU'] + groups['CBU']
+    metrics = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'DYNAMIC_SHARED_USAGE', 
+            'STATIC_SHARED_USAGE', 'L2 Hit Rate', 'OCCUPANCY', 
+            'L1 Hit Rate', 'Block Size', 'Shm Config Size']
 
-            aggr_result = aggr_result.append(groups)
-            print('unimplemented error')
+    # I really hope no one sees this: re-organize the table
+    for metric in metrics:
+        metric_col = k_metrics.loc[k_metrics['Metric Name'] == metric]['Metric Value'].array
+        df_map[metric] = metric_col
 
-        else:
-            # process each benchmark individually
-            k_metrics = df.groupby(['Kernel Name','Metric Name'], as_index=False)[['Metric Value']].mean()
-            #k_metrics = k_metrics.reset_index(level=['Kernel Name','Metric Name'])
+    trans_df = pd.DataFrame(df_map)
+    cols = ['Kernel Name'] + metrics
+    trans_df = trans_df[cols]
 
-            df_map = {}
-            df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
+    # adjust memory usage according to total available amount
+    trans_df['REGISTER_USAGE'] = trans_df['REGISTER_USAGE'] * 1024 * trans_df['OCCUPANCY'] / (64 * 1024)
+    blocks_per_sm = trans_df['OCCUPANCY'] * 32 * 32 / trans_df['Block Size']
+    trans_df['SHARED_USAGE'] = (trans_df['DYNAMIC_SHARED_USAGE'] 
+                               + trans_df['STATIC_SHARED_USAGE'] ) * (blocks_per_sm) / trans_df['Shm Config Size']
 
-            metrics = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'DYNAMIC_SHARED_USAGE', 
-                    'STATIC_SHARED_USAGE', 'L2 Hit Rate', 'OCCUPANCY', 
-                    'L1 Hit Rate', 'Block Size', 'Shm Config Size']
+    #'L2 Hit Rate' is bogus, bug in nsight
+    cols = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'SHARED_USAGE', 
+             'OCCUPANCY', 'L1 Hit Rate']
+    trans_df = trans_df[['Kernel Name'] + cols]
 
-            # I really hope no one sees this: re-organize the table
-            for metric in metrics:
-                metric_col = k_metrics.loc[k_metrics['Metric Name'] == metric]['Metric Value'].array
-                df_map[metric] = metric_col
+    df_join, xticks = join(df_time, trans_df)
+    #df_join = df_join.drop(columns='Kernel Name')
 
-            trans_df = pd.DataFrame(df_map)
-            cols = ['Kernel Name'] + metrics
-            trans_df = trans_df[cols]
-            trans_df['REGISTER_USAGE'] = trans_df['REGISTER_USAGE'] * 1024 * trans_df['OCCUPANCY'] / (64 * 1024)
-            blocks_per_sm = trans_df['OCCUPANCY'] * 32 * 32 / trans_df['Block Size']
-            trans_df['SHARED_USAGE'] = (trans_df['DYNAMIC_SHARED_USAGE'] 
-                                       + trans_df['STATIC_SHARED_USAGE'] ) * (blocks_per_sm) / trans_df['Shm Config Size']
+    results = df_join.values
 
-            #'L2 Hit Rate' is bogus, bug in nsight
-            cols = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'SHARED_USAGE', 
-                     'OCCUPANCY', 'L1 Hit Rate']
-            trans_df = trans_df[['Kernel Name'] + cols]
-            results = trans_df.values
+    plt.rcParams["figure.figsize"] = (35, 20)
 
-            draw_bar(results, cols, bench_name, 'Kernel ID', 
-                    'Memory Utilization during Active Cycles (%)',
-                    os.path.join(outdir, bench_name+'-util.pdf'), pwidth=25)
- 
+    draw_bar(results, cols, bench_name, 'Kernel ID', 
+            'Memory Utilization during Active Cycles (%)',
+            xticks=xticks,
+            outfile=os.path.join(outdir, 'mem.pdf'))
+
 def main():
     # cmd parser
     parser = argparse.ArgumentParser('Parse nsight compute raw csv output.',
