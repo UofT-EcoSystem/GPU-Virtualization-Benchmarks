@@ -18,18 +18,17 @@ mem_sec="Memory_Usage"
 
 # resnet (FP32)
 #--fp16 --static-loss-scale 256 
-resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/ --epochs 1 --profile 15"
+resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/ --epochs 1 --profile 15 --seed 2"
 
-# FIXME: update inference for resnet50
-resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/ --profile 15 --epochs 1 --fp16 -b 512"
+resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/ --profile 15 --epochs 1 --fp16 -b 512 --seed 2"
 
 # gnmt (FP16)
-gnmt_train="./train.py --seed 2 --train-batch-size 64 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
+gnmt_train="./train.py --seed 2 --train-batch-size 80 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
 gnmt_infer="/opt/conda/bin/python3 translate.py \
   --input /dataset/wmt_ende/newstest2014.tok.bpe.32000.en \
   --reference /dataset/wmt_ende/newstest2014.de --output /tmp/output \
-  --model results/gnmt/model_best.pth --batch-size 32 \
-  --beam-size 5 --math fp16"
+  --model results/gnmt/model_best.pth --batch-size 80 \
+  --beam-size 5 --math fp16 --seed 2"
 
 ########### Arg 1&2: model and task ###########
 if [ $1 == "resnet" ]; then
@@ -39,6 +38,7 @@ if [ $1 == "resnet" ]; then
     cmd=$resnet_train
   else
     cmd=$resnet_infer
+  fi
 else
   cd $ROOT/Translation/GNMT/
 
@@ -46,6 +46,7 @@ else
     cmd=$gnmt_train
   else
     cmd=$gnmt_infer
+  fi
 fi
 
 ########### Arg 3: profile metric type ###########
@@ -70,6 +71,7 @@ export CUDA_VISIBLE_DEVICES=$4
 # goes under profile/train or profile/infer within the model folder
 mkdir -p profile
 mkdir -p profile/$2
+rm profile/$2/*
 
 ############ Kick off the run #############
 if [ $tool == "nsight" ]; then

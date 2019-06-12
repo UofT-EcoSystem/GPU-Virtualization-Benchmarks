@@ -2,11 +2,12 @@
 import argparse
 import subprocess
 import time
+from tqdm import tqdm
+
 
 models = ['resnet', 'gnmt']
 tasks = ['train', 'infer']
-#metrics = ['comp', 'inst', 'mem', 'time']
-metrics = ['time']
+metrics = ['comp', 'inst', 'mem', 'time']
 
 
 def runner(gpus):
@@ -20,8 +21,9 @@ def runner(gpus):
     # progress bar
     pbar = tqdm(total=len(jobs))
 
-    idx = 0
-    while(idx < len(jobs)):
+    dispatch_idx = 0
+    num_complete = 0
+    while(num_complete != len(jobs)):
         for gpu in status:
             # if not free, poll
             if status[gpu]:
@@ -30,21 +32,23 @@ def runner(gpus):
                     # process is done 
                     print('A task is done')
                     status[gpu] = None
+                    num_complete += 1
                     pbar.update(1)
 
-        for gpu in status:
-            # after status update, if free, schedule something
-            if not status[gpu]:
-                # make cmd to schedule a job
-                cmd = ['./run_job.sh'] + jobs[idx] + ['{}'.format(gpu)]
-                idx += 1
+        if dispatch_idx < len(jobs):
+            for gpu in status:
+                # after status update, if free, schedule something
+                if not status[gpu]:
+                    # make cmd to schedule a job
+                    cmd = ['./run_job.sh'] + jobs[dispatch_idx] + ['{}'.format(gpu)]
+                    dispatch_idx += 1
 
-                # launch job
-                print('Launching', cmd)
-                status[gpu] = subprocess.Popen(cmd)
+                    # launch job
+                    print('Launching', cmd)
+                    status[gpu] = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # sleep for 5 min
-        sleep(5*60)
+        time.sleep(10)
 
     pbar.close()
 
