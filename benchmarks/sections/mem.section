@@ -41,5 +41,13 @@ Header {
       }
     }
   }
+  Metrics {
+    Label: "Block Size"
+    Name: "launch__block_size"
+  }
+  Metrics {
+    Label: "Shm Config Size"
+    Name: "launch__shared_mem_config_size"
+  }
 }
 
