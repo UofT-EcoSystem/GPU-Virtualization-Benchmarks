@@ -76,7 +76,7 @@ void ellipsetrack(avi_t *video, double *xc0, double *yc0, int Nc, int R, int Np,
 	// Process each frame sequentially
 	int frame_num;
 	for (frame_num = 1; frame_num <= Nf; frame_num++) {	 
-		printf("\rProcessing frame %d / %d", frame_num, Nf);
+		printf("Processing frame %d / %d", frame_num, Nf);
 		fflush(stdout);
 		
 		// Get the current video frame and its dimensions
