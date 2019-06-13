@@ -18,9 +18,9 @@ mem_sec="Memory_Usage"
 
 # resnet (FP32)
 #--fp16 --static-loss-scale 256 
-resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/ --epochs 1 --profile 15 --seed 2"
+resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/imagenet --epochs 1 --profile 15 --seed 2"
 
-resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/ --profile 15 --epochs 1 --fp16 -b 512 --seed 2"
+resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/imagenet --profile 15 --epochs 1 --fp16 -b 512 --seed 2"
 
 # gnmt (FP16)
 gnmt_train="./train.py --seed 2 --train-batch-size 80 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
@@ -71,14 +71,18 @@ export CUDA_VISIBLE_DEVICES=$4
 # goes under profile/train or profile/infer within the model folder
 mkdir -p profile
 mkdir -p profile/$2
-rm profile/$2/*
+rm -f profile/$2/*
 
 ############ Kick off the run #############
 if [ $tool == "nsight" ]; then
   profile="$nsight --target-processes all --section-folder $sec_folder --section $section \
     --csv -f --profile-from-start off"
 
-  $profile $cmd | tee profile/$2/$3.txt
+  echo "Writing to profile/$2/$3.txt"
+  $profile $cmd > profile/$2/$3.txt
+
+  # sketchy way to force flush
+  cat profile/$2/$3.txt > /dev/null
 else
   #-o profile/$1/$2/$1-%p.nvvp
   profile="$nvprof --profile-from-start off --profile-child-processes -f --print-gpu-trace \
@@ -87,4 +91,5 @@ else
   $profile $cmd 
 fi
 
+exit
 

@@ -28,9 +28,9 @@ def runner(gpus):
             # if not free, poll
             if status[gpu]:
                 poll = status[gpu].poll()
-                if poll != None:
+                if poll is not None:
                     # process is done 
-                    print('A task is done')
+                    tqdm.write('A task is done')
                     status[gpu] = None
                     num_complete += 1
                     pbar.update(1)
@@ -44,11 +44,12 @@ def runner(gpus):
                     dispatch_idx += 1
 
                     # launch job
-                    print('Launching', cmd)
+                    cmd_str = ' '.join(cmd)
+                    tqdm.write('Launching ' +  cmd_str)
                     status[gpu] = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # sleep for 5 min
-        time.sleep(10)
+        time.sleep(2*60)
 
     pbar.close()
 
