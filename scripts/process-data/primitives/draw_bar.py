@@ -9,7 +9,7 @@ import difflib
 
 
 # draw stacked bar charts (verticle)
-def draw_stack(results, legends, title, xlabel, ylabel, xticks, outfile='inst.pdf'):
+def draw_stack(results, legends, title, xlabel, ylabel, xticks, xtick_rot=0, outfile='inst.pdf'):
     # draw stack bars
     idx = np.arange(results.shape[0])
     width = 0.35
@@ -32,7 +32,7 @@ def draw_stack(results, legends, title, xlabel, ylabel, xticks, outfile='inst.pd
     #p.append(plt.bar(idx, 1-accum, width, bottom=accum))
 
     #plt.xticks(idx, results[:, 0], fontsize=16, rotation=30)
-    plt.xticks(idx, xticks, fontsize=16)
+    plt.xticks(idx, xticks, fontsize=16, rotation=xtick_rot)
     plt.yticks(fontsize=16)
 
     plt.title(title, fontsize=22)
@@ -51,7 +51,7 @@ def draw_stack(results, legends, title, xlabel, ylabel, xticks, outfile='inst.pd
     plt.close()
 
 # draw normal single bar chart
-def draw_bar(results, legends, title, xlabel, ylabel, xticks, outfile='util.pdf'):
+def draw_bar(results, legends, title, xlabel, ylabel, xticks, xtick_rot=0, outfile='util.pdf'):
     num_metrics = results.shape[1]
     idx = np.arange(results.shape[0])
 
@@ -73,7 +73,8 @@ def draw_bar(results, legends, title, xlabel, ylabel, xticks, outfile='util.pdf'
             plt.bar(idx, results[:, i], color=colors[i-1], label=legends[i-1])
 
 
-        #plt.setp(ax.get_xticklabels(), visible=False)
+        plt.setp(ax.get_xticklabels(), rotation=20)
+        #plt.setp(plt.xticks(), rotation=30)
         plt.legend(fontsize=18)
         plt.ylim([0, 100])
         plt.yticks(fontsize=16)
@@ -84,7 +85,7 @@ def draw_bar(results, legends, title, xlabel, ylabel, xticks, outfile='util.pdf'
         if i == num_metrics - 1:
             plt.xlabel(xlabel, fontsize=18)
 
-    plt.xticks(idx, xticks, fontsize=14)
+    plt.xticks(idx, xticks, fontsize=14, rotation=xtick_rot)
     plt.savefig(outfile, bbox_inches='tight')
     plt.close()
 
