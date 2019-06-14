@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- AriocE.xsd
+
+      Copyright (c) 2015-2019 Johns Hopkins University.  All rights reserved.
+
+      This file is part of the Arioc software distribution.  It is subject to the license terms
+      in the LICENSE.txt file found in the top-level directory of the Arioc software distribution.
+      The contents of this file, in whole or in part, may only be copied, modified, propagated, or
+      redistributed in accordance with the license terms contained in LICENSE.txt.
+-->
+<xs:schema id="AriocE" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="AriocE">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="dataIn" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="rg" minOccurs="0" maxOccurs="1">
+                <xs:complexType>
+                  <xs:attribute name="ID" type="xs:string" use="optional"/>
+                  <xs:attribute name="CN" type="xs:string" use="optional"/>
+                  <xs:attribute name="DS" type="xs:string" use="optional"/>
+                  <xs:attribute name="DT" type="xs:dateTime" use="optional"/>
+                  <xs:attribute name="FO" type="xs:string" use="optional"/>
+                  <xs:attribute name="KS" type="xs:string" use="optional"/>
+                  <xs:attribute name="LB" type="xs:string" use="optional"/>
+                  <xs:attribute name="PG" type="xs:string" use="optional"/>
+                  <xs:attribute name="PI" type="xs:double" use="optional"/>
+                  <xs:attribute name="PL" type="xs:string" use="optional"/>
+                  <xs:attribute name="PU" type="xs:string" use="optional"/>
+                  <xs:attribute name="SM" type="xs:string" use="optional"/>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="file" minOccurs="1" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:simpleContent>
+                    <xs:extension base="xs:string">
+                      <xs:attribute name="subId" type="xs:nonNegativeInteger" use="required" />
+                      <xs:attribute name="mate" type="xs:positiveInteger" use="optional" />
+                      <xs:attribute name="uriPath" type="xs:string" use="optional" />
+                      <xs:attribute name="ID" type="xs:string" use="optional"/>
+                      <xs:attribute name="CN" type="xs:string" use="optional"/>
+                      <xs:attribute name="DS" type="xs:string" use="optional"/>
+                      <xs:attribute name="DT" type="xs:dateTime" use="optional"/>
+                      <xs:attribute name="FO" type="xs:string" use="optional"/>
+                      <xs:attribute name="KS" type="xs:string" use="optional"/>
+                      <xs:attribute name="LB" type="xs:string" use="optional"/>
+                      <xs:attribute name="PG" type="xs:string" use="optional"/>
+                      <xs:attribute name="PI" type="xs:double" use="optional"/>
+                      <xs:attribute name="PL" type="xs:string" use="optional"/>
+                      <xs:attribute name="PU" type="xs:string" use="optional"/>
+                      <xs:attribute name="SM" type="xs:string" use="optional"/>
+                    </xs:extension>
+                  </xs:simpleContent>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="sequenceType" type="xs:string" use="required"/>
+            <xs:attribute name="srcId" type="xs:nonNegativeInteger" use="optional" default="0"/>
+            <xs:attribute name="samplingRatio" type="xs:double" use="optional" default="1.0" />
+            <xs:attribute name="qualityScoreBias" type="xs:integer" use="optional" default="-1" />
+            <xs:attribute name="QNAME" type="xs:string" use="optional" default="(*)" />
+            <xs:attribute name="filePath" type="xs:string" use="optional" default="" />
+            <xs:attribute name="uriPath" type="xs:string" use="optional" />
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="dataOut" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="path" type="xs:string" minOccurs="1" maxOccurs="1" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+      </xs:sequence>
+      <xs:attribute name="seed" type="xs:token" use="optional" default="hsi00_0_00" />
+      <xs:attribute name="seedInterval" type="xs:nonNegativeInteger" use="optional" default="0" />
+      <xs:attribute name="maxDOP" type="xs:nonNegativeInteger" use="optional" default="1" />
+      <xs:attribute name="maxJ" type="xs:nonNegativeInteger" use="optional" default="2147483647" />
+      <xs:attribute name="emitKmers" type="xs:boolean" use="optional" default="false" />
+      <xs:attribute name="verboseMask" type="bit32" use="optional" default="0xE0000003" />
+      <xs:attribute name="gpuMask" type="bit32" use="optional" default="0x00000000" />
+    </xs:complexType>
+  </xs:element>
+
+  <!-- type restrictions used in this XSD document -->
+  <xs:simpleType name="bit32">
+    <xs:restriction base="xs:token">
+      <xs:pattern value="0x[0-9a-fA-F]{8}" />
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

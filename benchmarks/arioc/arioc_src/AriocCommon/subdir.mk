@@ -1,0 +1,1 @@
+CPPS += $(wildcard AriocCommon/*.cpp)
