@@ -1,5 +1,5 @@
 # CUDA toolkit installation path
-CUDA_DIR = /usr/local/cuda-10.0
+CUDA_DIR = /usr/local/cuda-10.1
 
 # CUDA toolkit libraries
 CUDA_LIB_DIR := $(CUDA_DIR)/lib
@@ -10,12 +10,12 @@ ifeq ($(shell uname -m), x86_64)
 endif
 
 # CUDA SDK installation path
-SDK_DIR = /usr/local/cuda-10.0/samples/
+SDK_DIR = /usr/local/cuda-10.1/samples/
 
 # OPENCL
 
 # NVIDIA_DIR
-NV_OPENCL_DIR =/usr/local/cuda-10.0
+NV_OPENCL_DIR =/usr/local/cuda-10.1
 NV_OPENCL_INC = $(NV_OPENCL_DIR)/include
 NV_OPENCL_LIB = $(NV_OPENCL_DIR)/lib64
 

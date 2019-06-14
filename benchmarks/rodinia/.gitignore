@@ -25,3 +25,5 @@ lib/
 obj/
 *.ptx
 profile.nsight-cuprof-report
+
+make.config
