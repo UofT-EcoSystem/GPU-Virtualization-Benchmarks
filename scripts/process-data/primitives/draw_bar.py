@@ -73,7 +73,7 @@ def draw_bar(results, legends, title, xlabel, ylabel, xticks, xtick_rot=0, outfi
             plt.bar(idx, results[:, i], color=colors[i-1], label=legends[i-1])
 
 
-        plt.setp(ax.get_xticklabels(), rotation=20)
+        plt.setp(ax.get_xticklabels(), rotation=xtick_rot)
         #plt.setp(plt.xticks(), rotation=30)
         plt.legend(fontsize=18)
         plt.ylim([0, 100])
