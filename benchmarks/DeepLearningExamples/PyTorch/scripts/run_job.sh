@@ -20,7 +20,8 @@ mem_sec="Memory_Usage"
 #--fp16 --static-loss-scale 256 
 resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 64 --training-only /dataset/imagenet --epochs 1 --profile 10 --seed 2"
 
-resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/imagenet --profile 10 --epochs 1 --fp16 -b 64 --seed 2"
+#--fp16 
+resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/imagenet --profile 10 --epochs 1 -b 64 --seed 2"
 
 # gnmt (FP16)
 gnmt_train="./train.py --seed 2 --train-batch-size 64 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
@@ -84,8 +85,12 @@ if [ $tool == "nsight" ]; then
   cat profile/$2/$3.txt > /dev/null
 else
   #-o profile/$1/$2/$1-%p.nvvp
+#  profile="$nvprof --profile-from-start off -f \
+#     -o profile/$2/$3.nvprof"
+
   profile="$nvprof --profile-from-start off -f --print-gpu-trace \
     --csv --normalized-time-unit ms  --log-file profile/$2/$3.txt"
+
 
   $profile $cmd 
 fi
