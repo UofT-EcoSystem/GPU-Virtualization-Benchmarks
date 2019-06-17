@@ -85,7 +85,7 @@ class Translator:
         return eval_path
 
     def run(self, calc_bleu=True, epoch=None, iteration=None, eval_path=None,
-            summary=False, reference_path=None):
+            summary=False, reference_path=None, profile=1):
         """
         Runs translation on test dataset.
 
@@ -117,7 +117,7 @@ class Translator:
         self.model.eval()
         torch.cuda.empty_cache()
 
-        output = self.evaluate(epoch, iteration, summary)
+        output = self.evaluate(epoch, iteration, summary, profile)
         output = output[:len(self.loader.dataset)]
         output = self.loader.dataset.unsort(output)
 
@@ -144,7 +144,7 @@ class Translator:
 
         return test_bleu[0].item(), break_training[0].item()
 
-    def evaluate(self, epoch, iteration, summary):
+    def evaluate(self, epoch, iteration, summary, profile):
         """
         Runs evaluation on test dataset.
 
@@ -163,13 +163,13 @@ class Translator:
 
         for i, (src, indices) in enumerate(self.loader):
             print('iteration {}'.format(i))
-            if i == 10:
+            if i == profile:
                 torch.cuda.profiler.start()
                 print('############## Start profiling ##############')
-            if i == 11:
+            if i == profile + 1:
                 torch.cuda.profiler.stop()
                 print('############### Stop profiling ################')
-                return
+                exit()
 
             translate_timer = time.time()
             src, src_length = src
