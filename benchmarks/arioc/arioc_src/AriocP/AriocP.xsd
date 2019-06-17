@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AriocP.xsd
+
+      Copyright (c) 2015-2019 Johns Hopkins University.  All rights reserved.
+
+      This file is part of the Arioc software distribution.  It is subject to the license terms
+      in the LICENSE.txt file found in the top-level directory of the Arioc software distribution.
+      The contents of this file, in whole or in part, may only be copied, modified, propagated, or
+      redistributed in accordance with the license terms contained in LICENSE.txt.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified" >
+
+  <xs:element name="AriocP" >
+    <xs:complexType>
+      <xs:sequence>
+        
+        <!-- X -->
+        <xs:element name="X" minOccurs="0" maxOccurs="1">
+          <xs:complexType>
+            <xs:anyAttribute processContents="lax" />
+          </xs:complexType>
+        </xs:element>
+        
+        <!-- R -->
+        <xs:element name="R" type="xs:string" minOccurs="1" maxOccurs="1"/>
+        
+        <!-- nongapped -->
+        <xs:element name="nongapped" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:attribute name="seed" type="xs:token" use="required" />
+            <xs:attribute name="maxA" type="xs:positiveInteger" use="optional" default="10"/>
+            <xs:attribute name="maxJ" type="xs:positiveInteger" use="optional" default="2147483647" />
+            <xs:attribute name="maxMismatches" type="xs:nonNegativeInteger" use="optional" />
+          </xs:complexType>
+        </xs:element>
+        
+        <!-- gapped -->
+        <xs:element name="gapped" >
+          <xs:complexType>
+            <xs:attribute name="seed" type="xs:token" use="required" />
+            <xs:attribute name="Wmxgs" type="xs:token" use="required" />
+            <xs:attribute name="Vt" type="xs:string" use="required"/>
+            <xs:attribute name="At" type="xs:positiveInteger" use="optional" default="2"/>
+            <xs:attribute name="AtN" type="xs:positiveInteger" use="optional" default="1"/>
+            <xs:attribute name="AtG" type="xs:positiveInteger" use="optional" default="1"/>
+            <xs:attribute name="maxA" type="xs:positiveInteger" use="optional" default="2"/>
+            <xs:attribute name="maxJ" type="xs:positiveInteger" use="optional" default="2147483647" />
+            <xs:attribute name="maxPosSep" type="xs:positiveInteger" use="optional" default="5"/>
+            <xs:attribute name="seedDepth" type="xs:positiveInteger" use="optional" default="6"/>
+          </xs:complexType>
+        </xs:element>
+        
+        <!-- Q -->
+        <xs:element name="Q" >
+          <xs:complexType>
+            <xs:choice minOccurs="1" maxOccurs="unbounded">
+              <xs:element name="paired">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="file" minOccurs="2" maxOccurs="2" type="xs:string" />
+                  </xs:sequence>
+                  <xs:attribute name="srcId" type="xs:nonNegativeInteger" use="optional"/>
+                  <xs:attribute name="subId" type="xs:nonNegativeInteger" use="required"/>
+                  <xs:attribute name="readId" type="intRange" use="optional" default="*-*" />
+                  <xs:attribute name="srcInfo" type="xs:string" use="optional"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:choice>
+            <xs:attribute name="dataSourceId" type="xs:nonNegativeInteger" use="optional" default="0"/>
+          </xs:complexType>
+        </xs:element>
+        
+        <!-- A -->
+        <xs:element name="A" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence minOccurs="1" maxOccurs="1">
+              <xs:element name="sam">
+                <xs:complexType>
+                  <xs:attribute name="report" type="reportType" use="required" />
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="sbf">
+                <xs:complexType>
+                  <xs:attribute name="report" type="reportType" use="required" />
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="tse">
+                <xs:complexType>
+                  <xs:attribute name="report" type="reportType" use="required" />
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="kmh">
+                <xs:complexType>
+                  <xs:attribute name="report" type="reportType" use="required" />
+                  <xs:attribute name="k" type="xs:nonNegativeInteger" use="optional" default="8"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="overwrite" type="xs:boolean" use="optional" default="false"/>
+            <xs:attribute name="baseName" type="xs:string" use="optional" default="AriocP" />
+            <xs:attribute name="basePath" type="xs:string" use="optional" />
+            <xs:attribute name="maxA" type="intGMK" use="optional" default="1G"/>
+            <xs:attribute name="pairOrientation" use="optional" default="convergent">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:pattern value="(same|convergent|divergent|s|c|d)"/>
+                </xs:restriction>
+              </xs:simpleType>                
+            </xs:attribute>
+            <xs:attribute name="pairFragmentLength" use="optional" default="0-500">
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:pattern value="(\d+)(?:-(\d+))*" />
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="pairCollision" use="optional" default="overlap cover">
+              <xs:simpleType>
+                <xs:list>
+                  <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                      <xs:enumeration value="overlap" />
+                      <xs:enumeration value="cover" />
+                      <xs:enumeration value="dovetail" />
+                      <xs:enumeration value="o" />
+                      <xs:enumeration value="c" />
+                      <xs:enumeration value="d" />
+                      <xs:enumeration value="oc" />
+                      <xs:enumeration value="od" />
+                      <xs:enumeration value="cd" />
+                      <xs:enumeration value="ocd" />
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:list>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="mapqUnknown" type="xs:nonNegativeInteger" use="optional" default="255" />
+            <xs:attribute name="mapqVersion" type="xs:nonNegativeInteger" use="optional" default="0" />
+            <xs:attribute name="cigarFormat" type="cigarType" use="optional" default="=XIDS" />
+            <xs:attribute name="mdFormat" type="mdType" use="optional" default="standard" />
+          </xs:complexType>
+        </xs:element>
+        
+      </xs:sequence>
+      <xs:attribute name="gpuMask" type="bit32" use="optional" default="0x00000001" />
+      <xs:attribute name="maxDOP" type="xs:nonNegativeInteger" use="optional" default="1" />
+      <xs:attribute name="batchSize" type="intGMK" use="optional" />
+      <xs:attribute name="verboseMask" type="bit32" use="optional" default="0xE0000003" />
+
+    </xs:complexType>
+  </xs:element>
+  
+  <!-- type restrictions used in this XSD document -->
+  <xs:simpleType name="bit32">
+    <xs:restriction base="xs:token">
+      <xs:pattern value="0x[0-9a-fA-F]{8}" />
+    </xs:restriction>
+  </xs:simpleType>
+  
+  <xs:simpleType name="intGMK">
+    <xs:restriction base="xs:token">
+      <xs:pattern value="[0-9]+[GgMmKk]?" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="reportType">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="mapped" />
+      <xs:enumeration value="unmapped" />
+      <xs:enumeration value="concordant" />
+      <xs:enumeration value="discordant" />
+      <xs:enumeration value="rejected" />
+      <xs:enumeration value="m" />
+      <xs:enumeration value="u" />
+      <xs:enumeration value="c" />
+      <xs:enumeration value="d" />
+      <xs:enumeration value="r" />
+      <!-- unpaired only: -->
+      <xs:enumeration value="mu" />
+      <!-- paired only: -->
+      <xs:enumeration value="cd" />
+      <xs:enumeration value="cr" />
+      <xs:enumeration value="cu" />
+      <xs:enumeration value="cdr" />
+      <xs:enumeration value="cdu" />
+      <xs:enumeration value="cru" />
+      <xs:enumeration value="cdru" />
+      <xs:enumeration value="dr" />
+      <xs:enumeration value="du" />
+      <xs:enumeration value="dru" />
+      <xs:enumeration value="ru" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="cigarType">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="MID" />
+      <xs:enumeration value="MIDS" />
+      <xs:enumeration value="=XIDS" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="mdType">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="standard" />
+      <xs:enumeration value="compact" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="intRange">
+    <xs:restriction base="xs:token">
+      <xs:pattern value="(\*|\d+)[ \-,](\*|\d+)" />
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

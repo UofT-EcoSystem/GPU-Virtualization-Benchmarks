@@ -48,15 +48,16 @@ def parse_csv(directory, graph_type):
     # return a map of metric type to pandas dataframe
     return results
 
-def print_kernel(kernels):
+def print_kernel(kernels, name_len):
     # list out the kernel names
-    plt.subplots_adjust(bottom=0.62)
+    plt.subplots_adjust(bottom=name_len)
     for i in np.arange(kernels.shape[0]):
         dm = cxxfilt.demangle(kernels[i])
         name = dm
         name = re.sub(">\((.+)\)$", '>', dm, 1)
         #name = re.sub("^([a-z]+)\s", '', name, 1)
-        plt.text(0.1, 0.6-i/kernels.shape[0]*0.4, '{}: {}'.format(i, name), transform=plt.gcf().transFigure)
+        plt.text(0.1, name_len-0.06-i/kernels.shape[0]*(name_len), 
+                '{}: {}'.format(i, name), transform=plt.gcf().transFigure)
 
 def time(time_df):
     # get the total runtime
@@ -75,7 +76,7 @@ def time(time_df):
 
     return result
 
-def join(df_time, df):
+def join(df_time, df, drop_threshold):
     # kernel names produced by nvprof and nsight are slightly different 
     # need to manually equate them
     col_import = []
@@ -105,10 +106,10 @@ def join(df_time, df):
     print(diff['Kernel Name'])
 
     # xticks with importance
-    xticks = ['{}\n{:.1f}%'.format(i, result.iloc[i]['Importance']) for i in range(result.shape[0])]
+    xticks = ['{}\n{:.2f}%'.format(i, result.iloc[i]['Importance']) for i in range(result.shape[0])]
 
     # drop rows with importance below 1%
-    neglible = result[ result['Importance'] < 1 ].index
+    neglible = result[ result['Importance'] < drop_threshold ].index
     result.drop(neglible, inplace=True)
 
     # drop the importance column
@@ -143,7 +144,7 @@ def instmix(args, df_time, df):
 
     # inner join the two tables: importance and metric values
     # also sort the table rows by descending importance
-    df_join, xticks = join(df_time, trans_df)
+    df_join, xticks = join(df_time, trans_df, args.drop_threshold)
 
     # normalize each benchmark mixture and scale it by importance
     df_join[metrics] = df_join[metrics].div(df_join['EXEC'], axis=0)
@@ -159,10 +160,10 @@ def instmix(args, df_time, df):
     results = df_join.values
 
     # set graph size
-    plt.rcParams["figure.figsize"] = (30, 40)
+    plt.rcParams["figure.figsize"] = (args.width, args.height)
 
     # print the list of kernels
-    print_kernel(results[:, 0])
+    print_kernel(results[:, 0], args.name_len)
 
     legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
     draw_stack(results, legends, bench_name.capitalize(), 'Kernel ID', 
@@ -192,14 +193,14 @@ def comp(args, df_time, df):
     cols = ['Kernel Name'] + metrics
     trans_df = trans_df[cols]
 
-    df_join, xticks = join(df_time, trans_df)
+    df_join, xticks = join(df_time, trans_df, args.drop_threshold)
 
     #df_join = df_join[cols]
 
     results = df_join.values
 
     # set graph size
-    plt.rcParams["figure.figsize"] = (30, 20)
+    plt.rcParams["figure.figsize"] = (args.width, args.height)
 
     legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
     draw_bar(results, legends, bench_name, 'Kernel ID', 
@@ -242,12 +243,12 @@ def mem(args, df_time, df):
              'OCCUPANCY', 'L1 Hit Rate']
     trans_df = trans_df[['Kernel Name'] + cols]
 
-    df_join, xticks = join(df_time, trans_df)
+    df_join, xticks = join(df_time, trans_df, args.drop_threshold)
     #df_join = df_join.drop(columns='Kernel Name')
 
     results = df_join.values
 
-    plt.rcParams["figure.figsize"] = (35, 20)
+    plt.rcParams["figure.figsize"] = (args.width, args.height)
 
     draw_bar(results, cols, bench_name, 'Kernel ID', 
             'Memory Utilization during Active Cycles (%)',
@@ -271,6 +272,19 @@ def main():
     parser.add_argument('--name', required=True,
             help='Title of the generated graph.')
 
+    parser.add_argument('--drop_threshold', type=float, default=0, 
+            help='Drop kernels that have a weight less than this threshold.')
+
+    parser.add_argument('--width', type=int, default=30,
+            help='Width of the the graph.')
+
+    parser.add_argument('--height', type=int, default=20,
+            help='Width of the the graph.')
+
+    parser.add_argument('--name_len', type=float, default=0.62,
+            help='Portion of inst graph for kernel name.')
+
+ 
     # parse arguments
     args = parser.parse_args()
 

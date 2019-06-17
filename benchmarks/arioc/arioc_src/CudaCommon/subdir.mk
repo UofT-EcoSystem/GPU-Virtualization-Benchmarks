@@ -1,0 +1,1 @@
+CPPS += $(wildcard CudaCommon/*.cpp)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- The following are placeholders for the TortoiseSVN command-line utility SubWCrev.exe:
+
+      - working copy revision number: 2559
+      - working copy "date stamp" (2-digit year, 3-digit day number): 19157
+
+      The command-line syntax is something like
+          SubWCrev "C:\Projects VS120\Arioc" SvnTemplate.wxi AriocVersion.wxi
+-->
+<Include Id="AriocVersion">
+  <?define FileVersion="1.30.2559.19157" ?>
+  <?define ProductVersion="1.30.2559" ?>
+</Include>
