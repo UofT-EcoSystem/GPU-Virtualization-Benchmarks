@@ -18,17 +18,17 @@ mem_sec="Memory_Usage"
 
 # resnet (FP32)
 #--fp16 --static-loss-scale 256 
-resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 32 --training-only /dataset/imagenet --epochs 1 --profile 15 --seed 2"
+resnet_train="/opt/conda/bin/python main.py --arch resnet50 -c fanin --label-smoothing 0.1 -b 64 --training-only /dataset/imagenet --epochs 1 --profile 10 --seed 2"
 
-resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/imagenet --profile 15 --epochs 1 --fp16 -b 512 --seed 2"
+resnet_infer="/opt/conda/bin/python main.py --arch resnet50 --evaluate /dataset/imagenet --profile 10 --epochs 1 --fp16 -b 64 --seed 2"
 
 # gnmt (FP16)
-gnmt_train="./train.py --seed 2 --train-batch-size 80 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
+gnmt_train="./train.py --seed 2 --train-batch-size 64 --epochs 1 --profile 10 --dataset-dir /dataset/wmt_ende"
 gnmt_infer="/opt/conda/bin/python3 translate.py \
   --input /dataset/wmt_ende/newstest2014.tok.bpe.32000.en \
   --reference /dataset/wmt_ende/newstest2014.de --output /tmp/output \
-  --model results/gnmt/model_best.pth --batch-size 80 \
-  --beam-size 5 --math fp16 --seed 2"
+  --model results/gnmt/model_best.pth --batch-size 64 \
+  --beam-size 5 --math fp16 --profile 10"
 
 ########### Arg 1&2: model and task ###########
 if [ $1 == "resnet" ]; then
@@ -71,7 +71,6 @@ export CUDA_VISIBLE_DEVICES=$4
 # goes under profile/train or profile/infer within the model folder
 mkdir -p profile
 mkdir -p profile/$2
-rm -f profile/$2/*
 
 ############ Kick off the run #############
 if [ $tool == "nsight" ]; then
@@ -85,8 +84,8 @@ if [ $tool == "nsight" ]; then
   cat profile/$2/$3.txt > /dev/null
 else
   #-o profile/$1/$2/$1-%p.nvvp
-  profile="$nvprof --profile-from-start off --profile-child-processes -f --print-gpu-trace \
-    --csv --normalized-time-unit ms  --log-file profile/$2/$3-%p.txt"
+  profile="$nvprof --profile-from-start off -f --print-gpu-trace \
+    --csv --normalized-time-unit ms  --log-file profile/$2/$3.txt"
 
   $profile $cmd 
 fi
