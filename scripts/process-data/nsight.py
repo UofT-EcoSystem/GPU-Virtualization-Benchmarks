@@ -57,11 +57,12 @@ def print_kernel(kernels, name_len):
         name = re.sub(">\((.+)\)$", '>', dm, 1)
         #name = re.sub("^([a-z]+)\s", '', name, 1)
         plt.text(0.1, name_len-0.06-i/kernels.shape[0]*(name_len), 
-                '{}: {}'.format(i, name), transform=plt.gcf().transFigure)
+                '{}: {}'.format(i, name), transform=plt.gcf().transFigure, fontsize=16)
 
 def time(time_df):
     # get the total runtime
-    total = time_df.iloc[-1]['Start'] + time_df.iloc[-1]['Duration'] - time_df.iloc[0]['Start']
+    #total = time_df.iloc[-1]['Start'] + time_df.iloc[-1]['Duration'] - time_df.iloc[0]['Start']
+    total = time_df['Duration'].sum()
 
     # drop rows with NaN (cudamemset has NaN grid size)
     time_df = time_df.dropna(subset=['Grid X'])
@@ -76,19 +77,42 @@ def time(time_df):
 
     return result
 
-def join(df_time, df, drop_threshold):
+def nsight2nvprof(df_nsight, df_nvprof):
+    kmap = {}
+
+    nsight = df_nsight['Kernel Name'].unique()
+    nvprof = df_nvprof['Kernel Name'].unique()
+
+    for name_nsight in nsight:
+        regex = '([^a-zA-Z]|^)' + name_nsight + '([^a-zA-Z]|$)'
+        for name_nvprof in nvprof:
+            if re.search(regex, name_nvprof):
+                # one name in nsight tool can appear in multiple names in nvprof :/
+                if name_nsight not in kmap:
+                    kmap[name_nsight] = []
+                kmap[name_nsight].append(name_nvprof)
+
+    return kmap
+
+def join(kmap, df_time, df, drop_threshold, util=False):
     # kernel names produced by nvprof and nsight are slightly different 
     # need to manually equate them
     col_import = []
     matches = []
 
     for index, row in df.iterrows():
+        match_df = []
+
+        for prof_name in kmap[row['Kernel Name']]:
+            match_df.append(df_time[df_time['Kernel Name'] == prof_name])
+
+        matched = pd.concat(match_df)
+
         # append importance to list
-        matched = df_time[df_time['Kernel Name'].str.contains(row['Kernel Name'])]
         if matched.size == 0:
             print('No matching kernel in time df!')
             print(row['Kernel Name'])
-            #exit(1)
+            exit(1)
             col_import.append(0)
         else:
             if matched.shape[0] != 1:
@@ -103,7 +127,8 @@ def join(df_time, df, drop_threshold):
     # debug: find out which ones are leftover from time
     match_time = pd.concat(matches)
     diff = pd.concat([match_time, df_time]).drop_duplicates(keep=False)
-    print(diff['Kernel Name'])
+    if diff.size != 0:
+        print(diff['Kernel Name'])
 
     # xticks with importance
     xticks = ['{}\n{:.2f}%'.format(i, result.iloc[i]['Importance']) for i in range(result.shape[0])]
@@ -117,7 +142,7 @@ def join(df_time, df, drop_threshold):
 
     return result, xticks
 
-def instmix(args, df_time, df):
+def instmix(args, df_time, df, kmap):
     bench_name = args.name
     outdir = args.outdir if args.outdir else args.indir
 
@@ -144,7 +169,7 @@ def instmix(args, df_time, df):
 
     # inner join the two tables: importance and metric values
     # also sort the table rows by descending importance
-    df_join, xticks = join(df_time, trans_df, args.drop_threshold)
+    df_join, xticks = join(kmap, df_time, trans_df, args.drop_threshold)
 
     # normalize each benchmark mixture and scale it by importance
     df_join[metrics] = df_join[metrics].div(df_join['EXEC'], axis=0)
@@ -171,7 +196,7 @@ def instmix(args, df_time, df):
             xticks=xticks,
             outfile=os.path.join(outdir, 'inst.pdf'))
 
-def comp(args, df_time, df):
+def comp(args, df_time, df, kmap):
     bench_name = args.name
     outdir = args.outdir if args.outdir else args.indir
 
@@ -182,7 +207,7 @@ def comp(args, df_time, df):
     df_map = {}
     df_map['Kernel Name'] = k_metrics['Kernel Name'].unique()
 
-    metrics = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Load/Store']
+    metrics = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Load/Store', 'Eligible']
 
     # I really hope no one sees this: re-organize the table
     for metric in metrics:
@@ -193,7 +218,7 @@ def comp(args, df_time, df):
     cols = ['Kernel Name'] + metrics
     trans_df = trans_df[cols]
 
-    df_join, xticks = join(df_time, trans_df, args.drop_threshold)
+    df_join, xticks = join(kmap, df_time, trans_df, args.drop_threshold)
 
     #df_join = df_join[cols]
 
@@ -202,13 +227,13 @@ def comp(args, df_time, df):
     # set graph size
     plt.rcParams["figure.figsize"] = (args.width, args.height)
 
-    legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
+    legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Eligible']
     draw_bar(results, legends, bench_name, 'Kernel ID', 
-            'Utilization during Active Cycles (%)',
+            'Compute Utilization during Active Cycles (%)',
             xticks=xticks,
             outfile=os.path.join(outdir, 'comp.pdf'))
 
-def mem(args, df_time, df):
+def mem(args, df_time, df, kmap):
     bench_name = args.name
     outdir = args.outdir if args.outdir else args.indir
 
@@ -243,7 +268,7 @@ def mem(args, df_time, df):
              'OCCUPANCY', 'L1 Hit Rate']
     trans_df = trans_df[['Kernel Name'] + cols]
 
-    df_join, xticks = join(df_time, trans_df, args.drop_threshold)
+    df_join, xticks = join(kmap, df_time, trans_df, args.drop_threshold)
     #df_join = df_join.drop(columns='Kernel Name')
 
     results = df_join.values
@@ -294,15 +319,20 @@ def main():
     # get kernel importance from runtime info
     df_time = time(df_read['time'])
 
+    # get kernel name map
+    kmap = nsight2nvprof(next(iter(df_read.items()))[1], df_time)
+
     if 'inst' in args.types:
         # generate plot for instruction mix
-        instmix(args, df_time, df_read['inst'])
-    elif 'comp' in args.types:
+        instmix(args, df_time, df_read['inst'], kmap)
+
+    if 'comp' in args.types:
         # generate plot for compute unit utilization 
-        comp(args, df_time, df_read['comp'])
-    elif 'mem' in args.types:
+        comp(args, df_time, df_read['comp'], kmap)
+
+    if 'mem' in args.types:
         # generate plot for memory unit utilization 
-        mem(args, df_time, df_read['mem'])
+        mem(args, df_time, df_read['mem'], kmap)
 
 if __name__ == '__main__':
     main()
