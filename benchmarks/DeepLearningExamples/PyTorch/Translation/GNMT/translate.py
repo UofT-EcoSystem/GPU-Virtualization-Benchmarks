@@ -93,6 +93,7 @@ def parse_args():
 
     general.add_argument('--print-freq', '-p', default=1, type=int,
                          help='print log every PRINT_FREQ batches')
+    general.add_argument('--profile', type=int, default=1, help='Iteration to profile')
 
     # distributed
     distributed = parser.add_argument_group('distributed setup')
@@ -130,8 +131,13 @@ def main():
 
     if not args.cuda and torch.cuda.is_available():
         warnings.warn('cuda is available but not enabled')
+
     if not args.cudnn:
         torch.backends.cudnn.enabled = False
+    else:
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
     # load checkpoint and deserialize to CPU (to save GPU memory)
     checkpoint = torch.load(args.model, map_location={'cuda:0': 'cpu'})
@@ -186,7 +192,7 @@ def main():
 
         # execute the inference
         translator.run(calc_bleu=args.bleu, eval_path=args.output,
-                       reference_path=args.reference, summary=True)
+                       reference_path=args.reference, summary=True, profile=args.profile)
 
 
 if __name__ == '__main__':
