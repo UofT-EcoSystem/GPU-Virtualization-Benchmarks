@@ -9,14 +9,18 @@ import cxxfilt
 import re
 import difflib
 
-from primitives.draw_bar import *
+from primitives.draw import *
 
 
 def parse_csv(directory, graph_type):
+    type_dic = {'comptime': 'comp'}
     results = {}
     types = graph_type + ['time']
 
     for t in types:
+        if t in type_dic:
+            t = type_dic[t]
+
         full_filename = os.path.join(directory, t+'.txt')
 
         # find out number of lines to skip in file
@@ -280,12 +284,64 @@ def mem(args, df_time, df, kmap):
             xticks=xticks,
             outfile=os.path.join(outdir, 'mem.pdf'))
 
+def comp2time(args, df_time, df, kmap):
+    bench_name = args.name
+    outdir = args.outdir if args.outdir else args.indir
+
+    # constants
+    metrics = ['ALU', 'FMA', 'FP16', 'FP64', 'Load/Store', 'Tensor', 'SPU', 'Eligible']
+    num_points = 1000000 # 1M points to represent the entire timeline
+
+    start = math.floor(float(df_time.iloc[0]['Start']))
+    end = math.ceil(float(df_time.iloc[-1]['Start']) + float(df_time.iloc[-1]['Duration']))
+    prec = (end - start) / (num_points-1)
+    xs = np.linspace(start, end, num=num_points) / 1000
+    ys = np.zeros((num_points, len(metrics)))
+
+    df_time['left'] = (np.floor((df_time['Start'] - start)/prec)).values
+    df_time['right'] = (np.ceil((df_time['Start'] + df_time['Duration'] - start)/prec)).values
+
+    # for each kernel name, update ys
+    for name in kmap:
+        comp_values = df[(df['Kernel Name'] == name) ]['Metric Value'].values
+        if comp_values.shape[0] % len(metrics) != 0:
+            print('comp_values shape mismatch')
+            exit(1)
+        slice_size = comp_values.shape[0] / len(metrics)
+        comp_values = np.array(np.split(comp_values, slice_size))
+
+        # get start and end index of the kernel
+        idx_df = []
+        for prof_name in kmap[name]:
+            idx_df.append(df_time[df_time['Name'] == prof_name])
+        idx_df = pd.concat(idx_df)
+
+        if comp_values.shape[0] != idx_df.shape[0]:
+            print(name)
+            #print(kmap[name])
+            #print(comp_values.shape, idx_df.shape)
+
+        i = 0
+        for index, row in idx_df.iterrows():
+            l = int(row['left'])
+            r = int(row['right'])
+            v = comp_values[i, :]
+            ys[l:r, :] = ys[l:r, :] + v
+
+            i += 1
+
+    plt.rcParams["figure.figsize"] = (args.width, args.height)
+
+    draw_plot(xs, ys, metrics, bench_name, 'Time', 
+            'Compute Utilization during Active Cycles (%)', 
+            outfile=os.path.join(outdir, 'comp-time.pdf'))
+
 def main():
     # cmd parser
     parser = argparse.ArgumentParser('Parse nsight compute raw csv output.',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
-    types = ['inst', 'comp', 'mem']
+    types = ['inst', 'comp', 'mem', 'comptime']
     parser.add_argument('--types', required=True, nargs='+', 
             choices=types, help='Types of plots to make.')
 
@@ -333,6 +389,9 @@ def main():
     if 'mem' in args.types:
         # generate plot for memory unit utilization 
         mem(args, df_time, df_read['mem'], kmap)
+
+    if 'comptime' in args.types:
+        comp2time(args, df_read['time'], df_read['comp'], kmap)
 
 if __name__ == '__main__':
     main()
