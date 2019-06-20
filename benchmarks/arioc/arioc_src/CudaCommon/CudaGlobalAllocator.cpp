@@ -28,7 +28,8 @@ CudaGlobalAllocator::CudaGlobalAllocator( CudaDeviceBinding& cdb, INT64 cbReserv
     CRVALIDATOR;
 
     // get available global memory for the CUDA device associated with the current CUDA context.
-    this->cb = cdb.GetDeviceFreeGlobalMemory();
+    this->cb = cdb.GetDeviceFreeGlobalMemory() / 2;
+    //this->cb = cdb.GetDeviceFreeGlobalMemory();
 
     // reserve the specified number of bytes outside this CudaGlobalAllocator instance
     if( this->cb < cbReserved )
