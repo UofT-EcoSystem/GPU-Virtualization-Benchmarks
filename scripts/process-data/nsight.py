@@ -13,7 +13,7 @@ from primitives.draw import *
 
 
 def parse_csv(directory, graph_type):
-    type_dic = {'comptime': 'comp'}
+    type_dic = {'comptime': 'comp', 'memtime': 'mem'}
     results = {}
     types = graph_type + ['time']
 
@@ -284,19 +284,13 @@ def mem(args, df_time, df, kmap):
             xticks=xticks,
             outfile=os.path.join(outdir, 'mem.pdf'))
 
-def comp2time(args, df_time, df, kmap):
-    bench_name = args.name
-    outdir = args.outdir if args.outdir else args.indir
-
-    # constants
-    metrics = ['ALU', 'FMA', 'FP16', 'FP64', 'Load/Store', 'Tensor', 'SPU', 'Eligible']
+def preprocess_util2time(df_time, df, kmap, metrics, legends, util_type):
     num_points = 1000000 # 1M points to represent the entire timeline
-
     start = math.floor(float(df_time.iloc[0]['Start']))
     end = math.ceil(float(df_time.iloc[-1]['Start']) + float(df_time.iloc[-1]['Duration']))
     prec = (end - start) / (num_points-1)
     xs = np.linspace(start, end, num=num_points) / 1000
-    ys = np.zeros((num_points, len(metrics)))
+    ys = np.zeros((num_points, len(legends)))
 
     df_time['left'] = (np.floor((df_time['Start'] - start)/prec)).values
     df_time['right'] = (np.ceil((df_time['Start'] + df_time['Duration'] - start)/prec)).values
@@ -305,10 +299,38 @@ def comp2time(args, df_time, df, kmap):
     for name in kmap:
         comp_values = df[(df['Kernel Name'] == name) ]['Metric Value'].values
         if comp_values.shape[0] % len(metrics) != 0:
+            print(comp_values.shape[0])
+            print(len(metrics))
+            print(df.head(10))
             print('comp_values shape mismatch')
             exit(1)
+
         slice_size = comp_values.shape[0] / len(metrics)
         comp_values = np.array(np.split(comp_values, slice_size))
+
+        if util_type == 'mem':
+                #    # adjust memory usage according to total available amount
+    #    trans_df['REGISTER_USAGE'] = trans_df['REGISTER_USAGE'] * 1024 * trans_df['OCCUPANCY'] / (64 * 1024)
+    #    blocks_per_sm = trans_df['OCCUPANCY'] * 32 * 32 / trans_df['Block Size']
+    #    trans_df['SHARED_USAGE'] = (trans_df['DYNAMIC_SHARED_USAGE'] 
+    #            + trans_df['STATIC_SHARED_USAGE'] ) * (blocks_per_sm) / trans_df['Shm Config Size']
+
+            # handle register usage
+            comp_values[:, metrics.index('REGISTER_USAGE')] = comp_values[:, metrics.index('REGISTER_USAGE')] * 1024 \
+                    * comp_values[:, metrics.index('OCCUPANCY')] / (64 * 1024)
+
+            # handle shared memory usage
+            blocks_per_sm = comp_values[:, metrics.index('OCCUPANCY')] * 32 * 32 / comp_values[:, metrics.index('Block Size')]
+            comp_values[:,metrics.index('Shm Config Size')] =  \
+                    (comp_values[:, metrics.index('DYNAMIC_SHARED_USAGE')] + comp_values[:,metrics.index('STATIC_SHARED_USAGE')]) * \
+                    blocks_per_sm / comp_values[:, metrics.index('Shm Config Size')]
+
+            #print('before', comp_values)
+            comp_values = np.delete(comp_values, 1, axis=1)
+            comp_values = np.delete(comp_values, 3, axis=1)
+            comp_values = np.delete(comp_values, 3, axis=1)
+            #print('after', comp_values)
+            #exit(1)
 
         # get start and end index of the kernel
         idx_df = []
@@ -326,9 +348,23 @@ def comp2time(args, df_time, df, kmap):
             l = int(row['left'])
             r = int(row['right'])
             v = comp_values[i, :]
+
             ys[l:r, :] = ys[l:r, :] + v
 
+
             i += 1
+
+    return xs, ys
+
+def comp2time(args, df_time, df, kmap):
+    bench_name = args.name
+    outdir = args.outdir if args.outdir else args.indir
+
+    # constants
+    metrics = ['ALU', 'FMA', 'FP16', 'FP64', 'Load/Store', 'Tensor', 'SPU', 'Eligible']
+    legends = metrics
+
+    xs, ys = preprocess_util2time(df_time, df, kmap, metrics, legends, 'comp')
 
     plt.rcParams["figure.figsize"] = (args.width, args.height)
 
@@ -336,12 +372,37 @@ def comp2time(args, df_time, df, kmap):
             'Compute Utilization during Active Cycles (%)', 
             outfile=os.path.join(outdir, 'comp-time.pdf'))
 
+def mem2time(args, df_time, df, kmap):
+    bench_name = args.name
+    outdir = args.outdir if args.outdir else args.indir
+
+    df = df.drop(df[df['Metric Name'] == 'L2 Hit Rate'].index)
+
+    metrics = ['DRAM_UTIL_PCT', 'Block Size', 'REGISTER_USAGE', 'Shm Config Size', 
+            'DYNAMIC_SHARED_USAGE', 
+            'STATIC_SHARED_USAGE', 'OCCUPANCY', 
+            'L1 Hit Rate']
+
+    legends = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 
+            'SHARED_USAGE', 'OCCUPANCY', 'L1 Hit Rate']
+
+
+    xs, ys = preprocess_util2time(df_time, df, kmap, metrics, legends, 'mem')
+
+    plt.rcParams["figure.figsize"] = (args.width, args.height)
+
+    draw_plot(xs, ys, legends, bench_name, 'Time', 
+            'Memory Utilization during Active Cycles (%)', 
+            outfile=os.path.join(outdir, 'mem-time.pdf'))
+
+
+
 def main():
     # cmd parser
     parser = argparse.ArgumentParser('Parse nsight compute raw csv output.',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
-    types = ['inst', 'comp', 'mem', 'comptime']
+    types = ['inst', 'comp', 'mem', 'comptime', 'memtime']
     parser.add_argument('--types', required=True, nargs='+', 
             choices=types, help='Types of plots to make.')
 
@@ -392,6 +453,10 @@ def main():
 
     if 'comptime' in args.types:
         comp2time(args, df_read['time'], df_read['comp'], kmap)
+
+    if 'memtime' in args.types:
+        mem2time(args, df_read['time'], df_read['mem'], kmap)
+
 
 if __name__ == '__main__':
     main()

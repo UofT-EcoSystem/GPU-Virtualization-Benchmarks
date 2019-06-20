@@ -111,7 +111,7 @@ def draw_plot(xs, ys, legends, title, xlabel, ylabel, outfile='comp-time.pdf'):
         #plt.setp(ax.get_xticklabels(), rotation=xtick_rot)
         #plt.setp(plt.xticks(), rotation=30)
         plt.legend(fontsize=18)
-        plt.ylim([0, 100])
+        #plt.ylim([0, 100])
         plt.yticks(fontsize=16)
 
 
