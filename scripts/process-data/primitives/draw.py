@@ -90,4 +90,40 @@ def draw_bar(results, legends, title, xlabel, ylabel, xticks, xtick_rot=0, outfi
     plt.close()
 
 
+def draw_plot(xs, ys, legends, title, xlabel, ylabel, outfile='comp-time.pdf'):
+    num_metrics = len(legends)
+
+    p = []
+    colors = sns.color_palette("husl", len(legends))
+    #colors = sns.color_palette("Set2", len(legends))
+
+    ax1 = None
+    for i in range(num_metrics):
+        if i == 0:
+            ax = ax1 = plt.subplot(len(legends), 1, i+1)
+            plt.plot(xs, ys[:, i], color=colors[i], label=legends[i])
+            plt.title(title, fontsize=22)
+        else:
+            ax = plt.subplot(len(legends), 1, i+1, sharex=ax1, sharey=ax1)
+            plt.plot(xs, ys[:, i], color=colors[i], label=legends[i])
+
+
+        #plt.setp(ax.get_xticklabels(), rotation=xtick_rot)
+        #plt.setp(plt.xticks(), rotation=30)
+        plt.legend(fontsize=18)
+        #plt.ylim([0, 100])
+        plt.yticks(fontsize=16)
+
+
+        if i == num_metrics//2:
+            plt.ylabel(ylabel, fontsize=18)
+        if i == num_metrics - 1:
+            plt.xlabel(xlabel, fontsize=18)
+
+    #plt.xticks(idx, xticks, fontsize=14, rotation=xtick_rot)
+    plt.savefig(outfile, bbox_inches='tight')
+    plt.close()
+
+
+
 
