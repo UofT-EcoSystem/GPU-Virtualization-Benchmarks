@@ -70,7 +70,6 @@ def time(time_df):
 
     # drop rows with NaN (cudamemset has NaN grid size)
     time_df = time_df.dropna(subset=['Grid X'])
-    print('num invoks:{}'.format(time_df.shape))
 
     # group duration of the kernels
     time_df = time_df[['Name', 'Duration']]
@@ -279,6 +278,9 @@ def mem(args, df_time, df, kmap):
 
     plt.rcParams["figure.figsize"] = (args.width, args.height)
 
+    # rename dram util
+    cols[0] = 'DRAM_BANDWIDTH_UTIL'
+
     draw_bar(results, cols, bench_name, 'Kernel ID', 
             'Memory Utilization during Active Cycles (%)',
             xticks=xticks,
@@ -340,6 +342,9 @@ def preprocess_util2time(df_time, df, kmap, metrics, legends, util_type):
 
         if comp_values.shape[0] != idx_df.shape[0]:
             print(name)
+            print(comp_values.shape[0], idx_df.shape[0])
+            print("Error: nsight and nvprof shape mismatches")
+            exit()
             #print(kmap[name])
             #print(comp_values.shape, idx_df.shape)
 
@@ -387,9 +392,14 @@ def mem2time(args, df_time, df, kmap):
             'SHARED_USAGE', 'OCCUPANCY', 'L1 Hit Rate']
 
 
+    print('invoks in mem: {}'.format(df['ID'].unique().shape[0]))
+    print('invoks in time: {}'.format(df_time.dropna(subset=['Grid X']).shape[0]))
     xs, ys = preprocess_util2time(df_time, df, kmap, metrics, legends, 'mem')
 
     plt.rcParams["figure.figsize"] = (args.width, args.height)
+
+    # rename dram util
+    legends[0] = 'DRAM_BANDWIDTH_UTIL'
 
     draw_plot(xs, ys, legends, bench_name, 'Time', 
             'Memory Utilization during Active Cycles (%)', 
