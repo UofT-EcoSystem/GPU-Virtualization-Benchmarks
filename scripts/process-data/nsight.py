@@ -20,6 +20,8 @@ def parse_csv(directory, graph_type):
     for t in types:
         if t in type_dic:
             t = type_dic[t]
+        if t == 'sheet':
+            continue
 
         full_filename = os.path.join(directory, t+'.txt')
 
@@ -236,6 +238,8 @@ def comp(args, df_time, df, kmap):
             xticks=xticks,
             outfile=os.path.join(outdir, 'comp.pdf'))
 
+    return results, legends
+
 def mem(args, df_time, df, kmap):
     bench_name = args.name
     outdir = args.outdir if args.outdir else args.indir
@@ -285,6 +289,8 @@ def mem(args, df_time, df, kmap):
             'Memory Utilization during Active Cycles (%)',
             xticks=xticks,
             outfile=os.path.join(outdir, 'mem.pdf'))
+
+    return results, cols
 
 def preprocess_util2time(df_time, df, kmap, metrics, legends, util_type):
     num_points = 1000000 # 1M points to represent the entire timeline
@@ -412,7 +418,7 @@ def main():
     parser = argparse.ArgumentParser('Parse nsight compute raw csv output.',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
-    types = ['inst', 'comp', 'mem', 'comptime', 'memtime']
+    types = ['inst', 'comp', 'mem', 'comptime', 'memtime', 'sheet']
     parser.add_argument('--types', required=True, nargs='+', 
             choices=types, help='Types of plots to make.')
 
@@ -455,11 +461,12 @@ def main():
 
     if 'comp' in args.types:
         # generate plot for compute unit utilization 
-        comp(args, df_time, df_read['comp'], kmap)
+        comp_val, comp_legends = comp(args, df_time, df_read['comp'], 
+                kmap)
 
     if 'mem' in args.types:
         # generate plot for memory unit utilization 
-        mem(args, df_time, df_read['mem'], kmap)
+        mem_val, mem_legends = mem(args, df_time, df_read['mem'], kmap)
 
     if 'comptime' in args.types:
         comp2time(args, df_read['time'], df_read['comp'], kmap)
@@ -467,7 +474,21 @@ def main():
     if 'memtime' in args.types:
         mem2time(args, df_read['time'], df_read['mem'], kmap)
 
+    if 'sheet' in args.types:
+        if comp_val is None or mem_val is None:
+            print("Comp and mem must be selected when using sheet.")
+        else:
+            # combine values
+            dump = np.concatenate((mem_val, comp_val[:, 1:]), axis=1)
+            dump_col = ['Kernel'] + mem_legends + comp_legends
+            dump = pd.DataFrame(data=dump, columns=dump_col)
+            dump = dump.drop('L1 Hit Rate', axis=1)
+            dump = dump.drop('Eligible', axis=1)
 
+            dump.insert(loc=0, column='Benchmark_Set', value=args.name)
+
+            dump.to_csv(os.path.join(args.indir, 'sheet.csv'), sep=',', 
+                    index=False)
 if __name__ == '__main__':
     main()
 
