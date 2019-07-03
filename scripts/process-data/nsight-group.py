@@ -9,7 +9,7 @@ import cxxfilt
 import re
 import difflib
 
-from primitives.draw_bar import *
+from primitives.draw import *
 
 
 def parse_csv(filename, t):
