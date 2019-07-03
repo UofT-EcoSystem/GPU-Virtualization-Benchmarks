@@ -234,8 +234,14 @@ def mem(df_time, df, bench_name):
     # adjust memory usage according to total available amount
     trans_df['REGISTER_USAGE'] = trans_df['REGISTER_USAGE'] * 1024 * trans_df['OCCUPANCY'] / (64 * 1024)
     blocks_per_sm = trans_df['OCCUPANCY'] * 32 * 32 / trans_df['Block Size']
+    '''
     trans_df['SHARED_USAGE'] = (trans_df['DYNAMIC_SHARED_USAGE'] 
                                + trans_df['STATIC_SHARED_USAGE'] ) * (blocks_per_sm) / trans_df['Shm Config Size']
+    '''
+    # hard code max shared mem on 2080ti
+    trans_df['SHARED_USAGE'] = (trans_df['DYNAMIC_SHARED_USAGE'] 
+            + trans_df['STATIC_SHARED_USAGE'] ) * (blocks_per_sm) / 65536
+
 
     #'L2 Hit Rate' is bogus, bug in nsight
     cols = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'SHARED_USAGE', 
@@ -318,36 +324,45 @@ def main():
 
     inst_val = np.array(inst_val)
 
-    legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
+    inst_legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St', 'Other']
     # set graph size
     plt.rcParams["figure.figsize"] = (25, 20)
-    draw_stack(inst_val, legends, 'Instruction Mix', 'Benchmark', 
+    draw_stack(inst_val, inst_legends, 'Instruction Mix', 'Benchmark', 
             'Instruction Type Percentage', inst_val[:, 0], 
             xtick_rot=20, outfile=os.path.join(args.indir, 'inst.pdf'))
 
     ############ Memory Usage ##############
     mem_val = np.array(mem_val)
 
-    legends = ['DRAM_UTIL_PCT', 'REGISTER_USAGE', 'SHARED_USAGE', 
+    mem_legends = ['DRAM_BANDWIDTH_UTIL', 'REGISTER_USAGE', 'SHARED_USAGE', 
             'OCCUPANCY', 'L1 Hit Rate']
 
     # set graph size
     plt.rcParams["figure.figsize"] = (15, 25)
-    draw_bar(mem_val, legends, 'Memory Utilization', 'Benchmark', 
+    draw_bar(mem_val, mem_legends, 'Memory Utilization', 'Benchmark', 
             'Memory Utilization during Active Cycles (%)', 
             xticks=mem_val[:, 0], xtick_rot=20, outfile=os.path.join(args.indir, 'mem.pdf'))
 
     ############### Compute Usage ############
     comp_val = np.array(comp_val)
-    legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
+    comp_legends = ['FP16', 'FMA', 'FP64', 'ALU', 'SPU', 'Tensor', 'Ld/St']
 
     # set graph size
     plt.rcParams["figure.figsize"] = (15, 25)
-    draw_bar(comp_val, legends, 'Compute Utilization', 'Benchmark', 
+    draw_bar(comp_val, comp_legends, 'Compute Utilization', 'Benchmark', 
             'Compute Utilization during Active Cycles (%)',
             xticks=comp_val[:, 0], xtick_rot=20,
             outfile=os.path.join(args.indir, 'comp.pdf'))
 
+    ############## Dump csv ###############
+    dump = np.concatenate((mem_val, comp_val[:, 1:]), axis=1)
+    dump_col = ['Kernel'] + mem_legends + comp_legends
+    dump = pd.DataFrame(data=dump, columns=dump_col)
+    dump = dump.drop('L1 Hit Rate', axis=1)
+    dump.insert(loc=0, column='Benchmark_Set', value='Rodinia')
+
+    dump.to_csv(os.path.join(args.indir, 'sheet.csv'), sep=',', 
+            index=False)
 
 
 if __name__ == '__main__':
