@@ -66,12 +66,12 @@ def print_kernel(kernels, name_len):
                 '{}: {}'.format(i, name), transform=plt.gcf().transFigure, fontsize=16)
 
 def time(time_df):
+    # drop rows with NaN (cudamemset has NaN grid size)
+    time_df = time_df.dropna(subset=['Grid X'])
+
     # get the total runtime
     #total = time_df.iloc[-1]['Start'] + time_df.iloc[-1]['Duration'] - time_df.iloc[0]['Start']
     total = time_df['Duration'].sum()
-
-    # drop rows with NaN (cudamemset has NaN grid size)
-    time_df = time_df.dropna(subset=['Grid X'])
 
     # group duration of the kernels
     time_df = time_df[['Name', 'Duration']]
