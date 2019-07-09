@@ -14,14 +14,18 @@ def main():
     parser = argparse.ArgumentParser('Find kernel combination for concurrent execution.',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--infile', required=True, 
+    parser.add_argument('--infile', nargs = '+', required=True, 
             help='Input directory of nsight compute dumps')
 
     # parse arguments
     args = parser.parse_args()
 
     # read csv
-    df = pd.read_csv(args.infile)
+    df_list = [pd.read_csv(f) for f in args.infile]
+    
+    df = pd.concat(df_list)
+
+    df.to_csv('total.csv', index=False, sep=',')
 
     df_zero = []
     df_one = []
