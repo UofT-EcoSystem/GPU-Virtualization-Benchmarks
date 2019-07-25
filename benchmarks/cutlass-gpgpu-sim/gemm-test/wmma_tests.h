@@ -341,3 +341,11 @@
   run_gemm<WmmaGemmTraits44>(4096, 4096, 4096);
   #endif
 
+#ifdef WMMA_45
+  typedef cutlass::gemm::WmmaGemmTraits<cutlass::MatrixLayout::kRowMajor,
+  cutlass::MatrixLayout::kColumnMajor,
+  cutlass::Shape<32, 64, 64> >
+  WmmaGemmTraits44;
+  run_gemm<WmmaGemmTraits44>(1024, 512, 512);
+#endif
+

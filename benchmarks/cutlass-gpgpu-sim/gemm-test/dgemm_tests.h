@@ -1,3 +1,5 @@
+
+
   #ifdef DGEMM_1
   typedef cutlass::gemm::DgemmTraits<cutlass::MatrixLayout::kColumnMajor,
                                      cutlass::MatrixLayout::kRowMajor,
@@ -17,4 +19,12 @@
                                      cutlass::MatrixLayout::kRowMajor,
                                      cutlass::Shape<8, 64, 64> > DGemmTraits3;
   run_gemm<DGemmTraits3>(64, 64, 8);
+  #endif
+
+  #ifdef DGEMM_4
+  typedef cutlass::gemm::DgemmTraits<cutlass::MatrixLayout::kColumnMajor,
+    cutlass::MatrixLayout::kRowMajor,
+    cutlass::Shape<8, 64, 64> > DGemmTraits4;
+
+  run_gemm<DGemmTraits4>(1024, 1024, 512);
   #endif

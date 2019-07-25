@@ -1,3 +1,5 @@
+
+
   #ifdef SGEMM_1
   typedef cutlass::gemm::SgemmTraits<cutlass::MatrixLayout::kColumnMajor,
     cutlass::MatrixLayout::kRowMajor, cutlass::Shape<8, 128, 128> >
@@ -17,4 +19,12 @@
                                      cutlass::MatrixLayout::kRowMajor, cutlass::Shape<8, 128, 128> >
       SgemmTraits3;
   run_gemm<SgemmTraits3>(128, 112, 8);
+  #endif
+
+  #ifdef SGEMM_4
+  typedef cutlass::gemm::SgemmTraits<cutlass::MatrixLayout::kColumnMajor,
+                                     cutlass::MatrixLayout::kRowMajor, cutlass::Shape<8, 128, 128> >
+    SgemmTraits4;
+
+  run_gemm<SgemmTraits4>(2048, 1024, 64);
   #endif
