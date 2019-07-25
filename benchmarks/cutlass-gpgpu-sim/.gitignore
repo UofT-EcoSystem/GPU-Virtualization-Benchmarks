@@ -1,3 +1,8 @@
 profile/
 cutlass-test
 log
+
+# eclipse stuff
+.cproject
+.project
+.settings/
