@@ -36,6 +36,8 @@ static void run_gemm(
     int lda,
     int ldb,
     int ldc,
+    cudaStream_t stream,
+    int n_runs,
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type alpha =
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(1),
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type beta =
@@ -62,6 +64,7 @@ static void run_gemm(
               ldc,
               cutlass::convert(GemmTraits_::kLayoutA),
               cutlass::convert(GemmTraits_::kLayoutB),
+              stream,
               alpha,
               beta);
 
@@ -81,24 +84,26 @@ static void run_gemm(
                     testbed.ptr_computed(),
                     testbed.ldc());
 
-  Gemm::launch(params);
-
-
-  cudaError_t result;
-  do
-  { 
-	result = cudaDeviceSynchronize();
-  }while(result!=cudaSuccess);  
-  printf("Successfully Launched\n");	
-  
-  int save=1;
-  int completedsuccessfully=testbed.verify_with_host(save,save);
-  if (completedsuccessfully==1){
-  	printf("Result Verified\n");	
+  for (int i = 0; i < n_runs; ++i) {
+    Gemm::launch(params, stream);
   }
-  else{
-  	printf("ERROR");	
-  }
+
+//
+//  cudaError_t result;
+//  do
+//  {
+//	result = cudaDeviceSynchronize();
+//  }while(result!=cudaSuccess);
+//  printf("Successfully Launched\n");
+//
+//  int save=1;
+//  int completedsuccessfully=testbed.verify_with_host(save,save);
+//  if (completedsuccessfully==1){
+//  	printf("Result Verified\n");
+//  }
+//  else{
+//  	printf("ERROR");
+//  }
  
 }
 
@@ -109,13 +114,15 @@ static void run_gemm(
     int m,
     int n,
     int k,
+    cudaStream_t stream,
+    int n_runs,
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type alpha =
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(1),
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type beta =
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(0)) {
   int lda = GemmTraits_::kLayoutA == cutlass::MatrixLayout::kColumnMajor ? m : k;
   int ldb = GemmTraits_::kLayoutB == cutlass::MatrixLayout::kColumnMajor ? k : n;
-  run_gemm<GemmTraits_>(m, n, k, lda, ldb, m, alpha, beta);
+  run_gemm<GemmTraits_>(m, n, k, lda, ldb, m, stream, n_runs, alpha, beta);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

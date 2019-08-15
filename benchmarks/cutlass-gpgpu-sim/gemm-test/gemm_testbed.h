@@ -187,6 +187,9 @@ struct GemmTestbed {
   /// Linear scaling factor
   Scalar beta;
 
+  // stream to handle this gemm including memcpy and kernel launch
+  cudaStream_t m_stream;
+
   /// Helper to resize a matrix with a given size and layout
   template <typename T, bool DeviceBacked>
   static void resize(cutlass::HostTensor<T, DeviceBacked>& tensor,
@@ -220,6 +223,7 @@ struct GemmTestbed {
               int ldc,
               int layout_a,
               int layout_b,
+              cudaStream_t stream = cudaStreamDefault,
               Scalar alpha_ = Scalar(1),
               Scalar beta_ = Scalar(0))
       :  alpha(alpha_), beta(beta_) {
@@ -228,6 +232,7 @@ struct GemmTestbed {
     resize(C_initial, M_, N_,1,  ldc);
     resize(ref_host, M_, N_,1,  ldc);
     resize(computed, M_, N_,1,  ldc);
+    m_stream = stream;
   }
 
   /// Returns a pointer to the A operand
@@ -288,9 +293,9 @@ struct GemmTestbed {
 
   /// Initializes data, randomly
   void initialize(int seed = -1) {
-    A.fill_random(RandomGenerator<AType>(seed));
-    B.fill_random(RandomGenerator<BType>(seed + 11));
-    C_initial.fill_random(RandomGenerator<CType>(seed + 13,1));
+    A.fill_random(RandomGenerator<AType>(seed), m_stream);
+    B.fill_random(RandomGenerator<BType>(seed + 11), m_stream);
+    C_initial.fill_random(RandomGenerator<CType>(seed + 13,1), m_stream);
   }
 
   /// Computes the matrix product on the host

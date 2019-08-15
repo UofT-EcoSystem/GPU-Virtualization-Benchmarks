@@ -150,10 +150,10 @@ class HostTensor : public HostTensorView<T> {
   }
 
   /// Copies data from host to device
-  void sync_device() {
+  void sync_device(cudaStream_t stream = cudaStreamDefault) {
     if (DeviceBacked) {
       device_memory::copy_to_device(
-          device_.get(), reinterpret_cast<DeviceType const*>(host_.data()), host_.size());
+          device_.get(), reinterpret_cast<DeviceType const*>(host_.data()), host_.size(), stream);
     }
   }
 
@@ -310,9 +310,9 @@ class HostTensor : public HostTensorView<T> {
 
   /// Fills with random data
   template <typename Gen>
-  void fill_random(Gen generator) {
+  void fill_random(Gen generator, cudaStream_t stream) {
     Base::fill_random(generator);
-    sync_device();
+    sync_device(stream);
   }
 
   /// Procedurally assigns elements

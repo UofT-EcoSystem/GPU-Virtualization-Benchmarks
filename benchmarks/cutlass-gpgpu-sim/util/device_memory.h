@@ -77,8 +77,18 @@ void copy(T* dst, T const* src, size_t count, cudaMemcpyKind kind) {
 }
 
 template <typename T>
-void copy_to_device(T* dst, T const* src, size_t count = 1) {
-  copy(dst, src, count, cudaMemcpyHostToDevice);
+void copyAsync(T* dst, T const* src, size_t count, cudaMemcpyKind kind, cudaStream_t stream = cudaStreamDefault) {
+  size_t bytes = count * sizeof(T);
+
+  cudaError_t cuda_error = CUDA_PERROR(cudaMemcpyAsync(dst, src, bytes, kind, stream));
+  if (cuda_error != cudaSuccess) {
+    throw cuda_exception("cudaMemcpyAsync() failed", cuda_error);
+  }
+}
+
+template <typename T>
+void copy_to_device(T* dst, T const* src, size_t count = 1, cudaStream_t stream = cudaStreamDefault) {
+  copyAsync(dst, src, count, cudaMemcpyHostToDevice, stream);
 }
 
 template <typename T>
