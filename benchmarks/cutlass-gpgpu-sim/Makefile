@@ -32,14 +32,14 @@ INC_DIR = ./
 #LDFLAGS = -g -G --gpu-architecture=compute_70 --gpu-code=compute_70 -lcudart -I$(INC_DIR)
 #LDFLAGS = -O0 -Xcicc -O0 -Xptxas -O0 --gpu-architecture=compute_70 --gpu-code=compute_70 -lcudart -I$(INC_DIR)
 
-#LDFLAGS = --gpu-architecture=compute_70 --gpu-code=compute_70 -lcudart -I$(INC_DIR)
-LDFLAGS = --gpu-architecture=compute_75,compute_70 --gpu-code=compute_75,compute_70 -lcudart -I$(INC_DIR)
+LDFLAGS = --gpu-architecture=compute_70 --gpu-code=compute_70 -lcudart -I$(INC_DIR)
+#LDFLAGS = --gpu-architecture=compute_75 --gpu-code=compute_75 -lcudart -I$(INC_DIR)
 
 cutlass-test: $(obj)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm cutlass-test
+	rm -rf cutlass-test
 	rm -rf gemm_tt_*
 	rm -rf host_results_*
 	rm -rf _*
