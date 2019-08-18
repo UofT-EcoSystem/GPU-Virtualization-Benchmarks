@@ -63,12 +63,17 @@ void invoke(int uid, std::string kernel_arg)
   }
 
   // assign each char array
-  const int argc = string_argv.size();
+  int argc = string_argv.size();
   char* argv[argc];
+  // this vector maintains the original char array pointers
+  // cuz the main function will modify the argv
+  // this is a sketchy solution
+  std::vector<char*> to_free;
   assert(argc > 0);
   for (int i = 0; i < string_argv.size(); i++) {
     argv[i] = new char[string_argv[i].length()+1];
     strcpy (argv[i], string_argv[i].c_str());
+    to_free.push_back(argv[i]);
   }
 
   // select the right benchmark symbol
@@ -83,8 +88,8 @@ void invoke(int uid, std::string kernel_arg)
   }
 
   // cleanup the char arrays
-  for (char* c : argv) {
-    delete c;
+  for (auto carray: to_free) {
+    delete carray;
   }
 
 }
