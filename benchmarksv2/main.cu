@@ -58,6 +58,7 @@ void invoke(int uid, std::string kernel_arg)
   std::stringstream ss(kernel_arg);
   std::string token;
   while (std::getline(ss, token, ' ')) {
+    if (token.length() > 0)
       string_argv.push_back(token);
   }
 
@@ -71,10 +72,10 @@ void invoke(int uid, std::string kernel_arg)
   }
 
   // select the right benchmark symbol
-  if (strcmp(argv[0], "parboil_sgemm") == 0) {
+  if (strcmp(argv[0], "sgemm") == 0) {
     std::cout << "main: parboil sgemm" << std::endl;
     main_sgemm(argc, argv, uid);
-  } else if (strcmp(argv[0], "parboil_stencil") == 0) {
+  } else if (strcmp(argv[0], "stencil") == 0) {
     std::cout << "main: stencil" << std::endl;
     main_stencil(argc, argv, uid);
   } else {
