@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(parboil LANGUAGES C CXX CUDA)
 cmake_policy(SET CMP0076 NEW)
 
-find_package(CUDA)
-
 option(parb_sgemm "compiling sgemm kennels" OFF)
 option(parb_stencil "compiling stencil kennels" OFF)
 
@@ -61,6 +59,9 @@ endif()
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)
 add_compile_definitions(PARBOIL_STREAM)
 target_compile_features(driver PUBLIC cxx_std_11)
+TARGET_LINK_LIBRARIES(driver pthread)
+
+set(CMAKE_CUDA_LINK_EXECUTABLE "<CMAKE_CUDA_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
 
 #set_target_properties(PAIR PROPERTIES POSITION_INDEPENDENT_CODE ON)
 #set_target_properties(PAIR PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

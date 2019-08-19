@@ -123,13 +123,9 @@ for bench in ${benchmarks[@]}; do
 done
 
 # compile a new build!
-cd $BENCH_ROOT/build/$1 && cmake $defines $BENCH_ROOT && make -j all
+cd $BENCH_ROOT/build/$1 && cmake $defines $BENCH_ROOT && make -j all VERBOSE=1
 
 if [ "$2" == "sim" ]; then
-  # manually relink the executable with shared runtime
-  cp $BENCH_ROOT/scripts/link.sh .
-  ./link.sh
-
   # copy gpgpu-sim config
   cp $BENCH_ROOT/scripts/gpgpusim.config .
   cp $BENCH_ROOT/scripts/config_volta_islip.icnt .
