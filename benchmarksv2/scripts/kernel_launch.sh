@@ -19,7 +19,9 @@ gpgpusim=/mnt/ecosystem-gpgpu-sim/
 #  ["tpacf"]="large")
 
 
-declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ["stencil"]="default") 
+#declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ["stencil"]="default") 
+declare -A datamap=(["parb_sgemm"]="$PARBOIL_DATA/sgemm/medium/input" \
+  ["parb_stencil"]="$PARBOIL_DATA/stencil/default/input") 
 
 PROFILE=""
 
@@ -43,9 +45,9 @@ fi
 
 
 
-#function param: $1=benchmark $2=dataset
+#function param: $1=benchmark
 function build_input() {
-  folder=$PARBOIL_DATA/$1/$2/input
+  folder="${datamap[$1]}"
 
   IO="$1 "
 
@@ -71,7 +73,7 @@ function build_input() {
           empty=false
         done
 
-        IO="$IO -o $PARBOIL_BUILD/out/$1/$1_$2.out"
+        IO="$IO -o $PARBOIL_BUILD/out/$1/$1.out"
       fi
 
 
@@ -82,7 +84,7 @@ function build_input() {
     done < "$folder/DESCRIPTION"
 
   else
-    IO="$IO-i $folder/$(ls $folder) -o $PARBOIL_BUILD/out/$1/$1_$2.out"
+    IO="$IO-i $folder/$(ls $folder) -o $PARBOIL_BUILD/out/$1/$1.out"
   fi
 
 
@@ -112,7 +114,7 @@ for bench in ${benchmarks[@]}; do
   fi
 
   # make input files
-  IO=$(build_input "$bench" "${datamap[$bench]}")
+  IO=$(build_input "$bench")
   txt=$BENCH_ROOT/build/$1/$bench.txt
   echo "$IO" > $txt
 
@@ -133,7 +135,7 @@ if [ "$2" == "sim" ]; then
   cp $BENCH_ROOT/scripts/config_volta_islip.icnt .
 
   # source gpgpusim setup scripts
-  (cd $gpgpusim && source setup_environment)
+  cd $gpgpusim && source setup_environment
 fi
 
 mkdir -p $BENCH_ROOT/results
@@ -146,7 +148,9 @@ else
   res_folder=$BENCH_ROOT/results/conc
 fi
 
+cd $BENCH_ROOT/build/$1
 $PROFILE ./driver $inputs | tee $res_folder/$1.txt
+
 
 
 

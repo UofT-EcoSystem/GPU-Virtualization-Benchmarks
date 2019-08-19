@@ -4,8 +4,8 @@ cmake_policy(SET CMP0076 NEW)
 
 find_package(CUDA)
 
-option(sgemm "compiling sgemm kennels" OFF)
-option(stencil "compiling stencil kennels" OFF)
+option(parb_sgemm "compiling sgemm kennels" OFF)
+option(parb_stencil "compiling stencil kennels" OFF)
 
 
 # by default release build
@@ -48,12 +48,12 @@ add_subdirectory(parboil)
 # include cuda dir
 target_include_directories(driver PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-if(sgemm)
+if(parb_sgemm)
   MESSAGE ("cmake: sgemm.")
   target_compile_definitions(driver PRIVATE PARBOIL_SGEMM)
 endif()
 
-if(stencil)
+if(parb_stencil)
   MESSAGE ("cmake: stencil.")
   target_compile_definitions(driver PRIVATE PARBOIL_STENCIL)
 endif()

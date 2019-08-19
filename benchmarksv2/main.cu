@@ -18,6 +18,7 @@
 #include <mutex>
 #include <cassert>
 #include <vector>
+#include <functional>
 
 // cuda include
 // #include "cuda_runtime.h"
@@ -77,15 +78,28 @@ void invoke(int uid, std::string kernel_arg)
   }
 
   // select the right benchmark symbol
-  if (strcmp(argv[0], "sgemm") == 0) {
+  std::function<int(int,char**,int)> func = NULL;
+  if (strcmp(argv[0], "parb_sgemm") == 0) {
     std::cout << "main: parboil sgemm" << std::endl;
-    main_sgemm(argc, argv, uid);
-  } else if (strcmp(argv[0], "stencil") == 0) {
-    std::cout << "main: stencil" << std::endl;
-    main_stencil(argc, argv, uid);
+#ifdef PARBOIL_SGEMM
+    func = main_sgemm;
+#endif
+  } else if (strcmp(argv[0], "parb_stencil") == 0) {
+    std::cout << "main: parboil stencil" << std::endl;
+#ifdef PARBOIL_STENCIL
+    func = main_stencil;
+#endif
   } else {
-    std::cout << "Warning: No matching kernels!" << std::endl;
+    std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }
+
+  if (func == NULL) {
+    std::cout << "Empty function pointer. Check your compile defines." << std::endl;
+    exit(1);
+  }
+
+  // invoke the real function
+  func(argc, argv, uid);
 
   // cleanup the char arrays
   for (auto carray: to_free) {
