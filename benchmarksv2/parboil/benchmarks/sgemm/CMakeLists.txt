@@ -1,8 +1,8 @@
 
 target_sources(driver
 		PRIVATE
-			src/cuda/io.cc
-			src/cuda/main.cu
+			src/io.cc
+			src/main.cu
 )
 
 
