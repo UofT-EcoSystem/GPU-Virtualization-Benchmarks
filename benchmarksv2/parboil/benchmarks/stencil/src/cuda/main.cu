@@ -222,7 +222,7 @@ int main_stencil(int argc, char** argv, int uid) {
   bool can_exit = false;
 
   while (!can_exit) {
-    for(int t=0;t<iteration;t++)
+//    for(int t=0;t<iteration;t++)
     {
       block2D_hybrid_coarsen_x<<<grid, block,sh_size, stream>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
       float *d_temp = d_A0;
@@ -242,6 +242,7 @@ int main_stencil(int argc, char** argv, int uid) {
 	
 	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 	cudaMemcpyAsync(h_Anext, d_Anext,size*sizeof(float), cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronize(stream);
 	cudaFree(d_A0);
   cudaFree(d_Anext);
  

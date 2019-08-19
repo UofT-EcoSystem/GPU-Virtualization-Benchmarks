@@ -207,6 +207,8 @@ int main_sgemm (int argc, char *argv[], int uid) {
   if (params->outFile) {
     pb_SwitchToTimer( &timers, pb_TimerID_COPY );
     cudaMemcpyAsync(&matC.front(), dC, C_sz, cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+
     /* Write C to file */
     pb_SwitchToTimer(&timers, pb_TimerID_IO);
     writeColMajorMatrixFile(params->outFile,
