@@ -10,18 +10,19 @@ fi
 BENCH_ROOT="$(dirname "$(pwd)")"
 PARBOIL_ROOT="$BENCH_ROOT/parboil"
 PARBOIL_DATA=$PARBOIL_ROOT/datasets
+CUTLASS_INPUT="$BENCH_ROOT/cutlass/input"
 NSIGHT_SECTION=$PARBOIL_ROOT/../sections
 gpgpusim=/mnt/ecosystem-gpgpu-sim/
 
 # define benchmark to dataset pair (largest available set)
 #declare -A datamap=(["cutcp"]="large" ["histo"]="large" ["lbm"]="long" ["mri_gridding"]="small" \
-#  ["mri_q"]="large" ["sad"]="large" ["sgemm"]="medium" ["spmv"]="large" ["stencil"]="default" \
-#  ["tpacf"]="large")
 
 
 #declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ["stencil"]="default") 
 declare -A datamap=(["parb_sgemm"]="$PARBOIL_DATA/sgemm/medium/input" \
-  ["parb_stencil"]="$PARBOIL_DATA/stencil/default/input") 
+                    ["parb_stencil"]="$PARBOIL_DATA/stencil/default/input" \
+                    ["cut_sgemm"]="$CUTLASS_INPUT/sgemm" \
+                    ["cut_wmma"]="$CUTLASS_INPUT/wmma")
 
 PROFILE=""
 
