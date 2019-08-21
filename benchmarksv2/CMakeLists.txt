@@ -4,6 +4,8 @@ cmake_policy(SET CMP0076 NEW)
 
 option(parb_sgemm "compiling sgemm kennels" OFF)
 option(parb_stencil "compiling stencil kennels" OFF)
+option(cut_sgemm "compiling cutlass sgemm kernels" OFF)
+option(cut_wmma "compiling cutlass wmma kernels" OFF)
 
 
 # by default release build
@@ -42,6 +44,7 @@ set(CMAKE_CUDA_FLAGS_DEBUG "${NVCC_FLAGS_DEBUG}")
 add_executable(driver main.cu)
 
 add_subdirectory(parboil)
+add_subdirectory(cutlass)
 
 # include cuda dir
 target_include_directories(driver PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -54,6 +57,16 @@ endif()
 if(parb_stencil)
   MESSAGE ("cmake: stencil.")
   target_compile_definitions(driver PRIVATE PARBOIL_STENCIL)
+endif()
+
+if(cut_sgemm)
+  MESSAGE ("cmake: cutlass sgemm.")
+  target_compile_definitions(driver PRIVATE CUT_SGEMM)
+endif()
+
+if(cut_wmma)
+  MESSAGE ("cmake: cutlass wmma.")
+  target_compile_definitions(driver PRIVATE CUT_WMMA)
 endif()
 
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)

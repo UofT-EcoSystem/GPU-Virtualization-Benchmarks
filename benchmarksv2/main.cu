@@ -24,7 +24,8 @@
 // #include "cuda_runtime.h"
 
 // user includes
-#include "interface.h"
+#include "parboil/benchmarks/interface.h"
+#include "cutlass/interface.h"
 
 std::vector<bool> done_flags;
 std::mutex lock_flag;
@@ -89,7 +90,18 @@ void invoke(int uid, std::string kernel_arg)
 #ifdef PARBOIL_STENCIL
     func = main_stencil;
 #endif
-  } else {
+  } else if (strcmp(argv[0], "cut_sgemm") == 0) {
+    std::cout << "main: cutlass sgemm" << std::endl;
+#ifdef CUT_SGEMM
+    func = main_sgemm;
+#endif
+  } else if (strcmp(argv[0], "cut_wmma") == 0) {
+    std::cout << "main: cutlass wmma" << std::endl;
+#ifdef CUT_WMMA
+    func = main_wmma;
+#endif
+  } 
+  else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }
 
