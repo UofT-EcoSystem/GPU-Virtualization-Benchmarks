@@ -162,6 +162,8 @@ int main(int argc, char** argv) {
     if (!f) std::cout << "Some thread did not set flag to true!!!!" << std::endl;
   }
 
+  cudaDeviceSynchronize();
+
   return 0;
 
 

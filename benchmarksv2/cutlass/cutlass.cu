@@ -36,8 +36,6 @@ int main_templated(int argc, char* argv[], int uid) {
   while (!can_exit) {
     run_gemm<GemmTraits>(x, y, z, stream, n_runs);
 
-    cudaStreamSynchronize(stream);
-
     can_exit = set_and_check(uid);
   }
 

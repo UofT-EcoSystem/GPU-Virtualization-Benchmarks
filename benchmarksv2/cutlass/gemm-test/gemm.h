@@ -86,9 +86,11 @@ static void run_gemm(
 
   for (int i = 0; i < n_runs; ++i) {
     Gemm::launch(params, stream);
+
+    cudaStreamSynchronize(stream);
   }
 
-//
+
 //  cudaError_t result;
 //  do
 //  {
