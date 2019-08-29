@@ -85,7 +85,9 @@ function build_input() {
     done < "$folder/DESCRIPTION"
 
   else
-    IO="$IO-i $folder/$(ls $folder) -o $PARBOIL_BUILD/out/$1/$1.out"
+    #IO="$IO-i $folder/$(ls $folder) -o $PARBOIL_BUILD/out/$1/$1.out"
+    echo "No input description file."
+    exit
   fi
 
 
