@@ -24,7 +24,7 @@
 
 #include <interface.h>
 
-extern bool set_and_check(int uid);
+extern bool set_and_check(int uid, bool start);
 
 /* 
  * Kernel of dense matrix-matrix multiplication kernel.
@@ -191,6 +191,11 @@ int main_sgemm (int argc, char *argv[], int uid) {
 
   pb_SwitchToTimer( &timers, pb_TimerID_KERNEL );
 
+  set_and_check(uid, true);
+  while (!set_and_check(uid, true)) {
+    usleep(100);
+  }
+
   bool can_exit = false;
 
   while (!can_exit) {
@@ -200,7 +205,7 @@ int main_sgemm (int argc, char *argv[], int uid) {
 
     cudaStreamSynchronize(stream);
 
-    can_exit = set_and_check(uid);
+    can_exit = set_and_check(uid, false);
   }
 
   // Done launching kernel

@@ -28,28 +28,45 @@
 #include "cutlass/interface.h"
 
 std::vector<bool> done_flags;
+std::vector<bool> start_flags;
 std::mutex lock_flag;
+std::mutex lock_flag2;
 
-bool set_and_check(int uid) {
+bool set_and_check(int uid, bool start) {
   // this function is guarded by the mutex
   std::lock_guard<std::mutex> guard(lock_flag);
 
-  if (uid < done_flags.size()) {
-    done_flags[uid] = true;
-  }
+  if (!start) {
+    if (uid < done_flags.size()) {
+      done_flags[uid] = true;
+    }
 
-  
-  for (auto f : done_flags) {
-    if (!f) return false;
-  }
 
-  return true;
+    for (auto f : done_flags) {
+      if (!f) return false;
+    }
+
+    return true;
+  } 
+  else {
+    if (uid < start_flags.size()) {
+      start_flags[uid] = true;
+    }
+
+
+    for (auto f : start_flags) {
+      if (!f) return false;
+    }
+
+    return true;
+  }
 }
 
 void shared_push() {
   // this function is guarded by the mutex
   std::lock_guard<std::mutex> guard(lock_flag);
   done_flags.push_back(false);
+  start_flags.push_back(false);
 }
 
 

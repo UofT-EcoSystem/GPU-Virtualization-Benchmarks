@@ -11,6 +11,7 @@
 #include <parboil.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "file.h"
 #include "common.h"
@@ -110,7 +111,7 @@ __global__ void block2D_hybrid_coarsen_x(float c0,float c1,float *A0,float *Anex
 /************************* End kernel ***************************/
 
 
-extern bool set_and_check(int uid);
+extern bool set_and_check(int uid, bool start);
 
 static int read_data(float *A0, int nx,int ny,int nz,FILE *fp) 
 {	
@@ -216,6 +217,11 @@ int main_stencil(int argc, char** argv, int uid) {
 	dim3 grid ((nx+tx*2-1)/(tx*2), (ny+ty-1)/ty,1);
 	int sh_size = tx*2*ty*sizeof(float);	
  
+  set_and_check(uid, true);
+  while (!set_and_check(uid, true)) {
+    usleep(100);
+  }
+
 	//main execution
 	pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
@@ -233,7 +239,7 @@ int main_stencil(int argc, char** argv, int uid) {
     CUERR // check and clear any existing errors
     cudaStreamSynchronize(stream);
 
-    can_exit = set_and_check(uid);
+    can_exit = set_and_check(uid, false);
   }
 
   float *d_temp = d_A0;
