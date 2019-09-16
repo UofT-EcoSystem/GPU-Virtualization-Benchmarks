@@ -11,7 +11,7 @@ BENCH_ROOT="$(dirname "$(pwd)")"
 PARBOIL_ROOT="$BENCH_ROOT/parboil"
 PARBOIL_DATA=$PARBOIL_ROOT/datasets
 CUTLASS_INPUT="$BENCH_ROOT/cutlass/input"
-NSIGHT_SECTION=$PARBOIL_ROOT/../sections
+NSIGHT_SECTION=$BENCH_ROOT/../sections
 gpgpusim=/mnt/ecosystem-gpgpu-sim/
 
 # define benchmark to dataset pair (largest available set)
@@ -21,6 +21,7 @@ gpgpusim=/mnt/ecosystem-gpgpu-sim/
 #declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ["stencil"]="default") 
 declare -A datamap=(["parb_sgemm"]="$PARBOIL_DATA/sgemm/medium/input" \
                     ["parb_stencil"]="$PARBOIL_DATA/stencil/default/input" \
+                    ["parb_lbm"]="$PARBOIL_DATA/lbm/short/input" \
                     ["cut_sgemm"]="$CUTLASS_INPUT/sgemm" \
                     ["cut_wmma"]="$CUTLASS_INPUT/wmma")
 
@@ -38,9 +39,9 @@ else
 
   if [ "$3" == "nsight" ]; then
     #PROFILE="nv-nsight-cu-cli -f --csv --section-folder $NSIGHT_SECTION --section Memory_Usage "
-    PROFILE="nv-nsight-cu-cli -f --csv "
+    PROFILE="sudo nv-nsight-cu-cli -f --csv "
   elif [ "$3" == "nvprof" ]; then
-    PROFILE="/usr/local/cuda-10.0/bin/nvprof -f -o conc.prof "
+    PROFILE="sudo /usr/local/cuda/bin/nvprof -f --print-gpu-trace --csv "
   fi
 fi
 
@@ -148,6 +149,10 @@ else
 fi
 
 cd $BENCH_ROOT/build/$1
+# copy the so file to this folder
+source ../../scripts/set_lib.sh lib/ rel
+ldd driver
+# run the app
 $PROFILE ./driver $inputs | tee $res_folder/$1.txt
 
 
