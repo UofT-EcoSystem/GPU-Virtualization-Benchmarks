@@ -29,6 +29,7 @@ fi
 
 # get abs path for the new lib path
 abs_path=`realpath $1`
+echo $abs_path
 
 # modify ld lib path
 export LD_LIBRARY_PATH=`echo $LD_LIBRARY_PATH | sed -re 's#'$GPGPUSIM_ROOT'\/lib\/[0-9]+\/(debug|release):##'`
