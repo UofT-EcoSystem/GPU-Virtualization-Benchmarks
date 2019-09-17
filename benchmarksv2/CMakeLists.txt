@@ -4,6 +4,7 @@ cmake_policy(SET CMP0076 NEW)
 
 option(parb_sgemm "compiling sgemm kennels" OFF)
 option(parb_stencil "compiling stencil kennels" OFF)
+option(parb_lbm "compiling lbm kennels" OFF)
 option(cut_sgemm "compiling cutlass sgemm kernels" OFF)
 option(cut_wmma "compiling cutlass wmma kernels" OFF)
 
@@ -57,6 +58,11 @@ endif()
 if(parb_stencil)
   MESSAGE ("cmake: stencil.")
   target_compile_definitions(driver PRIVATE PARBOIL_STENCIL)
+endif()
+
+if(parb_lbm)
+  MESSAGE ("cmake: lbm.")
+  target_compile_definitions(driver PRIVATE PARBOIL_LBM)
 endif()
 
 if(cut_sgemm)

@@ -20,9 +20,6 @@
 #include <vector>
 #include <functional>
 
-// cuda include
-// #include "cuda_runtime.h"
-
 // user includes
 #include "parboil/benchmarks/interface.h"
 #include "cutlass/interface.h"
@@ -106,6 +103,11 @@ void invoke(int uid, std::string kernel_arg)
     std::cout << "main: parboil stencil" << std::endl;
 #ifdef PARBOIL_STENCIL
     func = main_stencil;
+#endif
+  } else if (strcmp(argv[0], "parb_lbm") == 0) {
+    std::cout << "main: parboil lbm" << std::endl;
+#ifdef PARBOIL_LBM
+    func = main_lbm;
 #endif
   } else if (strcmp(argv[0], "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
