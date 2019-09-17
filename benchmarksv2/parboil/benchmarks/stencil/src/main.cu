@@ -230,7 +230,7 @@ int main_stencil(int argc, char** argv, int uid) {
   while (!can_exit) {
 //    for(int t=0;t<iteration;t++)
     {
-      block2D_hybrid_coarsen_x<<<grid, block,sh_size, stream>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
+      block2D_hybrid_coarsen_x<<<grid, block, sh_size, stream>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
       float *d_temp = d_A0;
       d_A0 = d_Anext;
       d_Anext = d_temp;

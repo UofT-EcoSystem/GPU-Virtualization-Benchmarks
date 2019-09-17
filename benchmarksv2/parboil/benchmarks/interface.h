@@ -3,5 +3,6 @@
   
 int main_sgemm (int argc, char** argv, int uid);
 int main_stencil (int argc, char *argv[], int uid);
+int main_lbm(int argc, char** argv, int uid);
 
 #endif
