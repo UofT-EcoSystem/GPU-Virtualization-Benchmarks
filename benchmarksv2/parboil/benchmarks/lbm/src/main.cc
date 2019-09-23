@@ -44,7 +44,7 @@ static LBM_Grid TEMP_srcGrid, TEMP_dstGrid;
 struct pb_TimerSet timers;
 /*############################################################################*/
 
-int main_lbm( int nArgs, char* arg[], int uid ) {
+int main_lbm( int nArgs, char* arg[], int uid, cudaStream_t & stream ) {
 	MAIN_Param param;
 
 	pb_InitializeTimerSet(&timers);
@@ -57,9 +57,6 @@ int main_lbm( int nArgs, char* arg[], int uid ) {
 	//LBM_allocateGrid( (float**) &TEMP_srcGrid );
 	MAIN_parseCommandLine( nArgs, arg, &param, params );
 	MAIN_printInfo( &param );
-
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
 
 	MAIN_initialize( &param, stream );
 

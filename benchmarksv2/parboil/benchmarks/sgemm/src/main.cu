@@ -130,7 +130,7 @@ extern bool writeColMajorMatrixFile(const char *fn, int, int, std::vector<float>
 extern "C"
 void computeGold(float *, const float*, const float*, unsigned int, unsigned int, unsigned int);
 
-int main_sgemm (int argc, char *argv[], int uid) {
+int main_sgemm (int argc, char *argv[], int uid, cudaStream_t & stream) {
 
   struct pb_Parameters *params;
   struct pb_TimerSet timers;
@@ -173,10 +173,6 @@ int main_sgemm (int argc, char *argv[], int uid) {
 
   // allocate space for C
   C_sz = matArow*matBcol*sizeof(float);
-
-  // create cuda stream for this benchmark
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
 
   // CUDA memory allocation
   std::vector<float> matC(matArow*matBcol);
@@ -229,7 +225,6 @@ int main_sgemm (int argc, char *argv[], int uid) {
   cudaFree(dA);
   cudaFree(dB);
   cudaFree(dC);
-  cudaStreamDestroy(stream);
   return 0;
 }
 

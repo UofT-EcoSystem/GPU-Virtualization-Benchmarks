@@ -67,7 +67,7 @@ void shared_push() {
 }
 
 
-void invoke(int uid, std::string kernel_arg)
+void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
 {
   // split string into argv
   std::vector<std::string> string_argv;
@@ -93,7 +93,7 @@ void invoke(int uid, std::string kernel_arg)
   }
 
   // select the right benchmark symbol
-  std::function<int(int,char**,int)> func = NULL;
+  std::function<int(int,char**,int,cudaStream_t&)> func = NULL;
   if (strcmp(argv[0], "parb_sgemm") == 0) {
     std::cout << "main: parboil sgemm" << std::endl;
 #ifdef PARBOIL_SGEMM
@@ -130,7 +130,7 @@ void invoke(int uid, std::string kernel_arg)
   }
 
   // invoke the real function
-  func(argc, argv, uid);
+  func(argc, argv, uid, *stream);
 
   // cleanup the char arrays
   for (auto carray: to_free) {
@@ -166,9 +166,12 @@ int main(int argc, char** argv) {
 
   // spawn threads to invoke separate kernels
   std::thread ts[args.size()];
+  cudaStream_t streams[args.size()];
   for (int i = 0; i < args.size(); i++) {
     shared_push();
-    ts[i] = std::thread(invoke, i, args[i]);
+    cudaStreamCreate(&(streams[i]));
+
+    ts[i] = std::thread(invoke, i, args[i], &(streams[i]));
   }
 
   // join threads
@@ -184,69 +187,4 @@ int main(int argc, char** argv) {
   cudaDeviceSynchronize();
 
   return 0;
-
-
-//  // run the kernels
-//  if (strncmp("1",argv[1],1) == 0) {
-//    cudaStream_t stream_A;
-//    cudaStreamCreate(&stream_A);
-//
-//    // grab kernel launch and exit function calls from benchmark A and B
-//    std::function<int(const int, cudaStream_t &)> kernel_A;
-//    std::function<void(void)> cleanup_A;
-//
-//    invoke(A_str, argc_A, &(argv[A_idx]), kernel_A, cleanup_A);
-//
-//    kernel_A(1, stream_A);
-//
-//    cleanup_A();
-//
-//  } else if (strncmp("2", argv[1], 1) == 0) {
-//    cudaStream_t stream_B;
-//    cudaStreamCreate(&stream_B);
-//
-//    // grab kernel launch and exit function calls from benchmark A and B
-//    std::function<int(const int, cudaStream_t &)> kernel_B;
-//    std::function<void(void)> cleanup_B;
-//
-//    invoke(B_str, argc_B, &(argv[B_idx]), kernel_B, cleanup_B);
-//
-//    kernel_B(1, stream_B);
-//
-//    cleanup_B();
-//
-//  } else {
-//    // run both
-//    // create two different cuda streams
-//    cudaStream_t stream_A, stream_B;
-//
-//    cudaStreamCreate(&stream_A);
-//    cudaStreamCreate(&stream_B);
-//
-//    // grab kernel launch and exit function calls from benchmark A and B
-//    std::function<int(const int, cudaStream_t &)> kernel_A, kernel_B;
-//    std::function<void(void)> cleanup_A, cleanup_B;
-//
-//    invoke(A_str, argc_A, &(argv[A_idx]), kernel_A, cleanup_A);
-//    invoke(B_str, argc_B, &(argv[B_idx]), kernel_B, cleanup_B);
-//
-//    int iters = 5;
-//
-//    if (A_str.compare("+spmv") == 0 || B_str.compare("+spmv") == 0) {
-//      iters = 30;
-//      std::cout << "Launching 30 iters." << std::endl;
-//    }
-//
-//    for (int i = 0; i < iters; i++) {
-//      std::cout << "Launching one iteration" << std::endl;
-//      kernel_A(1, stream_A);
-//      kernel_B(1, stream_B);
-//    }
-//
-//    cleanup_A();
-//    cleanup_B();
-//
-
-//  }
-
 }

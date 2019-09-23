@@ -130,7 +130,7 @@ static int read_data(float *A0, int nx,int ny,int nz,FILE *fp)
 	return 0;
 }
 
-int main_stencil(int argc, char** argv, int uid) {
+int main_stencil(int argc, char** argv, int uid, cudaStream_t & stream) {
 	struct pb_TimerSet timers;
 	struct pb_Parameters *parameters;
 	
@@ -198,10 +198,6 @@ int main_stencil(int argc, char** argv, int uid) {
 	cudaMalloc((void **)&d_Anext, size*sizeof(float));
 	cudaMemset(d_Anext,0,size*sizeof(float));
 
-  // create cuda stream for this benchmark
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
 	//memory copy
 	cudaMemcpyAsync(d_A0, h_A0, size*sizeof(float), cudaMemcpyHostToDevice, stream);
   cudaMemcpyAsync(d_Anext, d_A0, size*sizeof(float), cudaMemcpyDeviceToDevice, stream);
@@ -265,8 +261,6 @@ int main_stencil(int argc, char** argv, int uid) {
 
 	pb_PrintTimerSet(&timers);
 	pb_FreeParameters(parameters);
-
-  cudaStreamDestroy(stream);
 
 	return 0;
 
