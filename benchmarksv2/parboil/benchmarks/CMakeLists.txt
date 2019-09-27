@@ -1,6 +1,18 @@
 target_include_directories(driver PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
-add_subdirectory(sgemm)
-add_subdirectory(stencil)
-add_subdirectory(lbm)
+if (parb_sgemm)
+  add_subdirectory(sgemm)
+endif()
+
+if (parb_stencil)
+  add_subdirectory(stencil)
+endif()
+
+if (parb_lbm)
+  add_subdirectory(lbm)
+endif()
+
+if (parb_spmv)
+  add_subdirectory(spmv)
+endif()
 

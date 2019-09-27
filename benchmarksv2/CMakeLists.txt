@@ -65,6 +65,11 @@ if(parb_lbm)
   target_compile_definitions(driver PRIVATE PARBOIL_LBM)
 endif()
 
+if(parb_spmv)
+  MESSAGE ("cmake: spmv.")
+  target_compile_definitions(driver PRIVATE PARBOIL_SPMV)
+endif()
+
 if(cut_sgemm)
   MESSAGE ("cmake: cutlass sgemm.")
   target_compile_definitions(driver PRIVATE CUT_SGEMM)

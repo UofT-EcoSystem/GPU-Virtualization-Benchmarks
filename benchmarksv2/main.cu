@@ -99,22 +99,32 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
 #ifdef PARBOIL_SGEMM
     func = main_sgemm;
 #endif
-  } else if (strcmp(argv[0], "parb_stencil") == 0) {
+  } 
+  else if (strcmp(argv[0], "parb_stencil") == 0) {
     std::cout << "main: parboil stencil" << std::endl;
 #ifdef PARBOIL_STENCIL
     func = main_stencil;
 #endif
-  } else if (strcmp(argv[0], "parb_lbm") == 0) {
+  } 
+  else if (strcmp(argv[0], "parb_lbm") == 0) {
     std::cout << "main: parboil lbm" << std::endl;
 #ifdef PARBOIL_LBM
     func = main_lbm;
 #endif
-  } else if (strcmp(argv[0], "cut_sgemm") == 0) {
+  } 
+  else if (strcmp(argv[0], "parb_spmv") == 0) {
+    std::cout << "main: parboil spmv" << std::endl;
+#ifdef PARBOIL_SPMV
+    func = main_spmv;
+#endif
+  } 
+  else if (strcmp(argv[0], "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
 #ifdef CUT_SGEMM
     func = main_sgemm;
 #endif
-  } else if (strcmp(argv[0], "cut_wmma") == 0) {
+  } 
+  else if (strcmp(argv[0], "cut_wmma") == 0) {
     std::cout << "main: cutlass wmma" << std::endl;
 #ifdef CUT_WMMA
     func = main_wmma;

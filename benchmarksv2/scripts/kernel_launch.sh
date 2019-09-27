@@ -22,6 +22,7 @@ gpgpusim=/mnt/ecosystem-gpgpu-sim/
 declare -A datamap=(["parb_sgemm"]="$PARBOIL_DATA/sgemm/medium/input" \
                     ["parb_stencil"]="$PARBOIL_DATA/stencil/default/input" \
                     ["parb_lbm"]="$PARBOIL_DATA/lbm/short/input" \
+                    ["parb_spmv"]="$PARBOIL_DATA/spmv/large/input" \
                     ["cut_sgemm"]="$CUTLASS_INPUT/sgemm" \
                     ["cut_wmma"]="$CUTLASS_INPUT/wmma")
 
@@ -33,16 +34,19 @@ if [ "$2" == "sim" ]; then
   if [ "$3" == "gdb" ]; then
     PROFILE="gdb --args "
   fi
- 
+
+  SUFFIX=" | tee $res_folder/$1.txt"
 else
   PARBOIL_BUILD=$PARBOIL_ROOT/build
 
   if [ "$3" == "nsight" ]; then
-    #PROFILE="nv-nsight-cu-cli -f --csv --section-folder $NSIGHT_SECTION --section Memory_Usage "
-    PROFILE="sudo nv-nsight-cu-cli -f --csv "
+    PROFILE="nv-nsight-cu-cli -f --csv --section-folder $NSIGHT_SECTION --section benchv2 "
   elif [ "$3" == "nvprof" ]; then
-    PROFILE="sudo /usr/local/cuda/bin/nvprof -f --print-gpu-trace --csv "
+    PROFILE="/usr/local/cuda/bin/nvprof -f --print-gpu-trace --csv "
   fi
+
+  # do not save outputs for hardware runs
+  SUFFIX=""
 fi
 
 
@@ -149,12 +153,15 @@ else
 fi
 
 cd $BENCH_ROOT/build/$1
-# copy the so file to this folder
-source ../../scripts/set_lib.sh lib/ rel
-ldd driver
-# run the app
-$PROFILE ./driver $inputs | tee $res_folder/$1.txt
 
+if [ "$2" == "sim" ]; then
+  # copy the so file to this folder
+  source ../../scripts/set_lib.sh lib/ rel
+  ldd driver
+fi
+
+# run the app
+$PROFILE ./driver $inputs $SUFFIX
 
 
 
