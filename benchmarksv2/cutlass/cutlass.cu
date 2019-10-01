@@ -25,7 +25,7 @@ static void run_gemm(
     int lda,
     int ldb,
     int ldc,
-    cudaStream_t stream,
+    cudaStream_t & stream,
     int uid,
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type alpha =
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(1),
@@ -114,7 +114,7 @@ static void run_gemm(
     int m,
     int n,
     int k,
-    cudaStream_t stream,
+    cudaStream_t & stream,
     int uid,
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type alpha =
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(1),
