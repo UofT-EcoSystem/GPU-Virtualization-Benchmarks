@@ -14,11 +14,6 @@ CUTLASS_INPUT="$BENCH_ROOT/cutlass/input"
 NSIGHT_SECTION=$BENCH_ROOT/../sections
 gpgpusim=/mnt/ecosystem-gpgpu-sim/
 
-# define benchmark to dataset pair (largest available set)
-#declare -A datamap=(["cutcp"]="large" ["histo"]="large" ["lbm"]="long" ["mri_gridding"]="small" \
-
-
-#declare -A datamap=(["cutcp"]="large" ["sgemm"]="medium" ["tpacf"]="large" ["lbm"]="long" ["sad"]="large" ["spmv"]="large" ["stencil"]="default") 
 declare -A datamap=(["parb_sgemm"]="$PARBOIL_DATA/sgemm/medium/input" \
                     ["parb_stencil"]="$PARBOIL_DATA/stencil/default/input" \
                     ["parb_lbm"]="$PARBOIL_DATA/lbm/short/input" \
@@ -35,7 +30,6 @@ if [ "$2" == "sim" ]; then
     PROFILE="gdb --args "
   fi
 
-  SUFFIX=" | tee $res_folder/$1.txt"
 else
   PARBOIL_BUILD=$PARBOIL_ROOT/build
 
@@ -158,10 +152,12 @@ if [ "$2" == "sim" ]; then
   # copy the so file to this folder
   source ../../scripts/set_lib.sh lib/ rel
   ldd driver
+
+  $PROFILE ./driver $inputs | tee $res_folder/$1.txt
+else
+  $PROFILE ./driver $inputs
 fi
 
-# run the app
-$PROFILE ./driver $inputs $SUFFIX
 
 
 
