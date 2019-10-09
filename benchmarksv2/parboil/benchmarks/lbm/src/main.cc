@@ -89,6 +89,8 @@ int main_lbm( int nArgs, char* arg[], int uid, cudaStream_t & stream ) {
     can_exit = set_and_check(uid, false);
 	}
 
+  cudaDeviceSynchronize();
+
 	MAIN_finalize( &param, stream );
 
 	//LBM_freeGrid( (float**) &TEMP_srcGrid );
