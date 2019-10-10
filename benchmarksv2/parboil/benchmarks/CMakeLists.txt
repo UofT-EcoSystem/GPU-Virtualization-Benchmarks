@@ -16,3 +16,7 @@ if (parb_spmv)
   add_subdirectory(spmv)
 endif()
 
+if (parb_cutcp)
+  add_subdirectory(cutcp)
+endif()
+
