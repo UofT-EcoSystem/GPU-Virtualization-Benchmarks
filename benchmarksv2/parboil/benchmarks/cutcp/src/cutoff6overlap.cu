@@ -608,17 +608,18 @@ int gpu_compute_cutoff_potential_lattice6overlap(
     for (zRegionIndex = 0;  zRegionIndex < zRegionDim;  zRegionIndex++) {
       printf("  computing plane %d\r", zRegionIndex);
       fflush(stdout);
-      cuda_cutoff_potential_lattice6overlap<<<gridDim, blockDim, 0, stream>>>(binDim.x, binDim.y,
-          binZeroCuda, h, cutoff2, inv_cutoff2, regionZeroCuda, zRegionIndex);
+      cuda_cutoff_potential_lattice6overlap<<<gridDim, blockDim, 0, stream>>>
+        (binDim.x, binDim.y, binZeroCuda, h, cutoff2, 
+         inv_cutoff2, regionZeroCuda, zRegionIndex);
 
-//      cudaStreamSynchronize(stream);
-//
-//      if (set_and_check(uid, false)) {
-//        break;
-//      }
+      cudaStreamSynchronize(stream);
+
+      can_exit = set_and_check(uid, false);
+
+      if (can_exit) {
+        break;
+      }
     }
-
-    can_exit = set_and_check(uid, false);
   }
 
   /* 
