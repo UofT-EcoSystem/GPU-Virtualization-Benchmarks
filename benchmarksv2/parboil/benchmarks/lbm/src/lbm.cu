@@ -130,11 +130,10 @@ void CUDA_LBM_initializeGrid( float** d_grid, float** h_grid, cudaStream_t & str
 }
 
 void CUDA_LBM_getDeviceGrid( float** d_grid, float** h_grid, cudaStream_t & stream ) {
-	const size_t size   = TOTAL_PADDED_CELLS*N_CELL_ENTRIES*sizeof( float ) + 2*TOTAL_MARGIN*sizeof( float );
-        cudaThreadSynchronize();
-        CUDA_ERRCK;
-	cudaMemcpyAsync(*h_grid - REAL_MARGIN, *d_grid - REAL_MARGIN, size, cudaMemcpyDeviceToHost, stream);
-        CUDA_ERRCK;
+  const size_t size   = TOTAL_PADDED_CELLS*N_CELL_ENTRIES*sizeof( float ) + 2*TOTAL_MARGIN*sizeof( float );
+  cudaMemcpyAsync(*h_grid - REAL_MARGIN, *d_grid - REAL_MARGIN, size, cudaMemcpyDeviceToHost, stream);
+  cudaDeviceSynchronize();
+  CUDA_ERRCK;
 }
 
 /*############################################################################*/
