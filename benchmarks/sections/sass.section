@@ -1,8 +1,0 @@
-Identifier: "SASS"
-DisplayName: "SASS code mix"
-Header {
-  Metrics {
-    Label: "SASS code"
-    Name: "sass__inst_executed_per_opcode"
-  }
-}

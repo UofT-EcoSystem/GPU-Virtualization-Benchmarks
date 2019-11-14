@@ -1,5 +1,5 @@
-Identifier: "Memory_Usage"
-DisplayName: "Memory utilization related data"
+Identifier: "benchv2"
+DisplayName: "Quick facts for benchmarkv2"
 Header {
   Metrics {
     Label: "STATIC_SHARED_USAGE"
@@ -12,7 +12,7 @@ Header {
   Metrics {
     Label: "REGISTER_USAGE"
     Name: "launch__registers_per_thread"
-   }
+  }
   Metrics {
     Label: "OCCUPANCY"
     Name: "sm__warps_active.avg.pct_of_peak_sustained_active"
@@ -46,8 +46,35 @@ Header {
     Name: "launch__block_size"
   }
   Metrics {
-    Label: "Shm Config Size"
-    Name: "launch__shared_mem_config_size"
+    Label: "Grid Size"
+    Name: "launch__grid_size"
   }
+  Metrics {
+    Label: "ALU"
+    Name: "sm__inst_executed_pipe_alu.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "FMA"
+    Name: "sm__inst_executed_pipe_fma.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "FP16"
+    Name: "sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "FP64"
+    Name: "sm__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "Tensor"
+    Name: "sm__inst_executed_pipe_tensor.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "Eligible"
+    Name: "smsp__issue_active.avg.pct_of_peak_sustained_active"
+  }
+
+
+
 }
 
