@@ -116,3 +116,7 @@ benchmarks/cuda-sdk/cudaTensorCoreGemm/profile\.nsight-cuprof-report
 
 # vim temp files
 *.swp
+
+# IDE
+.cproject
+.project
