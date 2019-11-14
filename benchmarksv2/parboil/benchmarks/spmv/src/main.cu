@@ -114,19 +114,26 @@ int main_spmv(int argc, char** argv, int uid, cudaStream_t & stream) {
 	cudaMemset( (void *) d_Ax_vector, 0, dim*sizeof(float));
 	
 	//memory copy
-	cudaMemcpy(d_data, h_data, len*sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_indices, h_indices, len*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_perm, h_perm, dim*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_x_vector, h_x_vector, dim*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpyToSymbol(jds_ptr_int, h_ptr, depth*sizeof(int));
-	cudaMemcpyToSymbol(sh_zcnt_int, h_nzcnt,nzcnt_len*sizeof(int));
+	cudaMemcpyAsync(d_data, h_data, len*sizeof(float), 
+      cudaMemcpyHostToDevice, stream);
+	cudaMemcpyAsync(d_indices, h_indices, len*sizeof(int), 
+      cudaMemcpyHostToDevice, stream);
+	cudaMemcpyAsync(d_perm, h_perm, dim*sizeof(int), 
+      cudaMemcpyHostToDevice, stream);
+	cudaMemcpyAsync(d_x_vector, h_x_vector, dim*sizeof(int), 
+      cudaMemcpyHostToDevice, stream);
+	cudaMemcpyToSymbolAsync(jds_ptr_int, h_ptr, depth*sizeof(int), 0, 
+      cudaMemcpyHostToDevice, stream);
+	cudaMemcpyToSymbolAsync(sh_zcnt_int, h_nzcnt, nzcnt_len*sizeof(int), 0, 
+      cudaMemcpyHostToDevice, stream);
 	
   cudaThreadSynchronize();
 	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
 	unsigned int grid;
 	unsigned int block;
-  compute_active_thread(&block, &grid,nzcnt_len,pad, deviceProp.major,deviceProp.minor,
-					deviceProp.warpSize,deviceProp.multiProcessorCount);
+  compute_active_thread(&block, &grid, nzcnt_len,pad, 
+      deviceProp.major,deviceProp.minor,
+			deviceProp.warpSize,deviceProp.multiProcessorCount);
 
 	
   cudaFuncSetCacheConfig(spmv_jds, cudaFuncCachePreferL1);
@@ -156,9 +163,10 @@ int main_spmv(int argc, char** argv, int uid, cudaStream_t & stream) {
 	
 	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 	//HtoD memory copy
-	cudaMemcpy(h_Ax_vector, d_Ax_vector,dim*sizeof(float), cudaMemcpyDeviceToHost);	
+	cudaMemcpyAsync(h_Ax_vector, d_Ax_vector,dim*sizeof(float), 
+      cudaMemcpyDeviceToHost, stream);	
 
-	cudaThreadSynchronize();
+	cudaDeviceSynchronize();
 
 	cudaFree(d_data);
     cudaFree(d_indices);
