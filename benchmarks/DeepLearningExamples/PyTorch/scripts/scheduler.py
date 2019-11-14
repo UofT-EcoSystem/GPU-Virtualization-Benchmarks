@@ -5,8 +5,10 @@ import time
 from tqdm import tqdm
 
 
-models = ['resnet', 'gnmt']
-tasks = ['train', 'infer']
+#models = ['resnet', 'gnmt']
+models = ['resnet']
+#tasks = ['train', 'infer']
+tasks = ['infer']
 metrics = ['comp', 'inst', 'mem', 'time']
 
 
