@@ -498,7 +498,7 @@ int gpu_compute_cutoff_potential_lattice6overlap(
     printf("requested space dimensions = %g %g %g\n", nx*h, ny*h, nz*h);
     printf("expanded lattice dimensions = %d %d %d\n", lnx, lny, lnz);
     printf("expanded space dimensions = %g %g %g\n", lnx*h, lny*h, lnz*h);
-    printf("number of bytes for lattice data = %u\n", lnall*sizeof(float));
+    printf("number of bytes for lattice data = %lu\n", lnall*sizeof(float));
     printf("\n");
     printf("bin padding thickness = %d\n", c);
     printf("bin cover dimensions = %d %d %d\n",
@@ -508,7 +508,7 @@ int gpu_compute_cutoff_potential_lattice6overlap(
     printf("total number of atom slots = %d\n", nbins * BIN_DEPTH);
     printf("%% overhead space = %g\n",
         (natoms / (double) (nbins * BIN_DEPTH)) * 100);
-    printf("number of bytes for bin data = %u\n",
+    printf("number of bytes for bin data = %lu\n",
         nbins * BIN_DEPTH * sizeof(float4));
     printf("\n");
     printf("bin histogram with padding:\n");
@@ -579,13 +579,15 @@ int gpu_compute_cutoff_potential_lattice6overlap(
   }
   cudaMalloc((void **) &binBaseCuda, nbins * BIN_DEPTH * sizeof(float4));
   CUERR;
-  cudaMemcpy(binBaseCuda, binBaseAddr, nbins * BIN_DEPTH * sizeof(float4),
-      cudaMemcpyHostToDevice);
+  cudaMemcpyAsync(binBaseCuda, binBaseAddr, nbins * BIN_DEPTH * sizeof(float4),
+      cudaMemcpyHostToDevice, stream);
   CUERR;
   binZeroCuda = binBaseCuda + ((c * binDim.y + c) * binDim.x + c) * BIN_DEPTH;
-  cudaMemcpyToSymbol(NbrListLen, &nbrlistlen, sizeof(int), 0);
+  cudaMemcpyToSymbolAsync(NbrListLen, &nbrlistlen, sizeof(int), 0, 
+      cudaMemcpyHostToDevice, stream);
   CUERR;
-  cudaMemcpyToSymbol(NbrList, nbrlist, nbrlistlen * sizeof(int3), 0);
+  cudaMemcpyToSymbolAsync(NbrList, nbrlist, nbrlistlen * sizeof(int3), 0, 
+      cudaMemcpyHostToDevice, stream);
   CUERR;
 
   if (verbose) 
@@ -638,13 +640,14 @@ int gpu_compute_cutoff_potential_lattice6overlap(
 
   cudaStreamSynchronize(stream);
   CUERR;
-  cudaDeviceSynchronize();
   printf("Finished CUDA kernel calls                        \n");
 
   /* copy result regions from CUDA device */
   pb_SwitchToTimer(timers, pb_TimerID_COPY);
-  cudaMemcpy(regionZeroAddr, regionZeroCuda, lnall * sizeof(ener_t),
-      cudaMemcpyDeviceToHost);
+  cudaMemcpyAsync(regionZeroAddr, regionZeroCuda, lnall * sizeof(ener_t),
+      cudaMemcpyDeviceToHost, stream);
+
+  cudaDeviceSynchronize();
   CUERR;
 
   /* free CUDA memory allocations */

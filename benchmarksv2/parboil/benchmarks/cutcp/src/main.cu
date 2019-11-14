@@ -100,8 +100,6 @@ int main_cutcp(int argc, char *argv[], int uid, cudaStream_t & stream) {
   float exclcutoff = 1.f;	/* Radius for exclusion */
   float padding = 0.5f;		/* Bounding box padding distance */
 
-  int n;
-
   struct pb_Parameters *parameters;
   struct pb_TimerSet timers;
 
