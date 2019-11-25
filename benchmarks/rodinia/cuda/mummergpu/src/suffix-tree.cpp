@@ -1051,41 +1051,42 @@ static const int TEXBLOCKSIZE = 32;
 
 #define HALF_TEXTURE_DIMENSION 2048
 
-inline TextureAddress id2addr(int id)
-{
-  TextureAddress retval;
-
-#if MERGETEX && REORDER_TREE
-  // Half width is 2048 => 11 bits
-  // TEXBLOCKSIZE is 32 => 5 bits
-  int bigx = id & 0xFFFF; // 11 + 5 bits
-  int bigy = id >> 16;
-
-  retval.y = (bigy << 5) + (bigx & 0x1F);
-  retval.x = bigx >> 5;
-
-  // now stuff y's 13th bit into x's 12th bit
-  
-  retval.x |= (retval.y & 0x1000) >> 1;
-  retval.y &= 0xFFF;
-
-#elif REORDER_TREE
-  // MAX_TEXTURE_DIMENSION is 4096 => 12 bits
-  // TEXBLOCKSIZE is 32 => 5 bits
-  int bigx = id & 0x1FFFF; // 12 + 5 bits
-  int bigy = id >> 17;
-  retval.y = (bigy << 5) + (bigx & 0x1F);
-  retval.x = bigx >> 5;
-
-#elif MERGETEX
-  retval.x = id;
-
-#else
-  retval.x = id;
-
-#endif
-  return retval;
-}
+//inline TextureAddress id2addr(int id)
+//{
+//  cerr << "$$$$$$$$$$$yoooo" << endl;
+//  TextureAddress retval;
+//
+//#if MERGETEX && REORDER_TREE
+//  // Half width is 2048 => 11 bits
+//  // TEXBLOCKSIZE is 32 => 5 bits
+//  int bigx = id & 0xFFFF; // 11 + 5 bits
+//  int bigy = id >> 16;
+//
+//  retval.y = (bigy << 5) + (bigx & 0x1F);
+//  retval.x = bigx >> 5;
+//
+//  // now stuff y's 13th bit into x's 12th bit
+//
+//  retval.x |= (retval.y & 0x1000) >> 1;
+//  retval.y &= 0xFFF;
+//
+//#elif REORDER_TREE
+//  // MAX_TEXTURE_DIMENSION is 4096 => 12 bits
+//  // TEXBLOCKSIZE is 32 => 5 bits
+//  int bigx = id & 0x1FFFF; // 12 + 5 bits
+//  int bigy = id >> 17;
+//  retval.y = (bigy << 5) + (bigx & 0x1F);
+//  retval.x = bigx >> 5;
+//
+//#elif MERGETEX
+//  retval.x = id;
+//
+//#else
+//  retval.x = id;
+//
+//#endif
+//  return retval;
+//}
 
 inline int addr2id(TextureAddress addr)
 {
@@ -1149,16 +1150,26 @@ void buildNodeTexture(SuffixNode * node,
                       AuxiliaryNodeData aux_data[],
                       const char * refstr)
 {	
-  int origid = node->id();
-    
+  int origid = 0;
+  if (node) {
+    origid = node->id();
+  }
+
+
   aux_data[origid].length = node->len();
   aux_data[origid].numleaves = node->m_numleaves;
-  aux_data[origid].printParent = id2addr(node->m_printParent->id());
+
+  int printParent_id = 0;
+  if (node->m_printParent) {
+    printParent_id = node->m_printParent->id();
+  }
+  aux_data[origid].printParent = id2addr(printParent_id);
 
   TextureAddress myaddress(id2addr(origid));
 
   PixelOfNode * nd;
   PixelOfChildren * cd;
+
 
 #if MERGETEX && REORDER_TREE
   int tex = myaddress.x & 0x800;
@@ -1205,17 +1216,28 @@ void buildNodeTexture(SuffixNode * node,
   cd = &(childrenTexture[loc]);
 #endif
 
+
   unsigned char arr[3];
   writeAddress(arr, myaddress);
   TextureAddress newaddr = arrayToAddress(arr);
 
-  TextureAddress parent(id2addr(node->m_parent->id()));
+  int parent_id = 0;
+  if (node->m_parent) {
+    parent_id = node->m_parent->id();
+  }
+
+  TextureAddress parent(id2addr(parent_id));
   writeAddress(nd->parent, parent);
   assert(arrayToAddress(nd->parent).data == parent.data);
 
-  TextureAddress suffix(id2addr(node->m_suffix->id()));
+  int suffix_id = 0;
+  if (node->m_suffix) {
+    suffix_id = node->m_suffix->id();
+  }
+  TextureAddress suffix(id2addr(suffix_id));
   writeAddress(nd->suffix, suffix);
   assert(arrayToAddress(nd->suffix).data == suffix.data);
+
 
   nd->start[0]  = LOW3(node->m_start);
   nd->start[1]  = MID3(node->m_start);
@@ -1377,7 +1399,7 @@ void buildSuffixTreeTexture(PixelOfNode** nodeTexture,
     
     gtree->m_root->setNumLeaves();
     gtree->m_root->setPrintParent(min_match_len);
-    
+
     buildNodeTexture(gtree->m_root,
                      *nodeTexture,
                      *childrenTexture,
