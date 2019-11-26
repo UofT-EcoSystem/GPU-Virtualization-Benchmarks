@@ -20,7 +20,7 @@
 #include <mummergpu.h>
 #include <mummergpu_kernel.cu>
 
-int USE_PRINT_KERNEL = 1;
+int USE_PRINT_KERNEL = 0;
 
 #define BREATHING_ROOM (16 * 1024 * 1024)
 #define BASES_PER_TREE_PAGE 8388608
@@ -2021,7 +2021,7 @@ void matchQueryBlockToReferencePage(MatchContext* ctx,
 	{
 
 		matchOnGPU(ctx, reverse_complement);
-		cudaThreadSynchronize();
+		cudaDeviceSynchronize();
 
 	}
 	stopTimer(ktimer);
@@ -2095,31 +2095,33 @@ int getFreeDeviceMemory(bool on_cpu)
 
 int matchQueriesToReferencePage(MatchContext* ctx, ReferencePage* page)
 {
-	fprintf(stderr, "Beginning reference page %p\n", page);
-   	
-	int free_mem = getFreeDeviceMemory(ctx->on_cpu);
-	
-	int available_mem = free_mem - page->ref.bytes_on_board - BREATHING_ROOM;
-	ctx->ref = &(page->ref);
-    loadReference(ctx);
+  fprintf(stderr, "Beginning reference page %p\n", page);
 
-    while (getQueryBlock(ctx, available_mem)) {
-        matchSubset(ctx, page);
-        ctx->statistics.bp_avg_query_length = 
-			ctx->queries->texlen / (float)(ctx->queries->count) - 2;
-        destroyQueryBlock(ctx->queries);
-		if (num_bind_tex_calls > 100)
-		{
-        	cudaThreadExit();
-			num_bind_tex_calls = 0;
-			loadReference(ctx);
-		}
+  int free_mem = getFreeDeviceMemory(ctx->on_cpu);
+
+  int available_mem = free_mem - page->ref.bytes_on_board - BREATHING_ROOM;
+  ctx->ref = &(page->ref);
+  loadReference(ctx);
+
+  getQueryBlock(ctx, available_mem);
+//  while (getQueryBlock(ctx, available_mem)) {
+  for (int i = 0; i < 1; i++) {
+    matchSubset(ctx, page);
+    ctx->statistics.bp_avg_query_length =
+        ctx->queries->texlen / (float)(ctx->queries->count) - 2;
+    destroyQueryBlock(ctx->queries);
+    if (num_bind_tex_calls > 100)
+    {
+      cudaThreadExit();
+      num_bind_tex_calls = 0;
+      loadReference(ctx);
     }
+  }
 
-    unloadReferenceString(ctx->ref);
-    unloadReferenceTree(ctx);
-	lseek(ctx->queries->qfile, 0, SEEK_SET);
-    return 0;
+  unloadReferenceString(ctx->ref);
+  unloadReferenceTree(ctx);
+  lseek(ctx->queries->qfile, 0, SEEK_SET);
+  return 0;
 }
 
 
@@ -2184,35 +2186,35 @@ int streamReferenceAgainstQueries(MatchContext* ctx) {
     matchQueriesToReferencePage(ctx, &pages[0]);
     destroyReference(&(pages[0].ref));
     
-    for (int i = 1; i < num_reference_pages - 1; ++i) {
-    
-        buildReferenceTexture(&(pages[i].ref),
-                              ctx->full_ref,
-                              pages[i].begin,
-                              pages[i].end,
-                              ctx->min_match_length,
-                              NULL,
-                              NULL,
-                              &(ctx->statistics));
-                              
-        matchQueriesToReferencePage(ctx, &pages[i]);
-        destroyReference(&(pages[i].ref));
-    }
-    
-    if (num_reference_pages > 1) {
-        int last_page = num_reference_pages - 1;
-        buildReferenceTexture(&(pages[last_page].ref),
-                              ctx->full_ref,
-                              pages[last_page].begin,
-                              pages[last_page].end,
-                              ctx->min_match_length,
-                              NULL,
-                              NULL,
-                              &(ctx->statistics));
-                              
-        matchQueriesToReferencePage(ctx, &pages[last_page]);
-        destroyReference(&(pages[last_page].ref));
-    }
+//    for (int i = 1; i < num_reference_pages - 1; ++i) {
+//
+//        buildReferenceTexture(&(pages[i].ref),
+//                              ctx->full_ref,
+//                              pages[i].begin,
+//                              pages[i].end,
+//                              ctx->min_match_length,
+//                              NULL,
+//                              NULL,
+//                              &(ctx->statistics));
+//
+//        matchQueriesToReferencePage(ctx, &pages[i]);
+//        destroyReference(&(pages[i].ref));
+//    }
+//
+//    if (num_reference_pages > 1) {
+//        int last_page = num_reference_pages - 1;
+//        buildReferenceTexture(&(pages[last_page].ref),
+//                              ctx->full_ref,
+//                              pages[last_page].begin,
+//                              pages[last_page].end,
+//                              ctx->min_match_length,
+//                              NULL,
+//                              NULL,
+//                              &(ctx->statistics));
+//
+//        matchQueriesToReferencePage(ctx, &pages[last_page]);
+//        destroyReference(&(pages[last_page].ref));
+//    }
     free(pages);
     return 0;
 }
