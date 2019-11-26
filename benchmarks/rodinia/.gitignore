@@ -27,3 +27,5 @@ obj/
 profile.nsight-cuprof-report
 
 make.config
+.cproject
+.project
