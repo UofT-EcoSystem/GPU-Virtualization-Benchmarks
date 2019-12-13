@@ -1945,67 +1945,96 @@ void matchOnCPU(MatchContext* ctx, bool doRC)
     }
 }
 
-void matchOnGPU(MatchContext* ctx, bool doRC)
+
+extern bool set_and_check(int uid, bool start);
+
+
+
+extern int gpusim_uid;
+extern cudaStream_t gpusim_stream;
+
+void launch_mummerGPU(MatchContext* ctx,
+                      bool doRC,
+                      int numQueries,
+                      dim3 dimBlock,
+                      dim3 dimGrid)
 {
-	int numQueries = ctx->queries->count;
-	int blocksize = (numQueries > BLOCKSIZE) ? BLOCKSIZE : numQueries;
-
-	dim3 dimBlock(blocksize, 1, 1);
-
-	dim3 dimGrid(ceil(numQueries / (float)BLOCKSIZE), 1, 1);
-	
-	// Match the reverse complement of the queries to the ref
-    if (doRC) {
-		//TODO: GPU RC is disabled
-        mummergpuRCKernel <<< dimGrid, dimBlock, 0 >>> (ctx->results.d_match_coords,
-                ctx->queries->d_tex_array,
-                ctx->queries->d_addrs_tex_array,
-                ctx->queries->d_lengths_array,
-                numQueries,
-                ctx->min_match_length);
-    }
-    else {
-        mummergpuKernel <<< dimGrid, dimBlock, 0 >>> (ctx->results.d_match_coords,
+  // Match the reverse complement of the queries to the ref
+  if (doRC) {
+    //TODO: GPU RC is disabled
+    mummergpuRCKernel <<< dimGrid, dimBlock, 0, gpusim_stream >>> (ctx->results.d_match_coords,
+        ctx->queries->d_tex_array,
+        ctx->queries->d_addrs_tex_array,
+        ctx->queries->d_lengths_array,
+        numQueries,
+        ctx->min_match_length);
+  }
+  else {
+    mummergpuKernel <<< dimGrid, dimBlock, 0, gpusim_stream >>> (ctx->results.d_match_coords,
 #if COALESCED_QUERIES
-                ctx->results.d_coord_tex_array,
+        ctx->results.d_coord_tex_array,
 #endif
 
 #if !QRYTEX
 #if COALESCED_QUERIES
-                (int*)
+        (int*)
 #endif
-                ctx->queries->d_tex_array,
+        ctx->queries->d_tex_array,
 #endif
 
 #if !NODETEX
-                (_PixelOfNode*)(ctx->ref->d_node_tex_array),
+        (_PixelOfNode*)(ctx->ref->d_node_tex_array),
 #endif
 
 #if !CHILDTEX
-                (_PixelOfChildren*)(ctx->ref->d_children_tex_array),
+        (_PixelOfChildren*)(ctx->ref->d_children_tex_array),
 #endif
 
 #if !REFTEX
-                (char*)ctx->ref->d_ref_array,
+        (char*)ctx->ref->d_ref_array,
 #endif
-                ctx->queries->d_addrs_tex_array,
-                ctx->queries->d_lengths_array,
-                numQueries,
-                ctx->min_match_length
+        ctx->queries->d_addrs_tex_array,
+        ctx->queries->d_lengths_array,
+        numQueries,
+        ctx->min_match_length
 #if TREE_ACCESS_HISTOGRAM
-                , ctx->ref->d_node_hist,
-                ctx->ref->d_child_hist
+        , ctx->ref->d_node_hist,
+        ctx->ref->d_child_hist
 #endif
-				);
-    }
+    );
+  }
+}
 
-	// check if kernel execution generated an error
-	cudaError_t err = cudaGetLastError();
-	if ( cudaSuccess != err) {
-	    fprintf(stderr, "Kernel execution failed: %s.\n",
-	            cudaGetErrorString(err));
-	    exit(EXIT_FAILURE);
-	}
+void matchOnGPU(MatchContext* ctx, bool doRC)
+{
+  int numQueries = ctx->queries->count;
+  int blocksize = (numQueries > BLOCKSIZE) ? BLOCKSIZE : numQueries;
+
+  dim3 dimBlock(blocksize, 1, 1);
+
+  dim3 dimGrid(ceil(numQueries / (float)BLOCKSIZE), 1, 1);
+
+  set_and_check(gpusim_uid, true);
+  while (!set_and_check(gpusim_uid, true)) {
+    usleep(100);
+  }
+
+  bool can_exit = false;
+
+  while (!can_exit) {
+    launch_mummerGPU(ctx, doRC, numQueries, dimBlock, dimGrid);
+    cudaThreadSynchronize();
+    can_exit = set_and_check(gpusim_uid, false);
+  }
+
+
+  // check if kernel execution generated an error
+  cudaError_t err = cudaGetLastError();
+  if ( cudaSuccess != err) {
+    fprintf(stderr, "Kernel execution failed: %s.\n",
+        cudaGetErrorString(err));
+    exit(EXIT_FAILURE);
+  }
 }
 
 void getMatchResults(MatchContext* ctx, 

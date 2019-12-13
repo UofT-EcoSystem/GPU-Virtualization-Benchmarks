@@ -28,7 +28,9 @@ bool OPT_maxmatch = false;
 bool OPT_on_cpu = false;
 bool OPT_stream_queries = false;
 
-extern bool set_and_check(int uid, bool start);
+
+volatile int gpusim_uid;
+volatile cudaStream_t gpusim_stream;
 
 void printHelp()
 {
@@ -108,78 +110,72 @@ void ParseCommandLine(int argc, char ** argv)
 
 int main_mummer(int argc, char* argv[], int uid, cudaStream_t & stream)
 {
-   ParseCommandLine(argc, argv);
+  ParseCommandLine(argc, argv);
 
-   fprintf(stderr, "TWO_LEVEL_NODE_TREE is %d\n", TWO_LEVEL_NODE_TREE);
-   fprintf(stderr, "TWO_LEVEL_CHILD_TREE is %d\n", TWO_LEVEL_CHILD_TREE);
-   fprintf(stderr, "QRYTEX is %d\n", QRYTEX);
-   fprintf(stderr, "COALESCED_QUERIES is %d\n", COALESCED_QUERIES);
-   fprintf(stderr, "REFTEX is %d\n", REFTEX);
-   fprintf(stderr, "REORDER_REF is %d\n", REORDER_REF);
-   fprintf(stderr, "NODETEX is %d\n", NODETEX);
-   fprintf(stderr, "CHILDTEX is %d\n", CHILDTEX);
-   fprintf(stderr, "MERGETEX is %d\n", MERGETEX);
-   fprintf(stderr, "REORDER_TREE is %d\n", REORDER_TREE);
-	fprintf(stderr, "RENUMBER_TREE is %d\n", RENUMBER_TREE);
+  fprintf(stderr, "TWO_LEVEL_NODE_TREE is %d\n", TWO_LEVEL_NODE_TREE);
+  fprintf(stderr, "TWO_LEVEL_CHILD_TREE is %d\n", TWO_LEVEL_CHILD_TREE);
+  fprintf(stderr, "QRYTEX is %d\n", QRYTEX);
+  fprintf(stderr, "COALESCED_QUERIES is %d\n", COALESCED_QUERIES);
+  fprintf(stderr, "REFTEX is %d\n", REFTEX);
+  fprintf(stderr, "REORDER_REF is %d\n", REORDER_REF);
+  fprintf(stderr, "NODETEX is %d\n", NODETEX);
+  fprintf(stderr, "CHILDTEX is %d\n", CHILDTEX);
+  fprintf(stderr, "MERGETEX is %d\n", MERGETEX);
+  fprintf(stderr, "REORDER_TREE is %d\n", REORDER_TREE);
+  fprintf(stderr, "RENUMBER_TREE is %d\n", RENUMBER_TREE);
 
-   int err = 0;
+  gpusim_uid = uid;
+  gpusim_stream = stream;
 
-   Reference ref;
-   if ((err = createReference(OPT_reffilename, &ref)))
-   {
-	  printStringForError(err);
-	  exit(err);
-   }
-   
-   QuerySet queries;
-   if ((err = createQuerySet(OPT_qryfilename, &queries)))
-   {
-	  printStringForError(err);
-	  exit(err);
-   }
+  int err = 0;
 
-   MatchContext ctx;
-   if ((err = createMatchContext(&ref, 
-								&queries, 
-								0, 
-								OPT_on_cpu, 
-								OPT_match_length, 
-								OPT_stats_file,
-								OPT_reverse,
-                                OPT_forwardreverse,
-                                OPT_forwardcoordinates,
-                                OPT_showQueryLength,
-								OPT_dotfilename,
-                                OPT_texfilename,
-								&ctx)))
-   {
-	  printStringForError(err);
-	  exit(err);
-   }   
+  Reference ref;
+  if ((err = createReference(OPT_reffilename, &ref)))
+  {
+    printStringForError(err);
+    exit(err);
+  }
 
-   set_and_check(uid, true);
-   while (!set_and_check(uid, true)) {
-     usleep(100);
-   }
+  QuerySet queries;
+  if ((err = createQuerySet(OPT_qryfilename, &queries)))
+  {
+    printStringForError(err);
+    exit(err);
+  }
 
-   if ((err = matchQueries(&ctx)))
-   {
-	  printStringForError(err);
-	  exit(err);
-   }   
-   
-   if ((err = destroyMatchContext(&ctx)))
-   {
-	  printStringForError(err);
-	  exit(err);
-   }   
+  MatchContext ctx;
+  if ((err = createMatchContext(&ref,
+      &queries,
+      0,
+      OPT_on_cpu,
+      OPT_match_length,
+      OPT_stats_file,
+      OPT_reverse,
+      OPT_forwardreverse,
+      OPT_forwardcoordinates,
+      OPT_showQueryLength,
+      OPT_dotfilename,
+      OPT_texfilename,
+      &ctx)))
+  {
+    printStringForError(err);
+    exit(err);
+  }
+
+  if ((err = matchQueries(&ctx)))
+  {
+    printStringForError(err);
+    exit(err);
+  }
+
+  if ((err = destroyMatchContext(&ctx)))
+  {
+    printStringForError(err);
+    exit(err);
+  }
 
 
-   // FIXME: move this into the main loop
-   cudaThreadSynchronize();
-   set_and_check(uid, false);
-
-   return 0;
+  return 0;
 
 }
 

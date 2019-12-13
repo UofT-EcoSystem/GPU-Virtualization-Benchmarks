@@ -4,9 +4,9 @@
 #include <fstream>
 #include <stdint.h> 
 
-#define ulong4 uint32_t
-#define int2 int32_t
-#define uint4 uint32_t
+//#define ulong4 uint32_t
+//#define int2 int32_t
+//#define uint4 uint32_t
 
 #include "omp.h"
 #include "mummergpu.hpp"

@@ -3,8 +3,9 @@
 
 
 #include <stdlib.h>
-#include "common.hpp"
+#include <cuda_runtime_api.h>
 
+#include "common.hpp"
 
 //extern "C" {
 struct QuerySet {

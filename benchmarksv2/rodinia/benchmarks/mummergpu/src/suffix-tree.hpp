@@ -17,9 +17,9 @@
 #include <stdint.h> 
 #include <unistd.h>
 
-#define ulong4 uint32_t
-#define uint4 uint32_t
-#define int2 int32_t
+//#define ulong4 uint32_t
+//#define uint4 uint32_t
+//#define int2 int32_t
 
 #define MPOOL 0
 
