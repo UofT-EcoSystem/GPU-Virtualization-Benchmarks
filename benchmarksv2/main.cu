@@ -149,6 +149,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_heartwall;
 #endif
   }
+  else if (strcmp(argv[0], "rod_hotspot") == 0) {
+    std::cout << "main: rodinia hotspot" << std::endl;
+#ifdef RODINIA_HOTSPOT
+    func = main_hotspot;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }

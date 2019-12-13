@@ -8,4 +8,8 @@ if (rod_heartwall)
   add_subdirectory(heartwall)
 endif()
 
+if (rod_hotspot)
+  add_subdirectory(hotspot)
+endif()
+
 

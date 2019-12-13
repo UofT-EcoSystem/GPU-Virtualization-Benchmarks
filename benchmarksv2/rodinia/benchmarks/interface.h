@@ -9,6 +9,10 @@ int main_mummer(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_heartwall(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef RODINIA_HOTSPOT
+int main_hotspot(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
 
 #endif
 
