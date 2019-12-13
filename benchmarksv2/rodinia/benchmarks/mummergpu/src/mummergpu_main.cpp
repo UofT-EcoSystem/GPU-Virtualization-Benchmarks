@@ -106,7 +106,7 @@ void ParseCommandLine(int argc, char ** argv)
    OPT_qryfilename = argv[optind++];
 }
 
-int main_mummergpu(int argc, char* argv[], int uid, cudaStream_t & stream)
+int main_mummer(int argc, char* argv[], int uid, cudaStream_t & stream)
 {
    ParseCommandLine(argc, argv);
 

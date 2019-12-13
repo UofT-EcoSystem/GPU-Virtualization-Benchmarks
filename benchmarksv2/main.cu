@@ -23,6 +23,7 @@
 // user includes
 #include "parboil/benchmarks/interface.h"
 #include "cutlass/interface.h"
+#include "rodinia/benchmarks/interface.h"
 
 std::vector<bool> done_flags;
 std::vector<bool> start_flags;
@@ -136,6 +137,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_wmma;
 #endif
   } 
+  else if (strcmp(argv[0], "rod_mummer") == 0) {
+    std::cout << "main: rodinia mummer" << std::endl;
+#ifdef RODINIA_MUMMER
+    func = main_mummer;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }
