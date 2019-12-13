@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
 project(parboil LANGUAGES C CXX CUDA)
 cmake_policy(SET CMP0076 NEW)
 
@@ -8,7 +8,9 @@ option(parb_lbm "compiling lbm kennels" OFF)
 option(parb_cutcp "compiling cutcp kennels" OFF)
 option(cut_sgemm "compiling cutlass sgemm kernels" OFF)
 option(cut_wmma "compiling cutlass wmma kernels" OFF)
+option(rod_mummer "compiling rodinia mummer kernels" OFF)
 
+find_package(OpenMP)
 
 # by default release build
 if (NOT (CMAKE_BUILD_TYPE OR CONFIGURATION_TYPES))
@@ -47,6 +49,7 @@ add_executable(driver main.cu)
 
 add_subdirectory(parboil)
 add_subdirectory(cutlass)
+add_subdirectory(rodinia)
 
 # include cuda dir
 target_include_directories(driver PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -86,12 +89,22 @@ if(cut_wmma)
   target_compile_definitions(driver PRIVATE CUT_WMMA)
 endif()
 
+if(rod_mummer)
+  MESSAGE ("cmake: rodinia mummer.")
+  target_compile_definitions(driver PRIVATE RODINIA_MUMMER)
+endif()
+
+
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)
 add_compile_definitions(PARBOIL_STREAM)
 target_compile_features(driver PUBLIC cxx_std_11)
-TARGET_LINK_LIBRARIES(driver pthread)
 
 set(CMAKE_CUDA_LINK_EXECUTABLE "<CMAKE_CUDA_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+
+#target_compile_options(driver PRIVATE -Wall ${OpenMP_CXX_FLAGS})
+target_link_libraries(driver PRIVATE pthread)
+target_link_options(driver PRIVATE -Xlinker -lgomp)
+
 
 #set_target_properties(PAIR PROPERTIES POSITION_INDEPENDENT_CODE ON)
 #set_target_properties(PAIR PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
