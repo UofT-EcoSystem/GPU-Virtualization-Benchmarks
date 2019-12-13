@@ -143,6 +143,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_mummer;
 #endif
   }
+  else if (strcmp(argv[0], "rod_heartwall") == 0) {
+    std::cout << "main: rodinia heartwall" << std::endl;
+#ifdef RODINIA_HEARTWALL
+    func = main_heartwall;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }

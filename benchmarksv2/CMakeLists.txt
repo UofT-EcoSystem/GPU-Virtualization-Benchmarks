@@ -9,6 +9,7 @@ option(parb_cutcp "compiling cutcp kennels" OFF)
 option(cut_sgemm "compiling cutlass sgemm kernels" OFF)
 option(cut_wmma "compiling cutlass wmma kernels" OFF)
 option(rod_mummer "compiling rodinia mummer kernels" OFF)
+option(rod_heartwall "compiling rodinia heartwall kernels" OFF)
 
 find_package(OpenMP)
 
@@ -92,6 +93,11 @@ endif()
 if(rod_mummer)
   MESSAGE ("cmake: rodinia mummer.")
   target_compile_definitions(driver PRIVATE RODINIA_MUMMER)
+endif()
+
+if(rod_heartwall)
+  MESSAGE ("cmake: rodinia heartwall.")
+  target_compile_definitions(driver PRIVATE RODINIA_HEARTWALL)
 endif()
 
 

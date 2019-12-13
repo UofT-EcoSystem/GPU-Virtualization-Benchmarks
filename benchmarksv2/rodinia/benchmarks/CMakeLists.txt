@@ -4,3 +4,8 @@ if (rod_mummer)
   add_subdirectory(mummergpu)
 endif()
 
+if (rod_heartwall)
+  add_subdirectory(heartwall)
+endif()
+
+
