@@ -220,7 +220,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	common.endoRow[18] = 311;
 	common.endoRow[19] = 339;
 	cudaMalloc((void **)&common.d_endoRow, common.endo_mem);
-	cudaMemcpy(common.d_endoRow, common.endoRow, common.endo_mem, cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(common.d_endoRow, common.endoRow, common.endo_mem, cudaMemcpyHostToDevice, stream);
 
 	common.endoCol = (int *)malloc(common.endo_mem);
 	common.endoCol[ 0] = 408;
@@ -244,7 +244,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	common.endoCol[18] = 401;
 	common.endoCol[19] = 411;
 	cudaMalloc((void **)&common.d_endoCol, common.endo_mem);
-	cudaMemcpy(common.d_endoCol, common.endoCol, common.endo_mem, cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(common.d_endoCol, common.endoCol, common.endo_mem, cudaMemcpyHostToDevice, stream);
 
 	common.tEndoRowLoc = (int *)malloc(common.endo_mem * common.no_frames);
 	cudaMalloc((void **)&common.d_tEndoRowLoc, common.endo_mem * common.no_frames);
@@ -292,7 +292,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	common.epiRow[29] = 331;
 	common.epiRow[30] = 360;
 	cudaMalloc((void **)&common.d_epiRow, common.epi_mem);
-	cudaMemcpy(common.d_epiRow, common.epiRow, common.epi_mem, cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(common.d_epiRow, common.epiRow, common.epi_mem, cudaMemcpyHostToDevice, stream);
 
 	common.epiCol = (int *)malloc(common.epi_mem);
 	common.epiCol[ 0] = 457;
@@ -327,7 +327,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	common.epiCol[29] = 448;
 	common.epiCol[30] = 455;
 	cudaMalloc((void **)&common.d_epiCol, common.epi_mem);
-	cudaMemcpy(common.d_epiCol, common.epiCol, common.epi_mem, cudaMemcpyHostToDevice);
+	cudaMemcpyAsync(common.d_epiCol, common.epiCol, common.epi_mem, cudaMemcpyHostToDevice, stream);
 
 	common.tEpiRowLoc = (int *)malloc(common.epi_mem * common.no_frames);
 	cudaMalloc((void **)&common.d_tEpiRowLoc, common.epi_mem * common.no_frames);
@@ -634,8 +634,8 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	//	COPY ARGUMENTS
 	//====================================================================================================
 
-	cudaMemcpyToSymbol(d_common, &common, sizeof(params_common));
-	cudaMemcpyToSymbol(d_unique, &unique, sizeof(params_unique)*ALL_POINTS);
+	cudaMemcpyToSymbolAsync(d_common, &common, sizeof(params_common), 0, cudaMemcpyHostToDevice, stream);
+	cudaMemcpyToSymbolAsync(d_unique, &unique, sizeof(params_unique)*ALL_POINTS, 0, cudaMemcpyHostToDevice, stream);
 
 	//====================================================================================================
 	//	PRINT FRAME PROGRESS START
@@ -666,8 +666,8 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 										1);							// converted
 
 		// copy frame to GPU memory
-		cudaMemcpy(common_change.d_frame, frame, common.frame_mem, cudaMemcpyHostToDevice);
-		cudaMemcpyToSymbol(d_common_change, &common_change, sizeof(params_common_change));
+		cudaMemcpyAsync(common_change.d_frame, frame, common.frame_mem, cudaMemcpyHostToDevice, stream);
+		cudaMemcpyToSymbolAsync(d_common_change, &common_change, sizeof(params_common_change), 0, cudaMemcpyHostToDevice, stream);
 
 		// launch GPU kernel
 		kernel<<<blocks, threads, 0, stream>>>();
@@ -695,11 +695,11 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	//	OUTPUT
 	//====================================================================================================
 
-	cudaMemcpy(common.tEndoRowLoc, common.d_tEndoRowLoc, common.endo_mem * common.no_frames, cudaMemcpyDeviceToHost);
-	cudaMemcpy(common.tEndoColLoc, common.d_tEndoColLoc, common.endo_mem * common.no_frames, cudaMemcpyDeviceToHost);
+	cudaMemcpyAsync(common.tEndoRowLoc, common.d_tEndoRowLoc, common.endo_mem * common.no_frames, cudaMemcpyDeviceToHost, stream);
+	cudaMemcpyAsync(common.tEndoColLoc, common.d_tEndoColLoc, common.endo_mem * common.no_frames, cudaMemcpyDeviceToHost, stream);
 
-	cudaMemcpy(common.tEpiRowLoc, common.d_tEpiRowLoc, common.epi_mem * common.no_frames, cudaMemcpyDeviceToHost);
-	cudaMemcpy(common.tEpiColLoc, common.d_tEpiColLoc, common.epi_mem * common.no_frames, cudaMemcpyDeviceToHost);
+	cudaMemcpyAsync(common.tEpiRowLoc, common.d_tEpiRowLoc, common.epi_mem * common.no_frames, cudaMemcpyDeviceToHost, stream);
+	cudaMemcpyAsync(common.tEpiColLoc, common.d_tEpiColLoc, common.epi_mem * common.no_frames, cudaMemcpyDeviceToHost, stream);
 
 
 
@@ -784,6 +784,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 		cudaFree(unique[i].d_mask_conv);
 	}
 
+	return 0;
 }
 
 //===============================================================================================================================================================================================================
