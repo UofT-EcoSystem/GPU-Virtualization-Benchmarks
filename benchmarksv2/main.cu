@@ -155,6 +155,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_hotspot;
 #endif
   }
+  else if (strcmp(argv[0], "rod_streamcluster") == 0) {
+    std::cout << "main: rodinia streamcluster" << std::endl;
+#ifdef RODINIA_STREAMCLUSTER
+    func = main_streamcluster;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }

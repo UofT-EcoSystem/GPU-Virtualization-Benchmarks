@@ -11,6 +11,7 @@ option(cut_wmma "compiling cutlass wmma kernels" OFF)
 option(rod_mummer "compiling rodinia mummer kernels" OFF)
 option(rod_heartwall "compiling rodinia heartwall kernels" OFF)
 option(rod_hotspot "compiling rodinia hotspot kernels" OFF)
+option(rod_streamcluster "compiling rodinia streamcluster kernels" OFF)
 
 
 find_package(OpenMP)
@@ -107,6 +108,10 @@ if(rod_hotspot)
   target_compile_definitions(driver PRIVATE RODINIA_HOTSPOT)
 endif()
 
+if(rod_streamcluster)
+  MESSAGE ("cmake: rodinia streamcluster.")
+  target_compile_definitions(driver PRIVATE RODINIA_STREAMCLUSTER)
+endif()
 
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)
 add_compile_definitions(PARBOIL_STREAM)

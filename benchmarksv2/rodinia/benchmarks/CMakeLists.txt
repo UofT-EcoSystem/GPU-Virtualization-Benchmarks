@@ -12,4 +12,6 @@ if (rod_hotspot)
   add_subdirectory(hotspot)
 endif()
 
-
+if (rod_streamcluster)
+  add_subdirectory(streamcluster)
+endif()
