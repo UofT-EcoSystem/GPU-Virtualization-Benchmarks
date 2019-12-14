@@ -23,8 +23,11 @@
 
 
 extern bool set_and_check(int uid, bool start);
-extern int gpusim_uid;
-extern cudaStream_t gpusim_stream;
+
+namespace mummer {
+  extern int gpusim_uid;
+  extern cudaStream_t gpusim_stream;
+}
 
 int USE_PRINT_KERNEL = 0;
 
@@ -556,7 +559,7 @@ void loadReferenceTexture(MatchContext* ctx)
 									ref->str, 
 									ref->len, 
 									cudaMemcpyHostToDevice,
-									gpusim_stream) );
+									mummer::gpusim_stream) );
 
         ctx->ref->bytes_on_board += ref->len;
 #endif  
@@ -682,7 +685,7 @@ void loadReference(MatchContext* ctx) {
                                            ref->h_node_tex_array,
                                            ref->tex_width * ref->tex_node_height * sizeof(PixelOfNode),
                                            cudaMemcpyHostToDevice,
-                                           gpusim_stream));
+                                           mummer::gpusim_stream));
 
         nodetex.addressMode[0] = cudaAddressModeClamp;
         nodetex.addressMode[1] = cudaAddressModeClamp;
@@ -724,7 +727,7 @@ void loadReference(MatchContext* ctx) {
                                           ref->h_children_tex_array,
                                           ref->tex_width * ref->tex_children_height * sizeof(PixelOfChildren),
                                           cudaMemcpyHostToDevice,
-                                          gpusim_stream));
+                                          mummer::gpusim_stream));
                                           
         childrentex.addressMode[0] = cudaAddressModeClamp;
         childrentex.addressMode[1] = cudaAddressModeClamp;
@@ -933,7 +936,7 @@ void loadQueries(MatchContext* ctx)
                                    queries->h_tex_array + queries->h_addrs_tex_array[0],
                                    queries->texlen,
                                    cudaMemcpyHostToDevice,
-                                   gpusim_stream));
+                                   mummer::gpusim_stream));
 
 #if QRYTEX
 		qrytex.addressMode[0] = cudaAddressModeClamp;
@@ -953,7 +956,7 @@ void loadQueries(MatchContext* ctx)
                                    queries->h_addrs_tex_array,
                                    numQueries * sizeof(int),
                                    cudaMemcpyHostToDevice,
-                                   gpusim_stream));
+                                   mummer::gpusim_stream));
                            
         CUDA_MALLOC((void**) &queries->d_lengths_array,
                                    numQueries * sizeof(int));
@@ -964,7 +967,7 @@ void loadQueries(MatchContext* ctx)
                                    queries->h_lengths_array,
                                    numQueries * sizeof(int),
                                    cudaMemcpyHostToDevice,
-                                   gpusim_stream));
+                                   mummer::gpusim_stream));
 	    stopTimer(toboardtimer);
 	    ctx->statistics.t_queries_to_board += getTimerValue(toboardtimer);
 	    deleteTimer(toboardtimer);
@@ -1108,7 +1111,7 @@ void loadResultBuffer(MatchContext* ctx)
         ctx->results.bytes_on_board += numCoords * sizeof(MatchCoord);
         
         CUDA_SAFE_CALL( cudaMemsetAsync( (void*)ctx->results.d_match_coords, 0,
-                                    numCoords * sizeof(MatchCoord), gpusim_stream));
+                                    numCoords * sizeof(MatchCoord), mummer::gpusim_stream));
                              
 #if COALESCED_QUERIES
         CUDA_MALLOC((void**) &ctx->results.d_coord_tex_array,
@@ -1154,7 +1157,7 @@ void transferResultsFromDevice(MatchContext* ctx)
 								ctx->results.d_match_coords, 
 								ctx->results.numCoords * sizeof(MatchCoord), 
 								cudaMemcpyDeviceToHost,
-								gpusim_stream) );
+								mummer::gpusim_stream) );
 	  
 
 #if TREE_ACCESS_HISTOGRAM
@@ -1392,7 +1395,7 @@ void runPrintKernel(MatchContext* ctx,
       exit(0);
     }
 	
-    CUDA_SAFE_CALL(cudaMemcpyAsync(d_matches, h_matches, matchesSize, cudaMemcpyHostToDevice, gpusim_stream));
+    CUDA_SAFE_CALL(cudaMemcpyAsync(d_matches, h_matches, matchesSize, cudaMemcpyHostToDevice, mummer::gpusim_stream));
     stopTimer(atimer);
 	float mtime =  getTimerValue(atimer);
     // Launch the kernel
@@ -1456,7 +1459,7 @@ void runPrintKernel(MatchContext* ctx,
     CUDA_SAFE_CALL(cudaMemcpyAsync((void*)alignments,
                               (void*)d_alignments,
                               alignmentSize,
-                              cudaMemcpyDeviceToHost, gpusim_stream));
+                              cudaMemcpyDeviceToHost, mummer::gpusim_stream));
     cudaThreadSynchronize();
 	stopTimer(atimer);
 
@@ -1965,7 +1968,7 @@ void launch_mummerGPU(MatchContext* ctx,
   // Match the reverse complement of the queries to the ref
   if (doRC) {
     //TODO: GPU RC is disabled
-    mummergpuRCKernel <<< dimGrid, dimBlock, 0, gpusim_stream >>> (ctx->results.d_match_coords,
+    mummergpuRCKernel <<< dimGrid, dimBlock, 0, mummer::gpusim_stream >>> (ctx->results.d_match_coords,
         ctx->queries->d_tex_array,
         ctx->queries->d_addrs_tex_array,
         ctx->queries->d_lengths_array,
@@ -1973,7 +1976,7 @@ void launch_mummerGPU(MatchContext* ctx,
         ctx->min_match_length);
   }
   else {
-    mummergpuKernel <<< dimGrid, dimBlock, 0, gpusim_stream >>> (ctx->results.d_match_coords,
+    mummergpuKernel <<< dimGrid, dimBlock, 0, mummer::gpusim_stream >>> (ctx->results.d_match_coords,
 #if COALESCED_QUERIES
         ctx->results.d_coord_tex_array,
 #endif
@@ -2017,8 +2020,8 @@ void matchOnGPU(MatchContext* ctx, bool doRC)
 
   dim3 dimGrid(ceil(numQueries / (float)BLOCKSIZE), 1, 1);
 
-  set_and_check(gpusim_uid, true);
-  while (!set_and_check(gpusim_uid, true)) {
+  set_and_check(mummer::gpusim_uid, true);
+  while (!set_and_check(mummer::gpusim_uid, true)) {
     usleep(100);
   }
 
@@ -2027,7 +2030,7 @@ void matchOnGPU(MatchContext* ctx, bool doRC)
   while (!can_exit) {
     launch_mummerGPU(ctx, doRC, numQueries, dimBlock, dimGrid);
     cudaThreadSynchronize();
-    can_exit = set_and_check(gpusim_uid, false);
+    can_exit = set_and_check(mummer::gpusim_uid, false);
   }
 
 

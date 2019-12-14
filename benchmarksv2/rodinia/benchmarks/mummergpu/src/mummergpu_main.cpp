@@ -28,9 +28,10 @@ bool OPT_maxmatch = false;
 bool OPT_on_cpu = false;
 bool OPT_stream_queries = false;
 
-
-volatile int gpusim_uid;
-volatile cudaStream_t gpusim_stream;
+namespace mummer {
+  volatile int gpusim_uid;
+  volatile cudaStream_t gpusim_stream;
+}
 
 void printHelp()
 {
@@ -124,8 +125,8 @@ int main_mummer(int argc, char* argv[], int uid, cudaStream_t & stream)
   fprintf(stderr, "REORDER_TREE is %d\n", REORDER_TREE);
   fprintf(stderr, "RENUMBER_TREE is %d\n", RENUMBER_TREE);
 
-  gpusim_uid = uid;
-  gpusim_stream = stream;
+  mummer::gpusim_uid = uid;
+  mummer::gpusim_stream = stream;
 
   int err = 0;
 

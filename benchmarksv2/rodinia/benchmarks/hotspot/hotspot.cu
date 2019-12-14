@@ -44,8 +44,11 @@ void run(int argc, char** argv);
 
 
 extern int set_and_check(int uid, bool start);
-volatile int gpusim_uid;
-volatile cudaStream_t gpusim_stream;
+
+namespace hotspot {
+  volatile int gpusim_uid;
+  volatile cudaStream_t gpusim_stream;
+}
 
 void 
 fatal(char *s)
@@ -247,8 +250,8 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
 
   int src = 1, dst = 0;
 
-  set_and_check(gpusim_uid, true);
-  while (!set_and_check(gpusim_uid, true)) {
+  set_and_check(hotspot::gpusim_uid, true);
+  while (!set_and_check(hotspot::gpusim_uid, true)) {
     usleep(100);
   }
 
@@ -259,11 +262,11 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
     int temp = src;
     src = dst;
     dst = temp;
-    calculate_temp<<<dimGrid, dimBlock, 0, gpusim_stream>>>(MIN(num_iterations, total_iterations-t), MatrixPower,MatrixTemp[src],MatrixTemp[dst],\
+    calculate_temp<<<dimGrid, dimBlock, 0, hotspot::gpusim_stream>>>(MIN(num_iterations, total_iterations-t), MatrixPower,MatrixTemp[src],MatrixTemp[dst],\
         col,row,borderCols, borderRows, Cap,Rx,Ry,Rz,step,time_elapsed);
 
     cudaDeviceSynchronize();
-    can_exit = set_and_check(gpusim_uid, false);
+    can_exit = set_and_check(hotspot::gpusim_uid, false);
   }
   return dst;
 }
@@ -284,8 +287,8 @@ int main_hotspot(int argc, char** argv, int uid, cudaStream_t & stream)
 {
   printf("WG size of kernel = %d X %d\n", BLOCK_SIZE, BLOCK_SIZE);
 
-  gpusim_uid = uid;
-  gpusim_stream = stream;
+  hotspot::gpusim_uid = uid;
+  hotspot::gpusim_stream = stream;
 
   run(argc,argv);
 
@@ -341,15 +344,15 @@ void run(int argc, char** argv)
     float *MatrixTemp[2], *MatrixPower;
     cudaMalloc((void**)&MatrixTemp[0], sizeof(float)*size);
     cudaMalloc((void**)&MatrixTemp[1], sizeof(float)*size);
-    cudaMemcpyAsync(MatrixTemp[0], FilesavingTemp, sizeof(float)*size, cudaMemcpyHostToDevice, gpusim_stream);
+    cudaMemcpyAsync(MatrixTemp[0], FilesavingTemp, sizeof(float)*size, cudaMemcpyHostToDevice, hotspot::gpusim_stream);
 
     cudaMalloc((void**)&MatrixPower, sizeof(float)*size);
-    cudaMemcpyAsync(MatrixPower, FilesavingPower, sizeof(float)*size, cudaMemcpyHostToDevice, gpusim_stream);
+    cudaMemcpyAsync(MatrixPower, FilesavingPower, sizeof(float)*size, cudaMemcpyHostToDevice, hotspot::gpusim_stream);
     printf("Start computing the transient temperature\n");
     int ret = compute_tran_temp(MatrixPower,MatrixTemp,grid_cols,grid_rows, \
 	 total_iterations,pyramid_height, blockCols, blockRows, borderCols, borderRows);
 	printf("Ending simulation\n");
-    cudaMemcpyAsync(MatrixOut, MatrixTemp[ret], sizeof(float)*size, cudaMemcpyDeviceToHost, gpusim_stream);
+    cudaMemcpyAsync(MatrixOut, MatrixTemp[ret], sizeof(float)*size, cudaMemcpyDeviceToHost, hotspot::gpusim_stream);
 
     writeoutput(MatrixOut,grid_rows, grid_cols, ofile);
 
