@@ -167,6 +167,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_pathfinder;
 #endif
   }
+  else if (strcmp(argv[0], "rod_lavamd") == 0) {
+    std::cout << "main: rodinia lavamd" << std::endl;
+#ifdef RODINIA_LAVAMD
+    func = main_lavamd;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }

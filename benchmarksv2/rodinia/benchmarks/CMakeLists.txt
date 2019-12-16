@@ -19,3 +19,7 @@ endif()
 if (rod_pathfinder)
   add_subdirectory(pathfinder)
 endif()
+
+if (rod_lavamd)
+  add_subdirectory(lavaMD)
+endif()

@@ -13,6 +13,7 @@ option(rod_heartwall "compiling rodinia heartwall kernels" OFF)
 option(rod_hotspot "compiling rodinia hotspot kernels" OFF)
 option(rod_streamcluster "compiling rodinia streamcluster kernels" OFF)
 option(rod_pathfinder "compiling rodinia pathfinder kernels" OFF)
+option(rod_lavamd "compiling rodinia lavamd kernels" OFF)
 
 
 find_package(OpenMP)
@@ -117,6 +118,11 @@ endif()
 if(rod_pathfinder)
   MESSAGE ("cmake: rodinia pathfinder.")
   target_compile_definitions(driver PRIVATE RODINIA_PATHFINDER)
+endif()
+
+if(rod_lavamd)
+  MESSAGE ("cmake: rodinia lavamd.")
+  target_compile_definitions(driver PRIVATE RODINIA_LAVAMD)
 endif()
 
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)
