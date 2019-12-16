@@ -173,6 +173,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_lavamd;
 #endif
   }
+  else if (strcmp(argv[0], "rod_myocyte") == 0) {
+    std::cout << "main: rodinia myocyte" << std::endl;
+#ifdef RODINIA_MYOCYTE
+    func = main_myocyte;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }

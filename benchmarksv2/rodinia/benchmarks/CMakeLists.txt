@@ -23,3 +23,7 @@ endif()
 if (rod_lavamd)
   add_subdirectory(lavaMD)
 endif()
+
+if (rod_myocyte)
+  add_subdirectory(myocyte)
+endif()

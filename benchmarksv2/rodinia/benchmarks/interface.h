@@ -25,5 +25,9 @@ int main_pathfinder(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_lavamd(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef RODINIA_MYOCYTE
+int main_myocyte(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
 #endif
 
