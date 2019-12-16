@@ -15,6 +15,7 @@ option(rod_streamcluster "compiling rodinia streamcluster kernels" OFF)
 option(rod_pathfinder "compiling rodinia pathfinder kernels" OFF)
 option(rod_lavamd "compiling rodinia lavamd kernels" OFF)
 option(rod_myocyte "compiling rodinia myocyte kernels" OFF)
+option(rod_hotspot3d "compiling rodinia hotspot3d kernels" OFF)
 
 
 find_package(OpenMP)
@@ -130,6 +131,12 @@ if(rod_myocyte)
   MESSAGE ("cmake: rodinia myocyte.")
   target_compile_definitions(driver PRIVATE RODINIA_MYOCYTE)
 endif()
+
+if(rod_hotspot3d)
+  MESSAGE ("cmake: rodinia hotspot3d.")
+  target_compile_definitions(driver PRIVATE RODINIA_HOTSPOT3D)
+endif()
+
 
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)
 add_compile_definitions(PARBOIL_STREAM)

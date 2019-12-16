@@ -29,5 +29,10 @@ int main_lavamd(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_myocyte(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef RODINIA_HOTSPOT3D
+int main_hotspot3d(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
+
 #endif
 

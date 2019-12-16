@@ -6,6 +6,7 @@
 #include "cuda_runtime_api.h"
 
 #include "interface.h"
+#include "rodinia_common.h"
 
 #ifdef RD_WG_SIZE_0_0                                                            
         #define BLOCK_SIZE RD_WG_SIZE_0_0                                        
@@ -28,12 +29,7 @@
 /* capacitance fitting factor	*/
 #define FACTOR_CHIP	0.5
 
-/* chip parameters	*/
-float t_chip = 0.0005;
-float chip_height = 0.016;
-float chip_width = 0.016;
-/* ambient temperature, assuming no package at all	*/
-float amb_temp = 80.0;
+
 
 void run(int argc, char** argv);
 
@@ -265,7 +261,7 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
   return dst;
 }
 
-void usage(int argc, char **argv)
+void usage_hotspot(int argc, char **argv)
 {
 	fprintf(stderr, "Usage: %s <grid_rows/grid_cols> <pyramid_height> <sim_time> <temp_file> <power_file> <output_file>\n", argv[0]);
 	fprintf(stderr, "\t<grid_rows/grid_cols>  - number of rows/cols in the grid (positive integer)\n");
@@ -300,12 +296,12 @@ void run(int argc, char** argv)
     int pyramid_height = 1; // number of iterations
 	
 	if (argc != 7)
-		usage(argc, argv);
+	  usage_hotspot(argc, argv);
 	if((grid_rows = atoi(argv[1]))<=0||
 	   (grid_cols = atoi(argv[1]))<=0||
        (pyramid_height = atoi(argv[2]))<=0||
        (total_iterations = atoi(argv[3]))<=0)
-		usage(argc, argv);
+	  usage_hotspot(argc, argv);
 		
 	tfile=argv[4];
     pfile=argv[5];

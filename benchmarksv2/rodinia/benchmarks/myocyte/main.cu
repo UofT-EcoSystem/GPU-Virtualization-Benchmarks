@@ -85,6 +85,7 @@
 #include <string.h>
 
 #include "interface.h"
+#include "rodinia_common.h"
 
 
 namespace myocyte {
@@ -99,7 +100,6 @@ extern bool set_and_check(int uid, bool start);
 #include "define.c"
 
 #include "file.c"
-#include "timer.c"
 
 #include "work.cu"
 #include "work_2.cu"

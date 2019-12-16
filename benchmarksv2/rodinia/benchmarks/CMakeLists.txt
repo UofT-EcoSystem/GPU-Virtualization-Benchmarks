@@ -1,4 +1,7 @@
 target_include_directories(driver PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(driver PRIVATE ${CMAKE_CURRENT_LIST_DIR}/common)
+
+target_sources(driver PRIVATE common/rodinia_common.cpp)
 
 if (rod_mummer)
   add_subdirectory(mummergpu)
@@ -26,4 +29,8 @@ endif()
 
 if (rod_myocyte)
   add_subdirectory(myocyte)
+endif()
+
+if (rod_hotspot3d)
+  add_subdirectory(hotspot3D)
 endif()

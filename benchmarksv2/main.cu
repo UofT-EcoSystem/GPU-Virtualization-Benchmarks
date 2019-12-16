@@ -179,6 +179,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_myocyte;
 #endif
   }
+  else if (strcmp(argv[0], "rod_hotspot3d") == 0) {
+    std::cout << "main: rodinia hotspot3d" << std::endl;
+#ifdef RODINIA_HOTSPOT3D
+    func = main_hotspot3d;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }
