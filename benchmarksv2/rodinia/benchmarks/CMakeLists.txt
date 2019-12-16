@@ -15,3 +15,7 @@ endif()
 if (rod_streamcluster)
   add_subdirectory(streamcluster)
 endif()
+
+if (rod_pathfinder)
+  add_subdirectory(pathfinder)
+endif()

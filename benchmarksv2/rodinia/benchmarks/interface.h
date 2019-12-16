@@ -17,5 +17,11 @@ int main_hotspot(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_streamcluster(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef RODINIA_PATHFINDER
+int main_pathfinder(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
+
+
 #endif
 

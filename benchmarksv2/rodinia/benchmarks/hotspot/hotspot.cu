@@ -50,13 +50,6 @@ namespace hotspot {
   volatile cudaStream_t gpusim_stream;
 }
 
-void 
-fatal(char *s)
-{
-	fprintf(stderr, "error: %s\n", s);
-
-}
-
 void writeoutput(float *vect, int grid_rows, int grid_cols, char *file){
 
 	int i,j, index=0;
@@ -96,10 +89,11 @@ void readinput(float *vect, int grid_rows, int grid_cols, char *file){
 	 {
 		fgets(str, STR_SIZE, fp);
 		if (feof(fp))
-			fatal("not enough lines in file");
+		  fprintf(stderr, "error: not enough lines in file\n");
 		//if ((sscanf(str, "%d%f", &index, &val) != 2) || (index != ((i-1)*(grid_cols-2)+j-1)))
 		if ((sscanf(str, "%f", &val) != 1))
-			fatal("invalid file format");
+		  fprintf(stderr, "error: invalid file format\n");
+
 		vect[i*grid_cols+j] = val;
 	}
 
@@ -333,10 +327,10 @@ void run(int argc, char** argv)
     MatrixOut = (float *) calloc (size, sizeof(float));
 
     if( !FilesavingPower || !FilesavingTemp || !MatrixOut)
-        fatal("unable to allocate memory");
+      fprintf(stderr, "error: unable to allocate memory\n");
 
     printf("pyramidHeight: %d\ngridSize: [%d, %d]\nborder:[%d, %d]\nblockGrid:[%d, %d]\ntargetBlock:[%d, %d]\n",\
-	pyramid_height, grid_cols, grid_rows, borderCols, borderRows, blockCols, blockRows, smallBlockCol, smallBlockRow);
+        pyramid_height, grid_cols, grid_rows, borderCols, borderRows, blockCols, blockRows, smallBlockCol, smallBlockRow);
 	
     readinput(FilesavingTemp, grid_rows, grid_cols, tfile);
     readinput(FilesavingPower, grid_rows, grid_cols, pfile);

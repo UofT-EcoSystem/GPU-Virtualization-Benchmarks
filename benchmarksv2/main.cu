@@ -161,6 +161,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_streamcluster;
 #endif
   }
+  else if (strcmp(argv[0], "rod_pathfinder") == 0) {
+    std::cout << "main: rodinia pathfinder" << std::endl;
+#ifdef RODINIA_PATHFINDER
+    func = main_pathfinder;
+#endif
+  }
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }
