@@ -555,11 +555,15 @@ void loadReferenceTexture(MatchContext* ctx)
         ctx->ref->bytes_on_board += numrows * ref->pitch;
 #else
 		CUDA_MALLOC( (void**)(&ref->d_ref_array), ref->len);
-		CUDA_SAFE_CALL( cudaMemcpyAsync( (void*)(ref->d_ref_array),
-									ref->str, 
-									ref->len, 
-									cudaMemcpyHostToDevice,
-									mummer::gpusim_stream) );
+//		CUDA_SAFE_CALL( cudaMemcpyAsync( (void*)(ref->d_ref_array),
+//									ref->str,
+//									ref->len,
+//									cudaMemcpyHostToDevice,
+//									mummer::gpusim_stream) );
+		CUDA_SAFE_CALL( cudaMemcpy( (void*)(ref->d_ref_array),
+		    ref->str,
+		    ref->len,
+		    cudaMemcpyHostToDevice) );
 
         ctx->ref->bytes_on_board += ref->len;
 #endif  
@@ -679,13 +683,20 @@ void loadReference(MatchContext* ctx) {
                                          
         
         
-        CUDA_SAFE_CALL( cudaMemcpyToArrayAsync( (cudaArray*)(ref->d_node_tex_array),
+//        CUDA_SAFE_CALL( cudaMemcpyToArrayAsync( (cudaArray*)(ref->d_node_tex_array),
+//                                           0,
+//                                           0,
+//                                           ref->h_node_tex_array,
+//                                           ref->tex_width * ref->tex_node_height * sizeof(PixelOfNode),
+//                                           cudaMemcpyHostToDevice,
+//                                           mummer::gpusim_stream));
+
+        CUDA_SAFE_CALL( cudaMemcpyToArray( (cudaArray*)(ref->d_node_tex_array),
                                            0,
                                            0,
                                            ref->h_node_tex_array,
                                            ref->tex_width * ref->tex_node_height * sizeof(PixelOfNode),
-                                           cudaMemcpyHostToDevice,
-                                           mummer::gpusim_stream));
+                                           cudaMemcpyHostToDevice));
 
         nodetex.addressMode[0] = cudaAddressModeClamp;
         nodetex.addressMode[1] = cudaAddressModeClamp;
@@ -721,13 +732,20 @@ void loadReference(MatchContext* ctx) {
                                          ref->tex_width,
                                          ref->tex_children_height );
                                          
-        CUDA_SAFE_CALL( cudaMemcpyToArrayAsync((cudaArray*)(ref->d_children_tex_array),
+//        CUDA_SAFE_CALL( cudaMemcpyToArrayAsync((cudaArray*)(ref->d_children_tex_array),
+//                                          0,
+//                                          0,
+//                                          ref->h_children_tex_array,
+//                                          ref->tex_width * ref->tex_children_height * sizeof(PixelOfChildren),
+//                                          cudaMemcpyHostToDevice,
+//                                          mummer::gpusim_stream));
+
+        CUDA_SAFE_CALL( cudaMemcpyToArray((cudaArray*)(ref->d_children_tex_array),
                                           0,
                                           0,
                                           ref->h_children_tex_array,
                                           ref->tex_width * ref->tex_children_height * sizeof(PixelOfChildren),
-                                          cudaMemcpyHostToDevice,
-                                          mummer::gpusim_stream));
+                                          cudaMemcpyHostToDevice));
                                           
         childrentex.addressMode[0] = cudaAddressModeClamp;
         childrentex.addressMode[1] = cudaAddressModeClamp;
@@ -932,11 +950,16 @@ void loadQueries(MatchContext* ctx)
         
         queries->bytes_on_board += queries->texlen;
         
-        CUDA_SAFE_CALL( cudaMemcpyAsync((void*) queries->d_tex_array,
+        CUDA_SAFE_CALL( cudaMemcpy((void*) queries->d_tex_array,
                                    queries->h_tex_array + queries->h_addrs_tex_array[0],
                                    queries->texlen,
-                                   cudaMemcpyHostToDevice,
-                                   mummer::gpusim_stream));
+                                   cudaMemcpyHostToDevice));
+
+//        CUDA_SAFE_CALL( cudaMemcpyAsync((void*) queries->d_tex_array,
+//                                   queries->h_tex_array + queries->h_addrs_tex_array[0],
+//                                   queries->texlen,
+//                                   cudaMemcpyHostToDevice,
+//                                   mummer::gpusim_stream));
 
 #if QRYTEX
 		qrytex.addressMode[0] = cudaAddressModeClamp;
@@ -952,22 +975,32 @@ void loadQueries(MatchContext* ctx)
                                    
         queries->bytes_on_board += numQueries * sizeof(int);
         
-        CUDA_SAFE_CALL( cudaMemcpyAsync((void*) queries->d_addrs_tex_array,
+        CUDA_SAFE_CALL( cudaMemcpy((void*) queries->d_addrs_tex_array,
                                    queries->h_addrs_tex_array,
                                    numQueries * sizeof(int),
-                                   cudaMemcpyHostToDevice,
-                                   mummer::gpusim_stream));
+                                   cudaMemcpyHostToDevice));
+
+//        CUDA_SAFE_CALL( cudaMemcpyAsync((void*) queries->d_addrs_tex_array,
+//                                   queries->h_addrs_tex_array,
+//                                   numQueries * sizeof(int),
+//                                   cudaMemcpyHostToDevice,
+//                                   mummer::gpusim_stream));
                            
         CUDA_MALLOC((void**) &queries->d_lengths_array,
                                    numQueries * sizeof(int));
                                    
         queries->bytes_on_board += numQueries * sizeof(int);        
 
-        CUDA_SAFE_CALL( cudaMemcpyAsync((void*) queries->d_lengths_array,
+        CUDA_SAFE_CALL( cudaMemcpy((void*) queries->d_lengths_array,
                                    queries->h_lengths_array,
                                    numQueries * sizeof(int),
-                                   cudaMemcpyHostToDevice,
-                                   mummer::gpusim_stream));
+                                   cudaMemcpyHostToDevice));
+
+//        CUDA_SAFE_CALL( cudaMemcpyAsync((void*) queries->d_lengths_array,
+//                                   queries->h_lengths_array,
+//                                   numQueries * sizeof(int),
+//                                   cudaMemcpyHostToDevice,
+//                                   mummer::gpusim_stream));
 	    stopTimer(toboardtimer);
 	    ctx->statistics.t_queries_to_board += getTimerValue(toboardtimer);
 	    deleteTimer(toboardtimer);
@@ -1110,8 +1143,11 @@ void loadResultBuffer(MatchContext* ctx)
                                     numCoords * sizeof(MatchCoord));
         ctx->results.bytes_on_board += numCoords * sizeof(MatchCoord);
         
-        CUDA_SAFE_CALL( cudaMemsetAsync( (void*)ctx->results.d_match_coords, 0,
-                                    numCoords * sizeof(MatchCoord), mummer::gpusim_stream));
+//        CUDA_SAFE_CALL( cudaMemsetAsync( (void*)ctx->results.d_match_coords, 0,
+//                                    numCoords * sizeof(MatchCoord), mummer::gpusim_stream));
+
+        CUDA_SAFE_CALL( cudaMemset( (void*)ctx->results.d_match_coords, 0,
+            numCoords * sizeof(MatchCoord)));
                              
 #if COALESCED_QUERIES
         CUDA_MALLOC((void**) &ctx->results.d_coord_tex_array,
@@ -1153,11 +1189,16 @@ void transferResultsFromDevice(MatchContext* ctx)
       char* fromboardtimer = createTimer();
       startTimer(fromboardtimer);
 
-	  CUDA_SAFE_CALL(cudaMemcpyAsync(ctx->results.h_match_coords,
-								ctx->results.d_match_coords, 
-								ctx->results.numCoords * sizeof(MatchCoord), 
-								cudaMemcpyDeviceToHost,
-								mummer::gpusim_stream) );
+//	  CUDA_SAFE_CALL(cudaMemcpyAsync(ctx->results.h_match_coords,
+//								ctx->results.d_match_coords,
+//								ctx->results.numCoords * sizeof(MatchCoord),
+//								cudaMemcpyDeviceToHost,
+//								mummer::gpusim_stream) );
+
+      CUDA_SAFE_CALL(cudaMemcpy(ctx->results.h_match_coords,
+                  ctx->results.d_match_coords,
+                  ctx->results.numCoords * sizeof(MatchCoord),
+                  cudaMemcpyDeviceToHost) );
 	  
 
 #if TREE_ACCESS_HISTOGRAM
@@ -1976,7 +2017,8 @@ void launch_mummerGPU(MatchContext* ctx,
         ctx->min_match_length);
   }
   else {
-    mummergpuKernel <<< dimGrid, dimBlock, 0, mummer::gpusim_stream >>> (ctx->results.d_match_coords,
+//    mummergpuKernel <<< dimGrid, dimBlock, 0, mummer::gpusim_stream >>> (ctx->results.d_match_coords,
+    mummergpuKernel <<< dimGrid, dimBlock, 0 >>> (ctx->results.d_match_coords,
 #if COALESCED_QUERIES
         ctx->results.d_coord_tex_array,
 #endif
