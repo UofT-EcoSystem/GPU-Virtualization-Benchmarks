@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 
-def parse_args():
+def parse_args(_args):
     parser = argparse.ArgumentParser('Generate application pair configs based on intra profiling results.')
 
     parser.add_argument('--intra_pkl',
@@ -19,7 +19,7 @@ def parse_args():
                         help='Pair of benchmarks to be considered.')
 
     parser.add_argument('--qos',
-                        default=0.8,
+                        default=0.75,
                         type=float,
                         help='Quality of Service for each benchmark in terms of normalized IPC.')
 
@@ -27,12 +27,17 @@ def parse_args():
                         default=os.path.join(const.DATA_HOME, 'pickles/pair_candidates.pkl'),
                         help='Output path for the pair candidate dataframe pickle')
 
-    results = parser.parse_args()
+    parser.add_argument('--random',
+                        default=False,
+                        action='store_true',
+                        help='Use random address mapping for global access.')
+
+    results = parser.parse_args(_args)
     return results
 
 
-def main():
-    args = parse_args()
+def main(_args):
+    args = parse_args(_args)
     df_intra = pd.read_pickle(args.intra_pkl)
 
     # Step 1: get rid of all intra configs that do not meet QoS
@@ -55,18 +60,19 @@ def main():
     df_prod = df_app[0].merge(df_app[1], how='outer', on='key')
     df_prod.drop(columns=['key'])
 
-    print('Original', df_prod.shape)
-
     # Step 2: drop any pair that exceeds resource usage:
     # 'cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio', 'l2', 'dram_busy', 'comp_busy'
     resources = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio', 'l2']
 
     for rsrc in resources:
         df_prod = df_prod[(df_prod[rsrc+'_x'] + df_prod[rsrc+'_y']) <= 1.0]
-        print(rsrc, df_prod.shape)
 
     # for l2 only, keep the ones that add up to 1.0 exactly
     df_prod = df_prod[(df_prod['l2_x'] + df_prod['l2_y'] == 1.0)]
+
+    if len(df_prod) == 0:
+        print('Error. No feasible pair configs for {0}+{1} at QoS {2}.'.format(args.apps[0], args.apps[1], args.qos))
+        return ''
 
     # calculate difference in memory latency
     df_prod['diff_mflat'] = np.abs(df_prod['avg_mem_lat_y'] - df_prod['avg_mem_lat_x'])
@@ -81,11 +87,6 @@ def main():
 
     df_prod.sort_values(['diff_mflat', 'sum_ipc'], inplace=True, ascending=[True, False])
 
-    # print('-'*10, 'Candidates', '-'*10)
-    # print(df_prod[['norm_ipc_x', 'norm_ipc_y', 'diff_mflat', 'sum_ipc',
-    #                'intra_x', 'intra_y', 'l2_x', 'l2_y',
-    #                'sum_comp', 'sum_dram', 'penalized']])
-
     print('')
     print('-'*10, 'Best Candidate', '-'*10)
 
@@ -93,6 +94,9 @@ def main():
     print('app order:', best['pair_str_x'], best['pair_str_y'])
 
     config_base = 'TITANV-CONCURRENT-SEP_RW'
+    if args.random:
+        config_base += '-RANDOM'
+
     config_intra = 'INTRA_0:' + str(best['intra_x']) + ':' + str(best['intra_y']) + '_CTA'
     config_l2 = 'PARTITION_L2_0:' + str(best['l2_x']) + ':' + str(best['l2_y'])
     if best['pair_str_x'] == best['penalized']:
@@ -105,8 +109,11 @@ def main():
 
     df_prod.to_pickle(args.output)
 
+    print('-'*30)
+
     return config
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(sys.argv[1:])

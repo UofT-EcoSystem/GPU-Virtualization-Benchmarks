@@ -1,8 +1,9 @@
 import argparse
 import subprocess
 import pandas as pd
-import data.scripts.common.constant as const
 from job_launching.constant import *
+import data.scripts.common.constants as const
+import data.scripts.gen_tables.gen_pair_configs as dynamic
 
 # (Intra CTAs/SM, L2 usage, disable l2D)
 bench_opt_config = {
@@ -32,7 +33,6 @@ def parse_args():
     parser.add_argument('--random', default=False, action='store_true',
                         help='Use random address mapping for global access.')
 
-
     results = parser.parse_args()
 
     return results
@@ -43,17 +43,18 @@ app_df = pd.DataFrame.from_dict(bench_opt_config, orient='index',
 
 args = parse_args()
 
+if args.pair[0] == 'all':
+    pairs = []
+    for bench0 in const.app_dict:
+        for bench1 in const.app_dict:
+            if bench0 < bench1:
+                pairs.append('+'.join([bench0, bench1]))
+
+    args.pair = pairs
+
+
 for pair in args.pair:
     apps = pair.split('+')
-    all_apps_valid = True
-    for app in apps:
-        if app not in app_df.index.values:
-            print("{0} is not in application map. Skip.".format(pair))
-            all_apps_valid = False
-            break
-
-    if not all_apps_valid:
-        continue
 
     base_config = "TITANV-SEP_RW-CONCURRENT"
     if args.random:
@@ -62,6 +63,16 @@ for pair in args.pair:
     if args.how == 'smk':
         config_str = base_config
     elif args.how == 'static':
+        # Check if our table has the right info for apps
+        all_apps_valid = True
+        for app in apps:
+            if app not in app_df.index.values:
+                print("{0} is not in application map. Skip.".format(pair))
+                all_apps_valid = False
+                break
+        if not all_apps_valid:
+            continue
+
         # intra SM config
         intra_values = [str(app_df.loc[app, 'intra']) for app in apps]
         intra_sm = 'INTRA_0:' + ':'.join(intra_values) + '_CTA'
@@ -79,10 +90,18 @@ for pair in args.pair:
         if app_df.loc[apps[0], 'bypassl2']:
             config_str += "-BYPASS_L2D_S1"
     else:
-        # TODO: dynamic sharing policy
-        print('Unimplemented error')
+        pair_config_args = ['--apps'] + apps
 
-    cmd = ['python',
+        if args.random:
+            pair_config_args.append('--random')
+
+        config_str = dynamic.main(pair_config_args)
+
+        if config_str == '':
+            # gen_pair_configs did not generate feasible config candidates
+            continue
+
+    cmd = ['python3',
            os.path.join(RUN_HOME, 'run_simulations.py'),
            '-B', pair,
            '-C', config_str,
@@ -96,5 +115,3 @@ for pair in args.pair:
     p = subprocess.run(cmd, stdout=subprocess.PIPE)
 
     print(p.stdout.decode("utf-8"))
-
-

@@ -114,15 +114,13 @@ class ConfigurationSpec:
     def __init__(self, config_params):
         (self.config_name, self.base_file, self.extra_param_text) = config_params
 
-    def my_print(self):
-        print("Run Subdir = " + self.config_name)
-        print("Base config file = " + self.base_file)
-        print("Parameters = " + self.extra_param_text)
-
     def run(self):
         for pair in ConfigurationSpec.benchmarks:
             pair_str = '-'.join(pair)
             this_run_dir = os.path.join(ConfigurationSpec.run_dir, pair_str, self.config_name)
+
+            print('Benchmark:', pair)
+            print('Config:', self.config_name)
 
             self.__setup_run_directory(this_run_dir)
             self.__text_replace_torque_sim(this_run_dir, pair)
@@ -142,7 +140,7 @@ class ConfigurationSpec:
             else:
                 # Parse the torque output for just the numeric ID
                 torque_jobid = p.stdout.decode('utf-8').strip()
-                print(("Job " + torque_jobid + " queued (" + pair_str + ", " + self.config_name + ")"))
+                print("Job " + torque_jobid + " queued.")
 
             os.chdir(saved_dir)
 
@@ -167,13 +165,15 @@ class ConfigurationSpec:
 
                 with open(os.path.join(ConfigurationSpec.log_dir, log_name + "." + day_string + ".txt"), 'a') \
                         as logfile:
-                    print("%s %6s %-22s %-25s %s" %
+                    line = "%s %6s %-22s %-25s %s" % \
                           (time_string,
                            torque_jobid,
                            pair_str,
                            self.config_name,
-                           ConfigurationSpec.version_string),
-                          file=logfile)
+                           ConfigurationSpec.version_string)
+                    print(line, file=logfile)
+
+            print('=' * 30)
 
     #########################################################################################
     # Internal utility methods
@@ -323,10 +323,6 @@ def main():
     # 5. Parse configs
     config_tuples = common.gen_configs_from_list(options.configs_list)
 
-    print(("Running Simulations with GPGPU-Sim built from \n{0}\n ".format(version_string) +
-           "\nUsing configs: " + options.configs_list +
-           "\nBenchmark: " + options.benchmark_list))
-
     # 6. Launch jobs
     # Static variables for ConfigureSpec: benchmarks, run dir, so dir, job name, no_launch (bool)
     ConfigurationSpec.benchmarks = benchmarks
@@ -340,8 +336,6 @@ def main():
 
     for config in config_tuples:
         config_spec = ConfigurationSpec(config)
-
-        config_spec.my_print()
         config_spec.run()
 
 
