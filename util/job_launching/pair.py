@@ -118,7 +118,7 @@ for pair in args.pair:
            '-B', pair,
            '-C', config_str,
            '-E', DEFAULT_BENCH_HOME,
-           '-N', 'pair'
+           '-N', 'pair-' + args.how
            ]
 
     if args.no_launch:
