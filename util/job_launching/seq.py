@@ -2,19 +2,20 @@ import os
 import subprocess
 import argparse
 
-from launch.constant import *
+from job_launching.constant import *
+import data.scripts.common.constants as const
 
 
 def parse_args():
     parser = argparse.ArgumentParser("Run app in isolation mode (vanilla)")
 
-    parser.add_argument('--app', nargs='+', default=app_dict.keys(), help='Apps to run')
+    parser.add_argument('--app', nargs='+', default=const.app_dict.keys(), help='Apps to run')
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
                         help='Benchmark home folder.')
     parser.add_argument('--no_launch', default=False, action='store_true',
                         help='Do not actually trigger job launching.')
     parser.add_argument('--random', default=False, action='store_true',
-			help='Use random hashing for memory partition.')
+                        help='Use random hashing for memory partition.')
 
     results = parser.parse_args()
 
@@ -42,5 +43,3 @@ for benchmark in args.app:
                        stdout=subprocess.PIPE)
 
     print(p.stdout.decode("utf-8"))
-
-

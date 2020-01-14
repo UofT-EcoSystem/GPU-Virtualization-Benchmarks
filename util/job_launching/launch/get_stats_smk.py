@@ -3,7 +3,7 @@
 from optparse import OptionParser
 import re
 import os
-import common
+import job_launching.launch.common as common
 import math
 import oyaml as yaml
 import time

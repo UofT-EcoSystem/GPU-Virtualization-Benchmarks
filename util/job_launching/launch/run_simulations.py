@@ -8,7 +8,7 @@ import re
 import shutil
 import glob
 import datetime
-import common
+import job_launching.launch.common as common
 import filecmp
 
 this_directory = os.path.dirname(os.path.realpath(__file__))

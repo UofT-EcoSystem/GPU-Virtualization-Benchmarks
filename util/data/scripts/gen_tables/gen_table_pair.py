@@ -1,5 +1,5 @@
-import common.help_iso as hi
-import common.constants as const
+import data.scripts.common.help_iso as hi
+import data.scripts.common.constants as const
 
 import argparse
 import os

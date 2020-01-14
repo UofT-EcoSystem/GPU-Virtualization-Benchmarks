@@ -1,7 +1,8 @@
 import argparse
 import subprocess
 import pandas as pd
-from launch.constant import *
+import data.scripts.common.constant as const
+from job_launching.constant import *
 
 # (Intra CTAs/SM, L2 usage, disable l2D)
 bench_opt_config = {
