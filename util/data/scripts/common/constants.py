@@ -14,7 +14,7 @@ app_dict = {
             'cut_sgemm-1': [2, 512],
             'cut_wmma-0': [4, 128],
             # 'cut_wmma-1': [4, 1024],
-            'parb_sgemm-0': [11, 528],
+            # 'parb_sgemm-0': [11, 528],
             'parb_cutcp-0': [16, 121],
             'parb_stencil-0': [16, 1024],
             'parb_lbm-0': [12, 18000],

@@ -32,6 +32,10 @@ def parse_args():
                         help='Do not actually trigger job launching.')
     parser.add_argument('--random', default=False, action='store_true',
                         help='Use random address mapping for global access.')
+    parser.add_argument('--id_start', type=int, default=0,
+                        help='For all pairs only. Starting pair id.')
+    parser.add_argument('--count', type=int, default=20,
+                        help='Max number of simulations to launch.')
 
     results = parser.parse_args()
 
@@ -50,7 +54,15 @@ if args.pair[0] == 'all':
             if bench0 < bench1:
                 pairs.append('+'.join([bench0, bench1]))
 
-    args.pair = pairs
+    if not args.id_start < len(pairs):
+        print('Length of all pairs is {0} but id_start is {1}'.format(len(pairs), args.id_start))
+        exit(1)
+    id_end = args.id_start + args.count
+
+    if id_end > len(pairs):
+        id_end = len(pairs)
+
+    args.pair = pairs[args.id_start:id_end]
 
 
 for pair in args.pair:
