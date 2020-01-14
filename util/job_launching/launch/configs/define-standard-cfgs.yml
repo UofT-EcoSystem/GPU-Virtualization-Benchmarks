@@ -1,0 +1,92 @@
+# Basefile Configs
+
+# Volta
+TITANV:
+    base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/SM7_TITANV/gpgpusim.config"
+
+# Fermi
+GTX480:
+    base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/SM2_GTX480/gpgpusim.config"
+
+# Volta-LocalXbar
+TITANV-localxbar:
+    base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/SM7_TITANV_fastlocalxbar/gpgpusim.config"
+############################################################################
+
+# Extra configs - these are composable.
+# The names here will be appended to the basefile name with hyphens
+#   For example TITANX-L1ON-PTXPLUS
+PTXPLUS:
+    extra_params: "-gpgpu_ptx_convert_to_ptxplus 1 -gpgpu_ptx_force_max_capability 10"
+
+SM_2:
+    extra_params: "-gpgpu_ptx_force_max_capability 20"
+
+L1ON:
+    extra_params: "-gmem_skip_L1D 0"
+
+COPYK:
+    extra_params: "-perf_sim_memcpy 1"
+
+2B:
+    extra_params: "-gpgpu_max_insn 2000000000"
+
+1B:
+    extra_params: "-gpgpu_max_insn 1000000000"
+
+100M:
+    extra_params: "-gpgpu_max_insn 100000000"
+
+FLUSHL1:
+    extra_params: "-gpgpu_flush_l1_cache 1"
+
+PWR_ENABLE:
+    extra_params: "-power_simulation_enabled 1"
+
+CONCURRENT:
+  extra_params: "-gpgpu_concurrent_kernel_sm 1"
+
+# sweeping ctas
+INTRA_?_CTA:
+  extra_params: "-gpgpu_sharing_intra_sm 1 -max_cta_in_stream ?"
+
+INTER_?_SM:
+  extra_params: "-gpgpu_sharing_intra_sm 0 -max_sm_in_stream ?"
+
+ICNT_?_PRIORITY:
+  extra_params: "-icnt_priority ?" 
+
+BYPASS_L2:
+  extra_params: "-gpgpu_cache:dl2 none -gpgpu_cache:il1 N:64:128:16,L:R:f:N:L,A:2:48,4 -gpgpu_const_cache:l1 N:128:64:8,L:R:f:N:L,A:2:64,4"
+
+BYPASS_L2D_S1:
+  extra_params: "-l2d_enabled 1:0:1"
+
+NO_RW_TURNAROUND:
+  extra_params: "-Elimnate_rw_turnaround"
+
+SEP_RW:
+  extra_params: "-Seperate_Write_Queue_Enable 1 -Write_Queue_Size 64:56:16"
+
+PARTITION_L2_?:
+  extra_params: "-l2_partition_enabled 1 -l2_partition ?"
+
+L2_MERGE_2X:
+  extra_params: "-gpgpu_cache:dl2 S:32:128:24,L:B:m:L:L,A:192:8,32:0,32"
+
+L2_MSHR_2X:
+  extra_params: "-gpgpu_cache:dl2 S:32:128:24,L:B:m:L:L,A:384:8,32:0,32"
+
+RANDOM:
+  extra_params: "-memory_partition_indexing 4"
+
+PAE:
+  extra_params: "-memory_partition_indexing 3"
+
+ADDR_TEST:
+  extra_params: "-gpgpu_mem_addr_test 1"
+
+# Experimental - for SM 60 PTXplus support
+PTXPLUS_SM6:
+    extra_params: "-gpgpu_ptx_convert_to_ptxplus 1 -gpgpu_ptx_force_max_capability 62 -gpgpu_ptx_force_min_capability 60"
+

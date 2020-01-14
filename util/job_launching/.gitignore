@@ -1,0 +1,8 @@
+logfiles
+*.csv
+*.pdf
+*.png
+.ipynb_checkpoints
+default.pair
+
+env/

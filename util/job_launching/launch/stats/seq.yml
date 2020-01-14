@@ -1,0 +1,77 @@
+'scalar':
+  'grid_x': 'stream 1, gridDim= \(([0-9]*)'
+  'grid_y': 'stream 1, gridDim= \([0-9]*,([0-9]*)'
+  'grid_z': 'stream 1, gridDim= \([0-9]*,[0-9]*,([0-9]*)'
+  'block_x': 'stream 1, .*blockDim\s=\s\(([0-9]*),'
+  'block_y': 'stream 1, .*blockDim\s=\s\([0-9]*,([0-9])'
+  'block_z': 'stream 1, .*blockDim\s=\s\([0-9]*,[0-9]*,([0-9]*)'
+  'ctas/SM': 'Stream 1/1.*:\s(.*)\sctas/SM'
+  'runtime': 'gpu_tot_sim_cycle\[1\]\s*:\s*(.*)'
+  'ipc': 'gpu_tot_ipc\s*=\s*(.*)'
+  'instructions': 'gpu_tot_sim_insn\[1\]\s*:\s*(.*)'
+  'avg_mem_lat': 'averagemflatency\[1\]\s*=\s*(.*)'
+  'avg_core_to_l2': 'avg_icnt2mem_latency\[1\]\s*=\s*(.*)'
+  'avg_l2_to_core': 'avg_icnt2sh_latency\[1\]\s*=\s*(.*)'
+  'avg_mrq_latency': 'avg_mrq_latency\[1\]\s*=\s*(.*)'
+  'stall_core_ldst': 'gpgpu_n_stall_shd_mem\s*=\s*(.*)'
+  'stall_icnt_to_l2': 'gpu_stall_dramfull\s*=\s*(.*)'
+  'l2_BW': 'L2_BW\s*=\s*(.*)\s*GB/Sec'
+  'l2_rshr_entry_fail': 
+    'L2_cache_stats_fail_breakdown\[GLOBAL_ACC_R\]\[MSHR_ENRTY_FAIL\]\s*=*\s(.*)'
+  'l2_rshr_merge_fail':
+    'L2_cache_stats_fail_breakdown\[GLOBAL_ACC_R\]\[MSHR_MERGE_ENRTY_FAIL\]\s*=\s*(.*)'
+  'stall_l2_to_icnt': 'gpu_stall_icnt2sh\s*=\s*(.*)'
+  'l1D_miss_rate': 'L1D_total_cache_miss_rate\s*=\s*(.*)'
+  'l2_miss_rate': 'L2_total_cache_miss_rate\s*=\s*(.*)'
+  'l2_total_accesses': 'L2_total_cache_accesses\s*=\s*(.*)'
+  'packet_lat_out': '\[0,1\]Packet\slatency\saverage\s=\s(.*)'
+  'network_lat_out': '\[0,1\]Network\slatency\saverage\s=\s(.*)'
+  'inject_out': '\[0,1\]Injected\spacket\srate\saverage\s=\s(.*)'
+  'accepted_out': '\[0,1\]Accepted\spacket\srate\saverage\s=\s(.*)'
+  'packet_lat_in': '\[1,1\]Packet\slatency\saverage\s=\s(.*)'
+  'network_lat_in': '\[1,1\]Network\slatency\saverage\s=\s(.*)'
+  'inject_in': '\[1,1\]Injected\spacket\srate\saverage\s=\s(.*)'
+  'accepted_in': '\[1,1\]Accepted\spacket\srate\saverage\s=\s(.*)'
+  'mem_subpartition_parallism': 
+    'partiton_level_parallism_total\s*=\s*(.*)'
+  'mem_subpartition_parallism_util': 
+    'partiton_level_parallism_util_total\s*=\s*(.*)'
+  'L2_reservation_fail':
+    'L2_total_cache_reservation_fails\s=\s(.*)'
+  'empty_warp':
+    'Empty\swarp:(.*)\tStall'
+  'stall_warp':
+    'Stall:(.*)\tW0_Idle'
+  'idle_warp':
+    'W0_Idle:(.*)\tW0_Score'
+  'scoreboard_warp':
+    'W0_Scoreboard:(.*)\tW1:'
+  'tot_warp_insn':
+    'gpgpu_n_tot_w_icount\s=\s(.*)'
+  'regs':
+    'regs=(.*),\slmem'
+  'smem':
+    'smem=(.*),'
+'vector':
+  'dram_eff': 'dram_eff=(.*)$'
+  'dram_bw': 'bw_util=(.*)$'
+  'row_buffer_locality': 'Row_Buffer_Locality\s*=\s*(.*)'
+  'mrqq': 'mrqq:\s*.*avg=(.*)'
+  'total_cmd':
+    'total_CMD\s=\s(.*)'
+  'wasted_col':
+    'Wasted_Col\s=\s(.*)'
+  'wasted_row':
+    'Wasted_Row\s=\s(.*)'
+  'mem_idle':
+    'Idle\s=\s(.*)'
+  'CCDLc':
+    'CCDLc_limit_alone\s=\s(.*)'
+  'WTRc':
+    'WTRc_limit_alone\s=\s(.*)'
+  'RTWc':
+    'RTWc_limit_alone\s=\s(.*)'
+  'RCDc':
+    'RCDc_limit\s=\s(.*)'
+  'RCDWRc':
+    'RCDWRc_limit\s=\s(.*)'
