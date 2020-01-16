@@ -15,7 +15,7 @@ this_directory = os.path.dirname(os.path.realpath(__file__))
 
 
 def parse_run_simulations_options():
-    parser = OptionParser()
+    parser = OptionParser() 
     parser.add_option("-B", "--benchmark_list", dest="benchmark_list",
                       help="A file with all benchmark pairs to run. See apps/define-*.yml for " + \
                            "the benchmark suite names.",
@@ -46,7 +46,7 @@ def parse_run_simulations_options():
                       help="Pass if you want to name the launch. This will determine the name of the logfile.\n" + \
                            "If you do not name the file, it will just use the current date/time.")
 
-    parser.add_option("-env", choice=['eco', 'vector'], default='eco',
+    parser.add_option("--env", choices=['eco', 'vector'], default='eco',
                       help='Choose cluster environment. Eco will invoke torque while vector will invoke slurm.')
 
     (options, args) = parser.parse_args()
@@ -135,7 +135,7 @@ class ConfigurationSpec:
             saved_dir = os.getcwd()
             os.chdir(this_run_dir)
 
-            if ConfigurationSpec.env == 'torque':
+            if ConfigurationSpec.env == 'eco':
                 cmd = ["qsub", "-W", "umask=022", os.path.join(this_run_dir, "torque.sim")]
             else:
                 cmd = ["sbatch", os.path.join(this_run_dir, "slurm.sim")]
@@ -285,9 +285,14 @@ def main():
     if str(os.getenv("GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN")) != "1":
         sys.exit("ERROR - Please run setup_environment before running this script")
 
-    # Test for the existence of torque on the system
-    if not any([os.path.isfile(os.path.join(p, "qsub")) for p in os.getenv("PATH").split(os.pathsep)]):
-        exit("ERROR - Cannot find qsub in PATH... Is torque installed on this machine?")
+    if options.env == 'eco':
+        # Test for the existence of torque on the system
+        if not any([os.path.isfile(os.path.join(p, "qsub")) for p in os.getenv("PATH").split(os.pathsep)]):
+            exit("ERROR - Cannot find qsub in PATH... Is torque installed on this machine?")
+    else:
+        if not any([os.path.isfile(os.path.join(p, "sbatch")) for p in os.getenv("PATH").split(os.pathsep)]):
+            exit("ERROR - Cannot find sbatch in PATH... Is torque installed on this machine?")
+
 
     # Check if NVCC is in path
     if not any([os.path.isfile(os.path.join(p, "nvcc")) for p in os.getenv("PATH").split(os.pathsep)]):

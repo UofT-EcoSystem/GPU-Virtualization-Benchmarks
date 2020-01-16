@@ -16,6 +16,8 @@ def parse_args():
                         help='Do not actually trigger job launching.')
     parser.add_argument('--random', default=False, action='store_true',
                         help='Use random hashing for memory partition.')
+    parser.add_argument('--env', default='eco', choices=['eco', 'vector'], 
+            help='Launch environment. Either eco for torque or vector for slurm.')
 
     results = parser.parse_args()
 
@@ -38,7 +40,8 @@ for benchmark in args.app:
                         '-C', config_str,
                         '-E', args.bench_home,
                         '-N', jobname,
-                        '-n' if args.no_launch else ''
+                        '-n' if args.no_launch else '',
+                        '--env', args.env
                         ],
                        stdout=subprocess.PIPE)
 
