@@ -36,6 +36,8 @@ def parse_args():
                         help='For all pairs only. Starting pair id.')
     parser.add_argument('--count', type=int, default=20,
                         help='Max number of simulations to launch.')
+    parser.add_argument('--env', default='eco', choices=['eco', 'vector'],
+            help='Environment to launch.')
 
     results = parser.parse_args()
 
@@ -118,7 +120,8 @@ for pair in args.pair:
            '-B', pair,
            '-C', config_str,
            '-E', DEFAULT_BENCH_HOME,
-           '-N', 'pair-' + args.how
+           '-N', 'pair-' + args.how,
+           '--env', args.env,
            ]
 
     if args.no_launch:

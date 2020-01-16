@@ -29,6 +29,9 @@ def parse_args():
     parser.add_argument('--no_launch', default=False, action='store_true',
                         help='Do not actually trigger job launching.')
 
+    parser.add_argument('--env', default='eco', choices=['eco', 'vector'],
+            help='Environment to launch.')
+
     results = parser.parse_args()
 
     return results
@@ -58,12 +61,13 @@ for app in args.apps:
 
         config_str = ','.join(configs)
 
-        cmd = ['python',
+        cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
                '-B', app,
                '-C', config_str,
                '-E', DEFAULT_BENCH_HOME,
-               '-N', jobname
+               '-N', jobname,
+               '--env', args.env
                ]
 
         if args.no_launch:
