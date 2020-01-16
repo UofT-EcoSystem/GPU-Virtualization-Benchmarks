@@ -46,6 +46,9 @@ def parse_run_simulations_options():
                       help="Pass if you want to name the launch. This will determine the name of the logfile.\n" + \
                            "If you do not name the file, it will just use the current date/time.")
 
+    parser.add_option("-env", choice=['eco', 'vector'], default='eco',
+                      help='Choose cluster environment. Eco will invoke torque while vector will invoke slurm.')
+
     (options, args) = parser.parse_args()
 
     # Parser seems to leave some whitespace on the options, getting rid of it
@@ -123,7 +126,7 @@ class ConfigurationSpec:
             print('Config:', self.config_name)
 
             self.__setup_run_directory(this_run_dir)
-            self.__text_replace_torque_sim(this_run_dir, pair)
+            self.__text_replace_job_script(this_run_dir, pair)
 
             if ConfigurationSpec.no_launch:
                 continue
@@ -131,7 +134,11 @@ class ConfigurationSpec:
             # Submit the job to torque and dump the output to a file
             saved_dir = os.getcwd()
             os.chdir(this_run_dir)
-            cmd = ["qsub", "-W", "umask=022", os.path.join(this_run_dir, "torque.sim")]
+
+            if ConfigurationSpec.env == 'torque':
+                cmd = ["qsub", "-W", "umask=022", os.path.join(this_run_dir, "torque.sim")]
+            else:
+                cmd = ["sbatch", os.path.join(this_run_dir, "slurm.sim")]
 
             p = subprocess.run(cmd, stdout=subprocess.PIPE)
 
@@ -199,7 +206,7 @@ class ConfigurationSpec:
         open(os.path.join(this_run_dir, "gpgpusim.config"), 'w').write(config_text)
 
     # replaces all the "REAPLCE_*" strings in the torque.sim file
-    def __text_replace_torque_sim(self, this_run_dir, pair):
+    def __text_replace_job_script(self, this_run_dir, pair):
         pair_str = '-'.join(pair)
 
         # Test the existence of required env variables
@@ -250,12 +257,17 @@ class ConfigurationSpec:
                             "PATH": os.getenv("PATH"),
                             }
 
-        torque_text = open(os.path.join(this_directory, "torque.sim")).read().strip()
+        if ConfigurationSpec.env == 'eco':
+            job_script = 'torque.sim'
+        else:
+            job_script = 'slurm.sim'
+
+        script_text = open(os.path.join(this_directory, job_script)).read().strip()
         for entry in replacement_dict:
-            torque_text = re.sub("REPLACE_" + entry,
+            script_text = re.sub("REPLACE_" + entry,
                                  str(replacement_dict[entry]),
-                                 torque_text)
-        open(os.path.join(this_run_dir, "torque.sim"), 'w').write(torque_text)
+                                 script_text)
+        open(os.path.join(this_run_dir, job_script), 'w').write(script_text)
 
 
 # -----------------------------------------------------------
@@ -333,6 +345,7 @@ def main():
     ConfigurationSpec.version_string = version_string
     ConfigurationSpec.launch_name = options.launch_name
     ConfigurationSpec.no_launch = options.no_launch
+    ConfigurationSpec.env = options.env
 
     for config in config_tuples:
         config_spec = ConfigurationSpec(config)

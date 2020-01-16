@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=REPLACE_PPN
 #SBATCH --time=200:00:00
 #SBATCH --partition=REPLACE_QUEUE_NAME
-#SBATCH --export=NONE
+#SBATCH --export=ALL
 #SBATCH --output=$PBS_JOBNAME.$PBS_JOBID.log
 
 if [ "$GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN" != "1" ]; then
