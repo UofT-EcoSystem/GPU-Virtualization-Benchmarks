@@ -217,10 +217,13 @@ class ConfigurationSpec:
 
         # do the text replacement for the torque.sim file
 
-        if os.getenv("TORQUE_QUEUE_NAME") is None:
-            queue_name = "batch"
+        if ConfigurationSpec.env == 'eco':
+            if os.getenv("TORQUE_QUEUE_NAME") is None:
+                queue_name = "batch"
+            else:
+                queue_name = os.getenv("TORQUE_QUEUE_NAME")
         else:
-            queue_name = os.getenv("TORQUE_QUEUE_NAME")
+            queue_name = 'cpu'
 
         _input_1 = common.get_inputs_from_app(pair[0])
         _app_1_cmake = _input_1.split(' ')[0]
