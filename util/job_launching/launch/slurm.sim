@@ -1,11 +1,12 @@
 #!/bin/bash
 #SBATCH -J REPLACE_NAME
 #SBATCH -N REPLACE_NODES
-#SBATCH --ntasks-per-node=REPLACE_PPN
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=2
 #SBATCH --time=200:00:00
 #SBATCH --partition=REPLACE_QUEUE_NAME
 #SBATCH --export=ALL
-#SBATCH --output=$SLURM_JOB_NAME.$SLURM_JOB_ID.log
+#SBATCH --output=%x.%j.log
 
 if [ "$GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN" != "1" ]; then
     export GPGPUSIM_ROOT=REPLACE_GPGPUSIM_ROOT
