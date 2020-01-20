@@ -32,12 +32,21 @@ def parse_args(_args):
                         action='store_true',
                         help='Use random address mapping for global access.')
 
+    parser.add_argument('--print',
+                        action='store_true',
+                        help='Whether to print selected configs to console.')
+
     results = parser.parse_args(_args)
     return results
 
 
 def main(_args):
     args = parse_args(_args)
+
+    def print_config(*str):
+        if args.print:
+            print(str)
+
     df_intra = pd.read_pickle(args.intra_pkl)
 
     # Step 1: get rid of all intra configs that do not meet QoS
@@ -87,11 +96,11 @@ def main(_args):
 
     df_prod.sort_values(['diff_mflat', 'sum_ipc'], inplace=True, ascending=[True, False])
 
-    print('')
-    print('-'*10, 'Best Candidate', '-'*10)
+    print_config('')
+    print_config('-'*10, 'Best Candidate', '-'*10)
 
     best = df_prod.iloc[0]
-    print('app order:', best['pair_str_x'], best['pair_str_y'])
+    print_config('app order:', best['pair_str_x'], best['pair_str_y'])
 
     config_base = 'TITANV-CONCURRENT-SEP_RW'
     if args.random:
@@ -105,11 +114,11 @@ def main(_args):
         config_icnt = 'ICNT_0:1:2_PRIORITY'
 
     config = '-'.join([config_base, config_intra, config_l2, config_icnt])
-    print('gpusim config:', config)
+    print_config('gpusim config:', config)
 
     df_prod.to_pickle(args.output)
 
-    print('-'*30)
+    print_config('-'*30)
 
     return config
 

@@ -67,10 +67,6 @@ dkms.conf
 *.fatbin
 *.prof
 
-# Jupyter notebooks
-*.ipynb
-.ipynb*
-
 # Python virtual env
 *env/
 
@@ -120,3 +116,6 @@ benchmarks/cuda-sdk/cudaTensorCoreGemm/profile\.nsight-cuprof-report
 # IDE
 .cproject
 .project
+
+# Jupyter notebooks
+.ipynb_checkpoints/

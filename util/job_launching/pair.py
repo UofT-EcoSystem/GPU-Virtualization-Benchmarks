@@ -51,8 +51,8 @@ args = parse_args()
 
 if args.pair[0] == 'all':
     pairs = []
-    for bench0 in const.app_dict:
-        for bench1 in const.app_dict:
+    for bench0 in const.app_for_pair:
+        for bench1 in const.app_for_pair:
             if bench0 < bench1:
                 pairs.append('+'.join([bench0, bench1]))
 
@@ -108,6 +108,8 @@ for pair in args.pair:
 
         if args.random:
             pair_config_args.append('--random')
+
+        pair_config_args.append('--print')
 
         config_str = dynamic.main(pair_config_args)
 
