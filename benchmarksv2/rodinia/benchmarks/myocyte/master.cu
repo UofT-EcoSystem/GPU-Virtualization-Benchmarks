@@ -73,7 +73,7 @@ void master(fp timeinst,
 	cudaMemcpyAsync(finavalu, d_finavalu, d_finavalu_mem, cudaMemcpyDeviceToHost, myocyte::stream);
 	cudaMemcpyAsync(com, d_com, d_com_mem, cudaMemcpyDeviceToHost, myocyte::stream);
 
-	cudaDeviceSynchronize();
+	cudaStreamSynchronize(myocyte::stream);
 
 	can_exit = set_and_check(myocyte::uid, false);
 

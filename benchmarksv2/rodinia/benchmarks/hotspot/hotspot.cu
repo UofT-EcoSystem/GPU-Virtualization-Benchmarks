@@ -255,7 +255,7 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
     calculate_temp<<<dimGrid, dimBlock, 0, hotspot::gpusim_stream>>>(MIN(num_iterations, total_iterations-t), MatrixPower,MatrixTemp[src],MatrixTemp[dst],\
         col,row,borderCols, borderRows, Cap,Rx,Ry,Rz,step,time_elapsed);
 
-    cudaDeviceSynchronize();
+    cudaStreamSynchronize(hotspot::gpusim_stream);
     can_exit = set_and_check(hotspot::gpusim_uid, false);
   }
   return dst;

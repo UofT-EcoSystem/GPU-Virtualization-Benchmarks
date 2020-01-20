@@ -189,7 +189,7 @@ int calc_path(int *gpuWall, int *gpuResult[2], int rows, int cols, \
           cols,rows, t, borderCols);
 
       // for the measurement fairness
-      cudaDeviceSynchronize();
+      cudaStreamSynchronize(stream);
 
       can_exit = set_and_check(uid, false);
     }

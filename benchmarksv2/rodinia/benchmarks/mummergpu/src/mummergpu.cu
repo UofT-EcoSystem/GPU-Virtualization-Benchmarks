@@ -1483,7 +1483,7 @@ void runPrintKernel(MatchContext* ctx,
 #endif
                                              );
                                              
-    cudaThreadSynchronize();
+    cudaStreamSynchronize(mummer::gpusim_stream);
     
     
     
@@ -1501,7 +1501,7 @@ void runPrintKernel(MatchContext* ctx,
                               (void*)d_alignments,
                               alignmentSize,
                               cudaMemcpyDeviceToHost, mummer::gpusim_stream));
-    cudaThreadSynchronize();
+    cudaStreamSynchronize(mummer::gpusim_stream);
 	stopTimer(atimer);
 
 	float atime = getTimerValue(atimer);
@@ -2071,7 +2071,7 @@ void matchOnGPU(MatchContext* ctx, bool doRC)
 
   while (!can_exit) {
     launch_mummerGPU(ctx, doRC, numQueries, dimBlock, dimGrid);
-    cudaThreadSynchronize();
+    cudaStreamSynchronize(mummer::gpusim_stream);
     can_exit = set_and_check(mummer::gpusim_uid, false);
   }
 
@@ -2111,7 +2111,7 @@ void matchQueryBlockToReferencePage(MatchContext* ctx,
 	{
 
 		matchOnGPU(ctx, reverse_complement);
-		cudaDeviceSynchronize();
+		cudaStreamSynchronize(mummer::gpusim_stream);
 
 	}
 	stopTimer(ktimer);

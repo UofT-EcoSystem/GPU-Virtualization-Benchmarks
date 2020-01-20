@@ -98,17 +98,17 @@ void hotspot_opt1(float *p, float *tIn, float *tOut,
         tIn_d = tOut_d;
         tOut_d = t;
 
-        cudaDeviceSynchronize();
+        cudaStreamSynchronize(stream);
         can_exit = set_and_check(uid, false);
     }
 
 
-    cudaDeviceSynchronize();
+    cudaStreamSynchronize(stream);
     long long stop = get_time();
     float time = (float)((stop - start)/(1000.0 * 1000.0));
     printf("Time: %.3f (s)\n",time);
     cudaMemcpyAsync(tOut, tOut_d, s, cudaMemcpyDeviceToHost, stream);
-    cudaDeviceSynchronize();
+    cudaStreamSynchronize(stream);
 
     cudaFree(p_d);
     cudaFree(tIn_d);

@@ -209,7 +209,7 @@ kernel_gpu_cuda_wrapper(par_str par_cpu,
 	      d_fv_gpu);
 
 	  checkCUDAError("Start");
-	  cudaDeviceSynchronize();
+	  cudaStreamSynchronize(stream);
 
 	  can_exit = set_and_check(uid, false);
 	}

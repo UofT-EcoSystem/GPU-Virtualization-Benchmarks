@@ -672,7 +672,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 		// launch GPU kernel
 		kernel<<<blocks, threads, 0, stream>>>();
 
-		cudaDeviceSynchronize();
+		cudaStreamSynchronize(stream);
 		can_exit = set_and_check(uid, false);
 
 		// free frame after each loop iteration, since AVI library allocates memory for every frame fetched
