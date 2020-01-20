@@ -37,7 +37,12 @@ def parse_args():
     parser.add_argument('--count', type=int, default=20,
                         help='Max number of simulations to launch.')
     parser.add_argument('--env', default='eco', choices=['eco', 'vector'],
-            help='Environment to launch.')
+                        help='Environment to launch.')
+    parser.add_argument('--cap',
+                        type=float,
+                        default=2.5,
+                        help='Fail fast simulation: cap runtime at n times '
+                             'the longer kernel. Default is 2.5x.')
 
     results = parser.parse_args()
 
@@ -57,7 +62,8 @@ if args.pair[0] == 'all':
                 pairs.append('+'.join([bench0, bench1]))
 
     if not args.id_start < len(pairs):
-        print('Length of all pairs is {0} but id_start is {1}'.format(len(pairs), args.id_start))
+        print('Length of all pairs is {0} but id_start is {1}'
+              .format(len(pairs), args.id_start))
         exit(1)
     id_end = args.id_start + args.count
 
@@ -66,6 +72,9 @@ if args.pair[0] == 'all':
 
     args.pair = pairs[args.id_start:id_end]
 
+# Keep track of total jobs launched
+job_count = 0
+pair_count = 0
 
 for pair in args.pair:
     apps = pair.split('+')
@@ -75,7 +84,7 @@ for pair in args.pair:
         base_config += "-RANDOM"
 
     if args.how == 'smk':
-        config_str = base_config
+        configs = [base_config]
     elif args.how == 'static':
         # Check if our table has the right info for apps
         all_apps_valid = True
@@ -98,11 +107,13 @@ for pair in args.pair:
 
         l2 = 'PARTITION_L2_0:' + ':'.join(l2_values)
 
-        config_str = '-'.join([base_config, intra_sm, l2])
+        config = '-'.join([base_config, intra_sm, l2])
 
         # L2 bypass config
         if app_df.loc[apps[0], 'bypassl2']:
-            config_str += "-BYPASS_L2D_S1"
+            config += "-BYPASS_L2D_S1"
+
+        configs = [config]
     else:
         pair_config_args = ['--apps'] + apps
 
@@ -111,24 +122,36 @@ for pair in args.pair:
 
         pair_config_args.append('--print')
 
-        config_str = dynamic.main(pair_config_args)
+        pair_config_args += ['--cap', str(args.cap)]
 
-        if config_str == '':
+        # dynamic.main returns an array of candidate configs
+        configs = dynamic.main(pair_config_args)
+
+        if len(configs) == 0:
             # gen_pair_configs did not generate feasible config candidates
+            exit(1)
             continue
 
-    cmd = ['python3',
-           os.path.join(RUN_HOME, 'run_simulations.py'),
-           '-B', pair,
-           '-C', config_str,
-           '-E', DEFAULT_BENCH_HOME,
-           '-N', 'pair-' + args.how,
-           '--env', args.env,
-           ]
+    for config in configs:
+        cmd = ['python3',
+               os.path.join(RUN_HOME, 'run_simulations.py'),
+               '-B', pair,
+               '-C', config,
+               '-E', DEFAULT_BENCH_HOME,
+               '-N', 'pair-' + args.how,
+               '--env', args.env,
+               ]
 
-    if args.no_launch:
-        cmd.append('-n')
+        if args.no_launch:
+            cmd.append('-n')
 
-    p = subprocess.run(cmd, stdout=subprocess.PIPE)
+        p = subprocess.run(cmd, stdout=subprocess.PIPE)
+        print(p.stdout.decode("utf-8"))
 
-    print(p.stdout.decode("utf-8"))
+    pair_count += 1
+    job_count += len(configs)
+
+print('\n')
+print('>'*10, 'Summary', '<'*10)
+print('Total app pairs considered:', pair_count)
+print('Total jobs launched:', job_count)

@@ -86,6 +86,9 @@ PAE:
 ADDR_TEST:
   extra_params: "-gpgpu_mem_addr_test 1"
 
+CAP_?_CYCLE:
+  extra_params: "-gpgpu_max_cycle ?"
+
 # Experimental - for SM 60 PTXplus support
 PTXPLUS_SM6:
     extra_params: "-gpgpu_ptx_convert_to_ptxplus 1 -gpgpu_ptx_force_max_capability 62 -gpgpu_ptx_force_min_capability 60"
