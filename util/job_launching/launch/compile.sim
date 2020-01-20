@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH -J compile_gpusim
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=200:00:00
+#SBATCH --partition=cpu
+#SBATCH --export=ALL
+#SBATCH --output=%x.%j.log
+
+if [ "$GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN" != "1" ]; then
+    echo "GPGPUSIM setup not sourced"
+    exit
+fi
+
+cd $GPGPUSIM_ROOT
+make clean
+make -j8
+
