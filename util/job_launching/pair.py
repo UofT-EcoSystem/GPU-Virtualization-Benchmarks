@@ -24,6 +24,9 @@ def parse_args():
 
     parser.add_argument('--pair', required=True, nargs='+',
                         help="Apps to run.")
+    parser.add_argument('--app_match', default='',
+                        help='Select all pairs that include this app. Only '
+                             'checked when all is passed to --pair.')
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic'],
                         help='How to partition resources between benchmarks.')
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
@@ -54,6 +57,7 @@ app_df = pd.DataFrame.from_dict(bench_opt_config, orient='index',
 
 args = parse_args()
 
+# Determine what app pairs to launch
 if args.pair[0] == 'all':
     pairs = []
     for bench0 in const.app_for_pair:
@@ -71,6 +75,10 @@ if args.pair[0] == 'all':
         id_end = len(pairs)
 
     args.pair = pairs[args.id_start:id_end]
+
+    # Drop pairs that do not include app match
+    if args.app_match != '':
+        args.pair = [p for p in args.pair if args.app_match in p]
 
 # Keep track of total jobs launched
 job_count = 0
