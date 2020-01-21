@@ -365,7 +365,7 @@ float pFL(Points *points, int *feasible, int numfeasible,
 	    change += pgain(feasible[x], points, z, k, kmax, is_center, center_table, switch_membership, isCoordChanged,
 						&serial_t, &cpu_to_gpu_t, &gpu_to_cpu_t, &alloc_t, &kernel_t, &free_t);
 
-	    cudaStreamSynchronize(streamcluster::stream);
+	    cudaStreamSynchronize(streamcluster::gpusim_stream);
 
 	    can_exit = set_and_check(streamcluster::gpusim_uid, false);
     }
