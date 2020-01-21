@@ -2,3 +2,6 @@ oyaml
 pandas==0.24.0 
 numpy
 argparse
+matplotlib
+tabulate
+seaborn
