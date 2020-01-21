@@ -62,6 +62,11 @@ parser.add_option("-S", "--stats_yml", dest="stats_yml", default="",
                   help="The yaml file that defines the stats "
                        "you want to collect")
 
+parser.add_option("-F", "--log_format", dest="format", default="eco",
+                  choices=['eco', 'vector'],
+                  help="Logfile format: eco for torque style and vector for "
+                       "slurm style.")
+
 parser.add_option("-e", '--exclude-conf', dest='exclude', default='',
                   help='Exclude configs with these strings. '
                        'Comma separated list.')
@@ -149,6 +154,10 @@ for logfile in named_sim:
 
     with open(logfile) as f:
         for line in f:
+            if options.format == 'vector':
+                # slurm style from vector
+                line = line.replace('Submitted batch job ', '')
+
             jobtime, jobId, pair_str, config, gpusim_version = line.split()
 
             # check exclude strings
@@ -187,31 +196,28 @@ for idx, app_and_args in enumerate(apps_and_args):
             print("WARNING - " + outfile + " does not exist")
             continue
 
-        stat_map[app_and_args + config + 'gpusim_version'] = gpusim_version
-        stat_map[app_and_args + config + 'jobid'] = jobId
-
         # Do a quick 10000-line reverse pass to
         # make sure the simualtion thread finished
         SIM_EXIT_STRING = \
             "GPGPU-Sim: \*\*\* exit detected \*\*\*"
-        SIM_INACTIVE_STRING = \
-            "GPGPU-Sim: detected inactive GPU simulation thread"
+
         exit_success = False
         MAX_LINES = 10000
         BYTES_TO_READ = int(250 * 1024 * 1024)
         count = 0
+
         f = open(outfile)
         fsize = int(os.stat(outfile).st_size)
         if fsize > BYTES_TO_READ:
             f.seek(-BYTES_TO_READ, os.SEEK_END)
         lines = f.readlines()
+
         for line in reversed(lines):
             count += 1
             if count >= MAX_LINES:
                 break
+
             exit_match = re.match(SIM_EXIT_STRING, line)
-            inactive_match = re.match(SIM_INACTIVE_STRING, line)
-            exit_match = exit_match or inactive_match
             if exit_match:
                 exit_success = True
                 break
@@ -222,6 +228,9 @@ for idx, app_and_args in enumerate(apps_and_args):
             print("Detected that {0} does not contain a terminating "
                   "string from GPGPU-Sim. Skip.".format(outfile))
             continue
+
+        stat_map[app_and_args + config + 'gpusim_version'] = gpusim_version
+        stat_map[app_and_args + config + 'jobid'] = jobId
 
         stat_found = set()
         files_parsed += 1
