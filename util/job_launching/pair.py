@@ -137,7 +137,7 @@ for pair in args.pair:
                os.path.join(RUN_HOME, 'run_simulations.py'),
                '-B', pair,
                '-C', config,
-               '-E', DEFAULT_BENCH_HOME,
+               '-E', args.bench_home,
                '-N', 'pair-' + args.how,
                '--env', args.env,
                ]
