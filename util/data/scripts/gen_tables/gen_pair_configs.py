@@ -146,7 +146,7 @@ def main(_args):
     # Top candidates: top 5 choices based on mflat, or up till max sum_ipc,
     # whichever is higher
     idx_max_ipc = df_prod['sum_ipc'].idxmax()
-    idx_end = min(len(df_prod.index), max(5, idx_max_ipc))
+    idx_end = min(len(df_prod.index), min(5, idx_max_ipc))
 
     # Only keep top candidates
     df_prod = df_prod[df_prod.index < idx_end]
