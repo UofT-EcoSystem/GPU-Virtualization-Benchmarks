@@ -137,7 +137,6 @@ for pair in args.pair:
 
         if len(configs) == 0:
             # gen_pair_configs did not generate feasible config candidates
-            exit(1)
             continue
 
     for config in configs:
