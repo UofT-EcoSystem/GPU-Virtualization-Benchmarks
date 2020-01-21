@@ -9,19 +9,22 @@ import numpy as np
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('Generate application pair pickle for concurrent run from csv.')
+    parser = argparse.ArgumentParser('Generate application pair pickle for '
+                                     'concurrent run from csv.')
     parser.add_argument('--csv',
                         default=os.path.join(const.DATA_HOME, 'csv/pair.csv'),
                         help='CSV file to parse')
 
     parser.add_argument('--output',
-                        default=os.path.join(const.DATA_HOME, 'pickles/pair.pkl'),
+                        default=os.path.join(const.DATA_HOME,
+                                             'pickles/pair.pkl'),
                         help='Output path for the pair dataframe pickle')
 
     parser.add_argument('--baseline_pkl',
                         help='Pickle file for baseline run')
 
-    parser.add_argument('--baseline', choices=['seq', 'intra'], help='Type of baseline.')
+    parser.add_argument('--baseline', choices=['seq', 'intra'],
+                        help='Type of baseline.')
 
     parser.add_argument('--smk', default=False, action='store_true',
                         help='Whether we should parse gpusim config.')
@@ -43,7 +46,8 @@ def preprocess_df_pair(df_pair, parse_config):
 
     # extract resource allocation size
     if parse_config:
-        hi.process_config_column('1_intra', '2_intra', '1_l2', '2_l2', df=df_pair)
+        hi.process_config_column('1_intra', '2_intra', '1_l2', '2_l2',
+                                 df=df_pair)
 
     return df_pair
 
@@ -55,7 +59,8 @@ def evaluate_df_pair(df_pair, df_baseline, baseline):
         return row[bench_id + '_bench']
 
     def get_index_intra(row, bench_id):
-        return row[bench_id + '_bench'], row[bench_id + '_intra'], row[bench_id + '_l2']
+        return row[bench_id + '_bench'], row[bench_id + '_intra'], \
+               row[bench_id + '_l2']
 
     get_index = get_index_seq if baseline == 'seq' else get_index_intra
 
@@ -64,7 +69,8 @@ def evaluate_df_pair(df_pair, df_baseline, baseline):
             df_pair[app_id + col_suffix] = \
                 df_pair.apply(lambda row:
                               hi.normalize(df_baseline, get_index(row, app_id),
-                                           metric, row[app_id + '_' + metric], invert),
+                                           metric,
+                                           row[app_id + '_' + metric], invert),
                               axis=1)
 
     calculate_metric('_sld', 'runtime', invert=True)

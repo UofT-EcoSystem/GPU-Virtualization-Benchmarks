@@ -63,8 +63,21 @@ def std_array(s):
 
 
 def process_config_column(*configs, df):
+
     for c in configs:
-        df[c] = df['config'].apply(lambda x: re.search(regex_table[c], x).group(1)).astype(type_table.get(c, float))
+        def parse_cfg(str):
+            # split config string into trunks
+            list_config = str.split('-')
+
+            # match config name
+            for substring in list_config:
+                match = re.search(regex_table[c], substring)
+                if match:
+                    return match.group(1)
+
+            return ''
+
+        df[c] = df['config'].apply(parse_cfg).astype(type_table.get(c, float))
 
 
 def normalize(df, index, metric, value, inverse):
