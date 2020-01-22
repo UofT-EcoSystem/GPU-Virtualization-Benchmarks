@@ -143,13 +143,16 @@ def main(_args):
     print_config('-' * 10, 'Top Candidate(s)', '-' * 10)
     print_config('app order:', args.apps[0], args.apps[1])
 
-    # Top candidates: top 5 choices based on mflat, or up till max sum_ipc,
-    # whichever is higher
-    idx_max_ipc = df_prod['sum_ipc'].idxmax()
-    idx_end = min(len(df_prod.index), min(5, idx_max_ipc))
+    # Top candidates: top 3 choices with lowest mflat diff and top 3 with
+    # highest sum_ipc -> take union of the two sets
+    top_diff_mflat_idx = df_prod.head(3).index
+    top_sum_ipc_idx = df_prod.sort_values('sum_ipc',
+                                          ascending=False).head(3).index
+    union_idx = list(set(top_diff_mflat_idx).union(set(top_sum_ipc_idx)))
 
     # Only keep top candidates
-    df_prod = df_prod[df_prod.index < idx_end]
+    df_prod = df_prod.iloc[union_idx].reset_index()
+    idx_end = len(df_prod.index)
 
     config_candidates = []
     for idx in range(idx_end):
