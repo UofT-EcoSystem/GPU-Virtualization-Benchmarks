@@ -46,6 +46,10 @@ def parse_args():
                         default=2.5,
                         help='Fail fast simulation: cap runtime at n times '
                              'the longer kernel. Default is 2.5x.')
+    parser.add_argument('--new_only', action='store_true',
+                        help='If this flag is passed, do not launch jobs if '
+                             'the same job config exists. Run folder is '
+                             'checked.')
 
     results = parser.parse_args()
 
@@ -151,6 +155,9 @@ for pair in args.pair:
 
         if args.no_launch:
             cmd.append('-n')
+
+        if args.new_only:
+            cmd.append('--new_only')
 
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
         print(p.stdout.decode("utf-8"))
