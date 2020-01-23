@@ -76,7 +76,8 @@ def gen_configs_from_list(input_config):
 
         # base name determines which gpgpusim.config file to copy
         if tokens[0] not in defined_base_configs:
-            print("Could not fined {0} in defined base names {1}".format(tokens[0], defined_base_configs))
+            print("Could not fined {0} in defined base names {1}".format(
+                tokens[0], defined_base_configs))
             return None
         else:
             base_file = defined_base_configs[tokens[0]]
