@@ -55,6 +55,25 @@ def preprocess_df_pair(df_pair, parse_config):
 def evaluate_df_pair(df_pair, df_baseline, baseline):
     df_pair = df_pair.copy()
 
+    # Special handling: if simulation breaks due to cycle count limit,
+    # Runtime per stream might be empty if the kernel did not run to completion.
+    # In this case, copy global runtime to the empty runtime per stream and
+    # infer IPC from incomplete runs. Label this case in a new column 'infer'
+    # = [True/False]
+    def handle_incomplete(row):
+        result = {}
+        for app_id in ['1', '2']:
+            result[app_id+'_infer'] = (row[app_id + '_runtime'] == 0)
+
+            runtime = row['runtime'] if result[app_id+'_infer'] \
+                else row[app_id+'_runtime']
+            result[app_id+'_ipc'] = row[app_id+'_instructions'] / runtime
+
+        return pd.Series(result)
+
+    df_pair = pd.concat([df_pair, df_pair.apply(handle_incomplete, axis=1)],
+                        axis=1)
+
     def get_index_seq(row, bench_id):
         return row[bench_id + '_bench']
 
@@ -73,7 +92,7 @@ def evaluate_df_pair(df_pair, df_baseline, baseline):
                                            row[app_id + '_' + metric], invert),
                               axis=1)
 
-    calculate_metric('_sld', 'runtime', invert=True)
+    calculate_metric('_sld', 'ipc', invert=False)
 
     df_pair['ws'] = df_pair['1_sld'] + df_pair['2_sld']
 
