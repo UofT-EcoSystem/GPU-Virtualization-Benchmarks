@@ -52,8 +52,7 @@ def load_defined_yamls():
 
 def parse_app_list(apps):
     # result is a two dimensional list: [[app1, app2], [app3], ...]
-    results = apps.split(',')
-    results = [pair.split('+') for pair in results]
+    results = [pair.split('+') for pair in apps]
 
     return results
 
@@ -65,10 +64,7 @@ def get_inputs_from_app(app):
         return ''
 
 
-def gen_configs_from_list(input_config):
-    # config_list: [config1, config2, ...]
-    config_list = input_config.split(',')
-
+def gen_configs_from_list(config_list):
     # Test to see if configs passed by users adhere to any defined configs i
     # and add them to the configurations to run/collect.
     def get_config(composed_name):
