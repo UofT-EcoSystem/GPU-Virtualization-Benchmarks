@@ -59,19 +59,18 @@ for app in args.apps:
         #            configs = configs + [c + '-' + bypass_l2d for c in configs \
         #                    if ('L2_0:0.125' in c) or ('L2_0:0.25' in c)]
 
-        config_str = ','.join(configs)
-
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
-               '-B', app,
-               '-C', config_str,
-               '-E', DEFAULT_BENCH_HOME,
-               '-N', jobname,
+               '--app', app,
+               '--bench_home', DEFAULT_BENCH_HOME,
+               '--launch_name', jobname,
                '--env', args.env
                ]
 
+        cmd += ['--config'] + configs
+
         if args.no_launch:
-            cmd.append('-n')
+            cmd.append('--no_launch')
 
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
 

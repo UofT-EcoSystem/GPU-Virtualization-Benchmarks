@@ -146,15 +146,15 @@ for pair in args.pair:
     for config in configs:
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
-               '-B', pair,
-               '-C', config,
-               '-E', args.bench_home,
-               '-N', 'pair-' + args.how,
+               '--app', pair,
+               '--config', config,
+               '--bench_home', args.bench_home,
+               '--launch_name', 'pair-' + args.how,
                '--env', args.env,
                ]
 
         if args.no_launch:
-            cmd.append('-n')
+            cmd.append('--no_launch')
 
         if args.new_only:
             cmd.append('--new_only')
@@ -168,4 +168,4 @@ for pair in args.pair:
 print('\n')
 print('>'*10, 'Summary', '<'*10)
 print('Total app pairs considered:', pair_count)
-print('Total jobs launched:', job_count)
+print('Total jobs attempted to launch:', job_count)
