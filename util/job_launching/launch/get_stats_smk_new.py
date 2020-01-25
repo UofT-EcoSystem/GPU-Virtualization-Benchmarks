@@ -138,9 +138,9 @@ def process_yamls(args):
 # app_and_args, config, gpusim_version and jobid
 # pair_str is the name of the parent directory, it is 
 # used to identify where app_and_args ends and config begins
-def parse_outfile_name(outfile):
+def parse_outputfile_name(outputfile):
     params = []
-    full_split = outfile.split(".")
+    full_split = outputfile.split(".")
     job_id = full_split[1] + full_split[2]
     name = full_split[0]
     split_name = name.split("-")
@@ -159,13 +159,13 @@ def parse_outfile_name(outfile):
 
 # Do a quick 10000-line reverse pass to
 # make sure the simualtion thread finished
-def reverse_pass(stat_map, pair_str, config_name, outfile, outfile_name, stats_to_pull):
+def reverse_pass(stat_map, pair_str, config_name, outputfile, outputfile_name, stats_to_pull):
 
-    if not os.path.isfile(outfile):
-        print("WARNING - " + outfile + " does not exist")
+    if not os.path.isfile(outputfile):
+        print("WARNING - " + outputfile + " does not exist")
 
     # get parameters from the file name and parent directory
-    gpusim_version, job_Id = parse_output_name(outfile_name)
+    gpusim_version, job_Id = parse_output_name(outputfile_name)
     app_and_args, config = pair_str, config_name
 
     SIM_EXIT_STRING = \
@@ -176,8 +176,8 @@ def reverse_pass(stat_map, pair_str, config_name, outfile, outfile_name, stats_t
     BYTES_TO_READ = int(250 * 1024 * 1024)
     count = 0
 
-    f = open(outfile)
-    fsize = int(os.stat(outfile).st_size)
+    f = open(outputfile)
+    fsize = int(os.stat(outputfile).st_size)
     if fsize > BYTES_TO_READ:
         f.seek(-BYTES_TO_READ, os.SEEK_END)
     lines = f.readlines()
@@ -196,16 +196,16 @@ def reverse_pass(stat_map, pair_str, config_name, outfile, outfile_name, stats_t
 
     if not exit_success:
         print("Detected that {0} does not contain a terminating "
-              "string from GPGPU-Sim. Skip.".format(outfile))
+              "string from GPGPU-Sim. Skip.".format(outputfile))
 
     stat_map[app_and_args + config + 'gpusim_version'] = gpusim_version
     stat_map[app_and_args + config + 'jobid'] = jobId
 
     stat_found = set()
     files_parsed += 1
-    bytes_parsed += os.stat(outfile).st_size
+    bytes_parsed += os.stat(outputfile).st_size
 
-    f = open(outfile)
+    f = open(outputfile)
     lines = f.readlines()
 
     # print "Parsing File {0}. Size: {1}".format(outfile,
@@ -220,7 +220,7 @@ def reverse_pass(stat_map, pair_str, config_name, outfile, outfile_name, stats_t
             r"reaching the maximum cycles \(or instructions\) \*\*", line)
         if last_kernel_break:
             print("NOTE::::: Found Max Insn reached in {0}."
-                  .format(outfile))
+                  .format(outputfile))
 
         for stat_name, token in stats_to_pull.items():
             existance_test = token[0].search(line.rstrip())
@@ -257,7 +257,7 @@ def main():
     stats_list = list(stats_to_pull.keys())
 
     stat_map = {}
-    f = open(outfile, "a+")
+    f = open(args.outfile, "a+")
     print(('-' * 100))
     f.write('pair_str,config,gpusim_version,jobId,' + ','.join(stats_list) + '\n')
 
@@ -280,7 +280,7 @@ def main():
             last_log_name = log_file_names[last_mod_index]
             last_log = os.path.join(config_path, last_log_name)
 
-            # do a reverse pass and fil out stat_map
+            # do a reverse pass and fill out stat_map for this output
             reverse_pass(stat_map, app_name, config, last_log, last_log_name, stats_to_pull)
             # build a csv string to be written to file from this output
             csv_str = app_name + ',' \
