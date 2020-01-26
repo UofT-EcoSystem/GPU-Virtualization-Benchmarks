@@ -180,6 +180,7 @@ def main():
     f_csv.write(
         'pair_str,config,gpusim_version,jobId,' + ','.join(stats_list) + '\n')
 
+    file_count = 0
     for app in apps:
         app_path = os.path.join(args.run_dir, app)
         configs = [sd for sd in os.listdir(app_path) if
@@ -233,11 +234,13 @@ def main():
 
             # append information from this output file to the csv file
             f_csv.write(csv_str + '\n')
+            file_count += 1
 
     f_csv.close()
 
     print(('-' * 100))
-    pretty_print(("Write to file {0}".format(args.output)))
+    pretty_print("Write to file {0}".format(args.output))
+    pretty_print("Successfully parsed {0} files".format(file_count))
     print(('-' * 100))
 
 
