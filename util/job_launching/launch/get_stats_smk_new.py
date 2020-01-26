@@ -5,8 +5,6 @@ import job_launching.launch.common as common
 import oyaml as yaml
 import glob
 
-this_directory = os.path.dirname(os.path.realpath(__file__)) + "/"
-
 
 def load_stats_yamls(filename):
     collections = yaml.load(open(filename), Loader=yaml.FullLoader)
@@ -35,25 +33,23 @@ def parse_args():
     parser = argparse.ArgumentParser("Grab stats from GPGPU-Sim output files "
                                      "and save them into csv.")
 
-    parser.add_argument("--parent_run_dir",
-                        help="The directory where run-* exist.",
-                        default="", required=True)
-
-    parser.add_argument("--launch_name",
-                        help="Simulation name. Controls name of run folder",
+    parser.add_argument("--run_dir",
+                        help="The directory where gpusim outputs exist. The "
+                             "expected structured of this folder: "
+                             "app/config/..",
                         default="", required=True)
 
     parser.add_argument("--stats_yml", default="",
                         help="The yaml file that defines the stats "
                              "you want to collect", required=True)
 
-    parser.add_argument("--exclude", default="", nargs='+',
+    parser.add_argument("--exclude", default=[], nargs='+',
                         help="Exclude configs with these strings. "
-                             "Comma separated list.")
+                             "Accept space separated list.")
 
-    parser.add_argument("--include", default='', nargs='+',
+    parser.add_argument("--include", default=[], nargs='+',
                         help='Exclude configs with these strings. '
-                             'Comma separated list.')
+                             'Accept space separated list.')
 
     parser.add_argument("--output", default="result.csv",
                         help="The logfile to save csv to.", required=True)
@@ -66,6 +62,7 @@ def process_yamls(args):
     # Deal with config, app and stats yamls
     common.load_defined_yamls()
 
+    this_directory = os.path.dirname(os.path.realpath(__file__))
     args.stats_yml = common.file_option_test(args.stats_yml,
                                              os.path.join(this_directory,
                                                           "stats",
@@ -74,9 +71,6 @@ def process_yamls(args):
 
     stats_to_pull = load_stats_yamls(args.stats_yml)
 
-    # args.exclude = list(filter(None, args.exclude))
-    # args.include = list(filter(None, args.include))
-
     return stats_to_pull
 
 
@@ -84,7 +78,9 @@ def process_yamls(args):
 # app_and_args, config, gpusim_version and jobid
 # pair_str is the name of the parent directory, it is 
 # used to identify where app_and_args ends and config begins
-def parse_outputfile_name(logfile_name):
+def parse_outputfile_name(logfile):
+    logfile_name = os.path.basename(logfile)
+
     # naming convention:
     # gpusim_log = job_name.job_id.log
     # job_name = app-config-commit_id
@@ -166,62 +162,65 @@ def main():
     # parse the arguments
     args = parse_args()
 
-    # process stat yamls
+    if not os.path.isdir(args.run_dir):
+        exit("Launch run dir " + args.run_dir + " does not exist.")
+        exit(1)
+
+    # process app, config and stat yamls
     stats_to_pull = process_yamls(args)
     stats_list = list(stats_to_pull.keys())
 
-    # directory containing all folders where we need the files from
-    # get all app directory names, e.g. "cut_sgemm-1-cut_wmma-0"
-    # each of these directory names also represents an app_and_args
-    run_dir = common.get_run_dir(args.parent_run_dir,
-                                 args.launch_name)
-
-    if not os.path.isdir(run_dir):
-        exit("Launch run dir " + run_dir + " does not exist.")
-        exit(1)
-
-    app_names = [d for d in os.listdir(run_dir) if
-                 os.path.isdir(os.path.join(run_dir, d))]
+    apps = [d for d in os.listdir(args.run_dir) if
+            os.path.isdir(os.path.join(args.run_dir, d))]
     # Exclude folder name 'gpgpu-sim-builds'
-    if 'gpgpu-sim-builds' in app_names:
-        app_names.remove('gpgpu-sim-builds')
+    if 'gpgpu-sim-builds' in apps:
+        apps.remove('gpgpu-sim-builds')
 
     f_csv = open(args.output, "w+")
-    print(('-' * 100))
     f_csv.write(
         'pair_str,config,gpusim_version,jobId,' + ','.join(stats_list) + '\n')
 
-    for app_name in app_names:
-        app_path = os.path.join(run_dir, app_name)
+    for app in apps:
+        app_path = os.path.join(args.run_dir, app)
         configs = [sd for sd in os.listdir(app_path) if
                    os.path.isdir(os.path.join(app_path, sd))]
 
         # go into each config directory
         for config in configs:
+            # check exclude strings
+            if len(args.exclude) > 0 and \
+                    any(exclude in config for exclude in args.exclude):
+                continue
+
+            # check must include strings
+            if len(args.include) > 0 and \
+                    not all(include in config for include in args.include):
+                continue
+
             config_path = os.path.join(app_path, config)
 
             # for this config path we need to find the latest modified
             # output log file and parse it
-            log_file_names = glob.glob(os.path.join(config_path, '*.log'))
-            last_mod_dates = [os.path.getmtime(x) for x in log_file_names]
-            last_mod_index = last_mod_dates.index(max(last_mod_dates))
-            last_log = log_file_names[last_mod_index]
+            gpusim_logs = glob.glob(os.path.join(config_path, '*.log'))
+            timestamps = [os.path.getmtime(x) for x in gpusim_logs]
+            latest_index = timestamps.index(max(timestamps))
+            latest_log = gpusim_logs[latest_index]
 
             # do a reverse pass to check whether simulation exited
-            if not has_exited(last_log):
+            if not has_exited(latest_log):
                 pretty_print("Detected that {0} does not contain a "
                              "terminating string from GPGPU-Sim. Skip.".format
-                             (last_log))
+                             (latest_log))
                 continue
 
             # get parameters from the file name and parent directory
-            gpusim_version, job_Id = parse_outputfile_name(last_log)
+            gpusim_version, job_Id = parse_outputfile_name(latest_log)
 
             # build a csv string to be written to file from this output
-            csv_str = app_name + ',' + config + ',' + \
+            csv_str = app + ',' + config + ',' + \
                       gpusim_version + ',' + job_Id
 
-            stat_map = collect_stats(last_log, stats_to_pull)
+            stat_map = collect_stats(latest_log, stats_to_pull)
 
             for stat in stats_list:
                 if stat in stat_map:
@@ -236,8 +235,11 @@ def main():
             f_csv.write(csv_str + '\n')
 
     f_csv.close()
-    print(("Write to file {0}".format(args.output)))
+
     print(('-' * 100))
+    pretty_print(("Write to file {0}".format(args.output)))
+    print(('-' * 100))
+
 
 if __name__ == '__main__':
     main()
