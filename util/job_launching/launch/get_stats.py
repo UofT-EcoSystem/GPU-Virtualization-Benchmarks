@@ -124,6 +124,7 @@ def has_exited(gpusim_logfile):
 
 
 def collect_stats(outputfile, stats_to_pull):
+    hit_max = False
     stat_map = {}
 
     f = open(outputfile)
@@ -139,6 +140,7 @@ def collect_stats(outputfile, stats_to_pull):
         if last_kernel_break:
             print("NOTE::::: Found Max Insn reached in {0}."
                   .format(outputfile))
+            hit_max = True
 
         for stat_name, token in stats_to_pull.items():
             existance_test = token[0].search(line.rstrip())
@@ -157,7 +159,7 @@ def collect_stats(outputfile, stats_to_pull):
 
     f.close()
 
-    return stat_map
+    return hit_max, stat_map
 
 
 def main():
@@ -182,7 +184,11 @@ def main():
     f_csv.write(
         'pair_str,config,gpusim_version,jobId,' + ','.join(stats_list) + '\n')
 
+    # book keeping numbers:
     file_count = 0
+    hit_max_count = 0
+    failed_apps = set()
+
     for app in apps:
         app_path = os.path.join(args.run_dir, app)
         configs = [sd for sd in os.listdir(app_path) if
@@ -214,6 +220,7 @@ def main():
                 pretty_print("Detected that {0} does not contain a "
                              "terminating string from GPGPU-Sim. Skip.".format
                              (latest_log))
+                failed_apps.add(app)
                 continue
 
             # get parameters from the file name and parent directory
@@ -224,7 +231,7 @@ def main():
             csv_str = app + ',' + config + ',' + \
                       gpusim_version + ',' + job_Id
 
-            stat_map = collect_stats(latest_log, stats_to_pull)
+            hit_max, stat_map = collect_stats(latest_log, stats_to_pull)
 
             for stat in stats_list:
                 if stat in stat_map:
@@ -239,11 +246,16 @@ def main():
             f_csv.write(csv_str + '\n')
             file_count += 1
 
+            if hit_max:
+                hit_max_count += 1
+
     f_csv.close()
 
     print(('-' * 100))
     pretty_print("Write to file {0}".format(args.output))
     pretty_print("Successfully parsed {0} files".format(file_count))
+    pretty_print("{0} files hit max cycle count.".format(hit_max_count))
+    pretty_print("Failed simulation: ", ','.join(list(failed_apps)))
     print(('-' * 100))
 
 
