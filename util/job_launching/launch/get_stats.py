@@ -78,12 +78,14 @@ def process_yamls(args):
 # app_and_args, config, gpusim_version and jobid
 # pair_str is the name of the parent directory, it is 
 # used to identify where app_and_args ends and config begins
-def parse_outputfile_name(logfile):
+def parse_outputfile_name(logfile, app, config):
     logfile_name = os.path.basename(logfile)
 
     # naming convention:
     # gpusim_log = job_name.job_id.log
     # job_name = app-config-commit_id
+    logfile_name = logfile_name.replace(app+'-'+config+'-', '')
+
     dot_split = logfile_name.split(".")
     job_id = dot_split[1]
 
@@ -215,7 +217,8 @@ def main():
                 continue
 
             # get parameters from the file name and parent directory
-            gpusim_version, job_Id = parse_outputfile_name(latest_log)
+            gpusim_version, job_Id = parse_outputfile_name(latest_log, app,
+                                                           config)
 
             # build a csv string to be written to file from this output
             csv_str = app + ',' + config + ',' + \

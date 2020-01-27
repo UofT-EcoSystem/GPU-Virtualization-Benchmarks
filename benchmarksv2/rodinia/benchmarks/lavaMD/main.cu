@@ -275,6 +275,8 @@ main_lavamd(int argc, char *argv [], int uid, cudaStream_t & stream)
 	//	SYSTEM MEMORY DEALLOCATION
 	//======================================================================================================================================================150
 
+  cudaStreamSynchronize(stream);
+
 	// dump results
 #ifdef OUTPUT
         FILE *fptr;

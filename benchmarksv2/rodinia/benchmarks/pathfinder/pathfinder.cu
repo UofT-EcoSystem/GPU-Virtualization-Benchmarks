@@ -245,6 +245,8 @@ void run(int argc, char** argv, int uid, cudaStream_t & stream)
 
     cudaMemcpyAsync(result, gpuResult[final_ret], sizeof(int)*cols, cudaMemcpyDeviceToHost, stream);
 
+    cudaStreamSynchronize(stream);
+
 #ifdef BENCH_PRINT
     for (int i = 0; i < cols; i++)
             printf("%d ",data[i]) ;
