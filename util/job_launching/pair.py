@@ -50,6 +50,9 @@ def parse_args():
                         help='If this flag is passed, do not launch jobs if '
                              'the same job config exists. Run folder is '
                              'checked.')
+    parser.add_argument("--overwrite", action="store_true",
+            help="Overwrite existing sim run dir completely.")
+
 
     results = parser.parse_args()
 
@@ -158,6 +161,9 @@ for pair in args.pair:
 
         if args.new_only:
             cmd.append('--new_only')
+
+        if args.overwrite:
+            cmd.append('--overwrite')
 
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
         print(p.stdout.decode("utf-8"))
