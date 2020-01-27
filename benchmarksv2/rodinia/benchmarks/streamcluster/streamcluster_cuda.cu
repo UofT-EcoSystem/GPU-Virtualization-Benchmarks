@@ -13,11 +13,16 @@
 ***********************************************/
 #include "streamcluster_header.hpp"
 
+#include "unistd.h"
+
 using namespace std;
 
 namespace streamcluster {
+  extern int gpusim_uid;
   extern cudaStream_t gpusim_stream;
 }
+
+extern int set_and_check(int uid, bool start);
 
 // AUTO-ERROR CHECK FOR ALL CUDA FUNCTIONS
 #define CUDA_SAFE_CALL( call) do {										\
@@ -236,6 +241,13 @@ float pgain( long x, Points *points, float z, long int *numcenters, int kmax, bo
 	cudaEventRecord(start,0);
 #endif
 	
+  set_and_check(streamcluster::gpusim_uid, true);
+  while (!set_and_check(streamcluster::gpusim_uid, true)) {
+    usleep(100);
+  }
+
+
+
 	//=======================================
 	// KERNEL: CALCULATE COST
 	//=======================================
@@ -245,20 +257,26 @@ float pgain( long x, Points *points, float z, long int *numcenters, int kmax, bo
 	int num_blocks_x = (int) ((float) (num_blocks+num_blocks_y - 1) / (float) num_blocks_y);	
 	dim3 grid_size(num_blocks_x, num_blocks_y, 1);
 
-	kernel_compute_cost<<<grid_size, THREADS_PER_BLOCK, 0, streamcluster::gpusim_stream>>>(
-															num,					// in:	# of data
-															dim,					// in:	dimension of point coordinates
-															x,						// in:	point to open a center at
-															p,						// in:	data point array
-															K,						// in:	number of centers
-															stride,					// in:  size of each work_mem segment
-															coord_d,				// in:	array of point coordinates
-															work_mem_d,				// out:	cost and lower field array
-															center_table_d,			// in:	center index table
-															switch_membership_d		// out:  changes in membership
-															);
-	cudaDeviceSynchronize();
-	
+  static bool can_exit = false;
+
+  while (!can_exit) {
+    kernel_compute_cost<<<grid_size, THREADS_PER_BLOCK, 0, streamcluster::gpusim_stream>>>(
+        num,					// in:	# of data
+        dim,					// in:	dimension of point coordinates
+        x,						// in:	point to open a center at
+        p,						// in:	data point array
+        K,						// in:	number of centers
+        stride,					// in:  size of each work_mem segment
+        coord_d,				// in:	array of point coordinates
+        work_mem_d,				// out:	cost and lower field array
+        center_table_d,			// in:	center index table
+        switch_membership_d		// out:  changes in membership
+    );
+
+    cudaStreamSynchronize(streamcluster::gpusim_stream);
+
+    can_exit = set_and_check(streamcluster::gpusim_uid, false);
+  }
 	// error check
 	error = cudaGetLastError();
 	if (error != cudaSuccess)

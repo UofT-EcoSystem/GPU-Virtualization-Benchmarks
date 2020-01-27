@@ -62,7 +62,6 @@ namespace streamcluster {
   volatile cudaStream_t gpusim_stream;
 }
 
-extern int set_and_check(int uid, bool start);
 
 void inttofile(int data, char *filename){
 	FILE *fp = fopen(filename, "w");
@@ -352,22 +351,10 @@ float pFL(Points *points, int *feasible, int numfeasible,
     pthread_barrier_wait(barrier);
 #endif
 	
-    set_and_check(streamcluster::gpusim_uid, true);
-    while (!set_and_check(streamcluster::gpusim_uid, true)) {
-      usleep(100);
-    }
-
-    static bool can_exit = false;
-
-    while (!can_exit) {
-//    for (i=0;i<iter;i++) {
+    for (i=0;i<iter;i++) {
 	    x = i%numfeasible;
 	    change += pgain(feasible[x], points, z, k, kmax, is_center, center_table, switch_membership, isCoordChanged,
 						&serial_t, &cpu_to_gpu_t, &gpu_to_cpu_t, &alloc_t, &kernel_t, &free_t);
-
-	    cudaStreamSynchronize(streamcluster::gpusim_stream);
-
-	    can_exit = set_and_check(streamcluster::gpusim_uid, false);
     }
 	
     cost -= change;
