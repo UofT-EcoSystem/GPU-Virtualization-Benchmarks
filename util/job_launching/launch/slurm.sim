@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J REPLACE_NAME
-#SBATCH -N REPLACE_NODES
+#SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=2
 #SBATCH --time=200:00:00
