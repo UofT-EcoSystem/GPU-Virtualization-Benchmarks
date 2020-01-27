@@ -140,6 +140,13 @@ void freeHostMem()
 float pgain( long x, Points *points, float z, long int *numcenters, int kmax, bool *is_center, int *center_table, bool *switch_membership, bool isCoordChanged,
 							double *serial_t, double *cpu_to_gpu_t, double *gpu_to_cpu_t, double *alloc_t, double *kernel_t, double *free_t)
 {	
+
+  static bool can_exit = false;
+
+  if (can_exit) {
+    return 0;
+  }
+
 #ifdef CUDATIME
 	float tmp_t;
 	cudaEvent_t start, stop;
@@ -257,7 +264,6 @@ float pgain( long x, Points *points, float z, long int *numcenters, int kmax, bo
 	int num_blocks_x = (int) ((float) (num_blocks+num_blocks_y - 1) / (float) num_blocks_y);	
 	dim3 grid_size(num_blocks_x, num_blocks_y, 1);
 
-  static bool can_exit = false;
 
   while (!can_exit) {
     kernel_compute_cost<<<grid_size, THREADS_PER_BLOCK, 0, streamcluster::gpusim_stream>>>(
