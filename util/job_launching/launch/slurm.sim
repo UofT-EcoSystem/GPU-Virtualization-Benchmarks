@@ -51,8 +51,8 @@ ldd driver | tee ldpath.txt
 
 if REPLACE_VALID_APP_2; then
     echo "doing: ./driver REPLACE_APP_1.txt REPLACE_APP_2.txt"
-    ./driver REPLACE_APP_1.txt REPLACE_APP_2.txt | tee whatup.txt
+    ./driver REPLACE_APP_1.txt REPLACE_APP_2.txt
 else
     echo "doing: ./driver REPLACE_APP_1.txt"
-    ./driver REPLACE_APP_1.txt | tee whatup.txt
+    ./driver REPLACE_APP_1.txt
 fi
