@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--app_match', default='',
                         help='Select all pairs that include this app. Only '
                              'checked when all is passed to --pair.')
-    parser.add_argument('--app_exclude', default='',
+    parser.add_argument('--app_exclude', default=[], nargs='+',
                         help='Select all pairs that do not include this app. '
                              'Only checked when all is passed to --pair.')
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic'],
@@ -89,8 +89,9 @@ if args.pair[0] == 'all':
     if args.app_match != '':
         args.pair = [p for p in args.pair if args.app_match in p]
 
-    if args.app_exclude != '':
-        args.pair = [p for p in args.pair if args.app_exclude not in p]
+    if len(args.app_exclude) > 0:
+        for excl in args.app_exclude:
+            args.pair = [p for p in args.pair if excl not in p]
 
 # Keep track of total jobs launched
 job_count = 0
