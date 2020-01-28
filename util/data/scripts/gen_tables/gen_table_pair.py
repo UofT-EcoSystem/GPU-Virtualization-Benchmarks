@@ -1,5 +1,6 @@
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
+import data.scripts.gen_tables.gen_pair_configs as pair_config
 
 import argparse
 import os
@@ -20,14 +21,34 @@ def parse_args():
                                              'pickles/pair.pkl'),
                         help='Output path for the pair dataframe pickle')
 
-    parser.add_argument('--baseline_pkl',
-                        help='Pickle file for baseline run')
+    parser.add_argument('--seq_pkl',
+                        default=os.path.join(const.DATA_HOME,
+                                             'pickles/seq.pkl'),
+                        help='Pickle file for seq run')
 
-    parser.add_argument('--baseline', choices=['seq', 'intra'],
-                        help='Type of baseline.')
+    parser.add_argument('--intra_pkl',
+                        default=os.path.join(const.DATA_HOME,
+                                             'pickles/intra.pkl'),
+                        help='Pickle file for intra run')
 
     parser.add_argument('--smk', default=False, action='store_true',
                         help='Whether we should parse gpusim config.')
+
+    parser.add_argument('--random', action='store_true',
+                        help='Is baseline using random address mapping.')
+
+    parser.add_argument('--cap',
+                        type=float,
+                        default=2.5,
+                        help='Fail fast simulation: cap runtime at n times '
+                             'the longer kernel. Default is 2.5x.')
+
+    parser.add_argument('--qos',
+                        default=0.75,
+                        type=float,
+                        help='Quality of Service for each benchmark '
+                             'in terms of normalized IPC.')
+
 
     results = parser.parse_args()
     return results
@@ -52,7 +73,7 @@ def preprocess_df_pair(df_pair, parse_config):
     return df_pair
 
 
-def evaluate_df_pair(df_pair, df_baseline, baseline):
+def evaluate_df_pair(df_pair, df_baseline):
     df_pair = df_pair.copy()
 
     # Special handling: if simulation breaks due to cycle count limit,
@@ -74,14 +95,8 @@ def evaluate_df_pair(df_pair, df_baseline, baseline):
     df_pair = pd.concat([df_pair, df_pair.apply(handle_incomplete, axis=1)],
                         axis=1)
 
-    def get_index_seq(row, bench_id):
+    def get_index(row, bench_id):
         return row[bench_id + '_bench']
-
-    def get_index_intra(row, bench_id):
-        return row[bench_id + '_bench'], row[bench_id + '_intra'], \
-               row[bench_id + '_l2']
-
-    get_index = get_index_seq if baseline == 'seq' else get_index_intra
 
     def calculate_metric(col_suffix, metric, invert):
         for app_id in ['1', '2']:
@@ -112,17 +127,28 @@ def main():
     df_pair = pd.read_csv(args.csv)
     df_pair = preprocess_df_pair(df_pair, not args.smk)
 
-    if args.baseline == 'seq':
-        index = 'pair_str'
-    else:
-        index = ['pair_str', 'intra', 'l2']
+    # Calculate weighted speedup and fairness w.r.t seq
+    df_seq = pd.read_pickle(args.seq_pkl)
+    df_seq.set_index('pair_str', inplace=True)
+    df_pair = evaluate_df_pair(df_pair, df_seq)
 
-    df_baseline = pd.read_pickle(args.baseline_pkl)
-    df_baseline.set_index(index, inplace=True)
-    df_pair = evaluate_df_pair(df_pair, df_baseline, args.baseline)
+    # Get profiled info from intra pkl
+    app_pairs = df_pair[['1_bench', '2_bench']].drop_duplicates().values
+
+    df_profiled = [pair_config.build_df_prod(args.intra_pkl, args.qos, app,
+                                             args.random, args.cap)
+                   for app in app_pairs]
+
+    df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
+
+    # Join table with profiled info and predicted performance
+    df_join = pd.merge(df_pair, df_profiled,
+                       left_on=['1_bench', '2_bench', 'config'],
+                       right_on=['pair_str_x', 'pair_str_y', 'config'])
 
     # Output pickle
-    df_pair.to_pickle(args.output)
+    # df_pair.to_pickle(args.output)
+    df_join.to_pickle(args.output)
 
 
 if __name__ == "__main__":

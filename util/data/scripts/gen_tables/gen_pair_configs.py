@@ -51,26 +51,20 @@ def parse_args(_args):
     return results
 
 
-def main(_args):
-    args = parse_args(_args)
-
-    def print_config(*str):
-        if args.print:
-            print(*str)
-
-    df_intra = pd.read_pickle(args.intra_pkl)
+def build_df_prod(intra_pkl, qos, apps, random, cap):
+    df_intra = pd.read_pickle(intra_pkl)
 
     # Step 1: get rid of all intra configs that do not meet QoS
-    df_intra = df_intra[df_intra['norm_ipc'] >= args.qos]
+    df_intra = df_intra[df_intra['norm_ipc'] >= qos]
 
     # intra configs for each app:
-    if len(args.apps) != 2:
+    if len(apps) != 2:
         print('Number of apps is not equal to 2. Abort.')
         exit(1)
 
     df_app = []
 
-    for app in args.apps:
+    for app in apps:
         _df = df_intra[df_intra['pair_str'] == app].copy()
         _df['key'] = 0
 
@@ -93,7 +87,7 @@ def main(_args):
 
     if len(df_prod) == 0:
         print('Error. No feasible pair configs for {0}+{1} at QoS {2}.'
-              .format(args.apps[0], args.apps[1], args.qos))
+              .format(apps[0], apps[1], qos))
         return []
 
     # calculate difference in memory latency
@@ -112,36 +106,12 @@ def main(_args):
 
     df_prod.sort_values('diff_mflat', inplace=True, ascending=True)
 
-    min_diff_mflat = df_prod['diff_mflat'].min()
     baseline_sum_ipc = df_prod.iloc[0]['sum_ipc']
 
     # Drop any configs that have a higher mflat diff compared to the lowest
     # and also lower sum_ipc
     df_prod = df_prod[df_prod['sum_ipc'] >= baseline_sum_ipc]
     df_prod.reset_index(inplace=True)
-
-    # def calculate_metric(row):
-    #     # formula: a * (min_diff_mflat / diff_mflat) ^ alpha +
-    #     # b * (sum_ipc / max_sum_ipc) ^ beta
-    #     a = 100
-    #     alpha = 0.8
-    #     b = 1
-    #     beta = 1
-    #
-    #     part1 = a * ((1 / row['diff_mflat']) ** alpha)
-    #     part2 = b * ((row['sum_ipc'] - 1) ** beta)
-    #
-    #     return part1 + part2
-    #
-    # df_prod['metric'] = df_prod.apply(calculate_metric, axis=1)
-    #
-    # # Higher the metric is, the better
-    # df_prod.sort_values('metric', inplace=True, ascending=False)
-
-    # Find the best config to run
-    print_config('')
-    print_config('-' * 10, 'Top Candidate(s)', '-' * 10)
-    print_config('app order:', args.apps[0], args.apps[1])
 
     # Top candidates: top 3 choices with lowest mflat diff and top 3 with
     # highest sum_ipc -> take union of the two sets
@@ -152,18 +122,15 @@ def main(_args):
 
     # Only keep top candidates
     df_prod = df_prod.iloc[union_idx].reset_index()
-    idx_end = len(df_prod.index)
 
-    config_candidates = []
-    for idx in range(idx_end):
-        row = df_prod.iloc[idx]
-
+    # Build GPGPU-Sim config string
+    def build_config(row):
         config_base = 'TITANV-CONCURRENT-SEP_RW'
-        if args.random:
+        if random:
             config_base += '-RANDOM'
 
         # fail fast config
-        max_cycle = int(args.cap * max(row['runtime_x'], row['runtime_y']))
+        max_cycle = int(cap * max(row['runtime_x'], row['runtime_y']))
         config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
 
         config_intra = 'INTRA_0:' + str(row['intra_x']) + ':' \
@@ -176,14 +143,37 @@ def main(_args):
 
         config = '-'.join([config_base, config_intra, config_l2, config_icnt])
 
-        print_config('gpusim config:', config)
-        config_candidates.append(config)
+        return config
+
+    df_prod['config'] = df_prod.apply(build_config, axis=1)
+
+    return df_prod
+
+
+def main(_args):
+    args = parse_args(_args)
+
+    df_prod = build_df_prod(args.intra_pkl, args.qos, args.apps,
+                            random=args.random, cap=args.cap)
+    # configs = get_configs(args.apps, args.cap, args.print, args.random,
+    #                       df_prod)
 
     df_prod.to_pickle(args.output)
 
+    def print_config(*str):
+        if args.print:
+            print(*str)
+
+    print_config('')
+    print_config('-' * 10, 'Top Candidate(s)', '-' * 10)
+    print_config('app order:', args.apps[0], args.apps[1])
+
+    for config in df_prod['config']:
+        print_config('gpusim config:', config)
+
     print_config('-' * 30)
 
-    return config_candidates
+    return df_prod['config']
 
 
 if __name__ == "__main__":
