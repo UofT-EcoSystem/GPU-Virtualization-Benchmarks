@@ -27,6 +27,9 @@ def parse_args():
     parser.add_argument('--app_match', default='',
                         help='Select all pairs that include this app. Only '
                              'checked when all is passed to --pair.')
+    parser.add_argument('--app_exclude', default='',
+                        help='Select all pairs that do not include this app. '
+                             'Only checked when all is passed to --pair.')
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic'],
                         help='How to partition resources between benchmarks.')
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
@@ -52,7 +55,6 @@ def parse_args():
                              'checked.')
     parser.add_argument("--overwrite", action="store_true",
             help="Overwrite existing sim run dir completely.")
-
 
     results = parser.parse_args()
 
@@ -86,6 +88,9 @@ if args.pair[0] == 'all':
     # Drop pairs that do not include app match
     if args.app_match != '':
         args.pair = [p for p in args.pair if args.app_match in p]
+
+    if args.app_exclude != '':
+        args.pair = [p for p in args.pair if args.app_exclude not in p]
 
 # Keep track of total jobs launched
 job_count = 0
