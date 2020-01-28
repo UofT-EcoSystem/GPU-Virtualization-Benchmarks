@@ -188,6 +188,7 @@ def main():
     file_count = 0
     hit_max_count = 0
     failed_apps = set()
+    good_apps = set()
 
     for app in apps:
         app_path = os.path.join(args.run_dir, app)
@@ -223,6 +224,8 @@ def main():
                 failed_apps.add(app)
                 continue
 
+            good_apps.add(app)
+
             # get parameters from the file name and parent directory
             gpusim_version, job_Id = parse_outputfile_name(latest_log, app,
                                                            config)
@@ -255,7 +258,10 @@ def main():
     pretty_print("Write to file {0}".format(args.output))
     pretty_print("Successfully parsed {0} files".format(file_count))
     pretty_print("{0} files hit max cycle count.".format(hit_max_count))
-    pretty_print("Failed simulation: ", ','.join(list(failed_apps)))
+    actual_failed = failed_apps - good_apps
+    pretty_print("{0} failed simulation: {1}".format
+                 (len(actual_failed), ','.join(list(actual_failed))))
+
     print(('-' * 100))
 
 
