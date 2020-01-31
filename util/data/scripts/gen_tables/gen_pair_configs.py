@@ -51,7 +51,7 @@ def parse_args(_args):
     return results
 
 
-def build_df_prod(intra_pkl, qos, apps, random, cap):
+def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
     df_intra = pd.read_pickle(intra_pkl)
 
     # Step 1: get rid of all intra configs that do not meet QoS
@@ -106,22 +106,24 @@ def build_df_prod(intra_pkl, qos, apps, random, cap):
 
     df_prod.sort_values('diff_mflat', inplace=True, ascending=True)
 
-    baseline_sum_ipc = df_prod.iloc[0]['sum_ipc']
+    if top_only:
+        # Drop any configs that have a higher mflat diff compared to the lowest
+        # and also lower sum_ipc
+        baseline_sum_ipc = df_prod.iloc[0]['sum_ipc']
+        df_prod = df_prod[df_prod['sum_ipc'] >= baseline_sum_ipc]
+        df_prod.reset_index(inplace=True)
 
-    # Drop any configs that have a higher mflat diff compared to the lowest
-    # and also lower sum_ipc
-    df_prod = df_prod[df_prod['sum_ipc'] >= baseline_sum_ipc]
+        # Top candidates: top 3 choices with lowest mflat diff and top 3 with
+        # highest sum_ipc -> take union of the two sets
+        top_diff_mflat_idx = df_prod.head(3).index
+        top_sum_ipc_idx = df_prod.sort_values('sum_ipc',
+                                              ascending=False).head(3).index
+        union_idx = list(set(top_diff_mflat_idx).union(set(top_sum_ipc_idx)))
+
+        # Only keep top candidates
+        df_prod = df_prod.iloc[union_idx]
+
     df_prod.reset_index(inplace=True)
-
-    # Top candidates: top 3 choices with lowest mflat diff and top 3 with
-    # highest sum_ipc -> take union of the two sets
-    top_diff_mflat_idx = df_prod.head(3).index
-    top_sum_ipc_idx = df_prod.sort_values('sum_ipc',
-                                          ascending=False).head(3).index
-    union_idx = list(set(top_diff_mflat_idx).union(set(top_sum_ipc_idx)))
-
-    # Only keep top candidates
-    df_prod = df_prod.iloc[union_idx].reset_index()
 
     # Build GPGPU-Sim config string
     def build_config(row):
@@ -154,9 +156,7 @@ def main(_args):
     args = parse_args(_args)
 
     df_prod = build_df_prod(args.intra_pkl, args.qos, args.apps,
-                            random=args.random, cap=args.cap)
-    # configs = get_configs(args.apps, args.cap, args.print, args.random,
-    #                       df_prod)
+                            random=args.random, cap=args.cap, top_only=True)
 
     df_prod.to_pickle(args.output)
 
