@@ -31,6 +31,7 @@ df = df[df['runtime'] > 0]
 # avg dram bandwidth
 df['avg_dram_bw'] = df['dram_bw'].transform(hi.avg_array)
 df['avg_dram_eff'] = df['dram_eff'].transform(hi.avg_array)
+df['avg_row_locality'] = df['row_buffer_locality'].transform(hi.avg_array)
 
 # standard deviation of dram bandwidth among channels
 df['std_dram_bw'] = df['dram_bw'].transform(hi.std_array)
