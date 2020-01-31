@@ -43,11 +43,17 @@ def process_df_intra(df_intra, df_seq):
     # gpusim config
     hi.process_config_column('intra', 'l2', df=df_intra)
 
+    df_intra['thread_count'] = df_intra['intra'] * df_intra['block_x'] * \
+        df_intra['block_y'] * df_intra['block_z']
+
     # avg dram bandwidth
     df_intra['avg_dram_bw'] = df_intra['dram_bw'].transform(hi.avg_array)
 
     # avg dram efficiency
     df_intra['avg_dram_eff'] = df_intra['dram_eff'].transform(hi.avg_array)
+
+    # memory requests per cycle
+    df_intra['mpc'] = df_intra['mem_count'] / df_intra['runtime']
 
     # dram busy
     df_intra['dram_busy'] = 1 - np.divide(df_intra['mem_idle'].transform(hi.avg_array),
