@@ -53,7 +53,7 @@ cmap_purple = sns.cubehelix_palette(rot=.1, as_cmap=True)
 
 # map a panda column from vector cell to scalar cell by taking average
 def avg_array(s):
-    result = [np.average(np.array(v[1:-1].split(' ')).astype(float)) for v in s]
+    result = [np.nanmean(np.array(v[1:-1].split(' ')).astype(float)) for v in s]
     return np.array(result)
 
 
