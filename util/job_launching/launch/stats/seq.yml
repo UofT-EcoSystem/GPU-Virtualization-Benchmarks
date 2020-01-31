@@ -52,6 +52,8 @@
     'regs=(.*),\slmem'
   'smem':
     'smem=(.*),'
+  'mem_count':
+    'gpgpu_n_mem_read_global\s=\s(.*)'
 'vector':
   'dram_eff': 'dram_eff=(.*)$'
   'dram_bw': 'bw_util=(.*)$'

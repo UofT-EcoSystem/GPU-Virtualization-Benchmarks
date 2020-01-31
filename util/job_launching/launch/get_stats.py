@@ -138,8 +138,8 @@ def collect_stats(outputfile, stats_to_pull):
             r"GPGPU-Sim: \*\* break due to "
             r"reaching the maximum cycles \(or instructions\) \*\*", line)
         if last_kernel_break:
-            print("NOTE::::: Found Max Insn reached in {0}."
-                  .format(outputfile))
+            # print("NOTE::::: Found Max Insn reached in {0}."
+            #       .format(outputfile))
             hit_max = True
 
         for stat_name, token in stats_to_pull.items():
