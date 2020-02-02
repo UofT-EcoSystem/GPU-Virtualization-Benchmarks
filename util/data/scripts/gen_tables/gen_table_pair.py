@@ -49,7 +49,6 @@ def parse_args():
                         help='Quality of Service for each benchmark '
                              'in terms of normalized IPC.')
 
-
     results = parser.parse_args()
     return results
 
