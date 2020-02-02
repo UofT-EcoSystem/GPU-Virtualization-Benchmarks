@@ -90,8 +90,8 @@ def train(X, y):
         clf = ensemble.GradientBoostingRegressor(**params)
 
         clf.fit(X_train, y_train)
-        mse = mean_absolute_error(y_test, clf.predict(X_test))
-        print(mse)
+        mae = mean_absolute_error(y_test, clf.predict(X_test))
+        print('K-fold l1 error:', mae)
 
     # get the final model
     X_train = X
@@ -112,7 +112,6 @@ def plot_importance(clf):
     sorted_idx = np.argsort(feature_importance)
     pos = np.arange(sorted_idx.shape[0]) + .5
 
-    plt.subplot(1, 2, 2)
     plt.barh(pos, feature_importance[sorted_idx], align='center')
 
     np_cols = np.array(cols_prefix)
@@ -124,7 +123,7 @@ def plot_importance(clf):
     plt.close()
 
 
-def predict(clf, df_pair, suffix):
+def predict_from_df(clf, df_pair, suffix):
     cols = [c + '_' + suffix for c in cols_prefix]
     X = df_pair[cols].values
 
