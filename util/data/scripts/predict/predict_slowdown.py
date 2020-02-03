@@ -13,11 +13,13 @@ import os
 import data.scripts.common.constants as const
 
 cols_prefix = ['norm_ipc',
-               'avg_rbh',
+               # 'avg_rbh',
+               'diff_rbh',
                'diff_mflat',
                'diff_bw',
                'diff_mpc',
                'diff_thread',
+               'sum_bw',
                # 'l2_miss_rate',
                # 'avg_dram_bw',
                # 'avg_mem_lat',
@@ -41,7 +43,7 @@ def export_tree(clf, path_png, tree_id=300):
         f.write(png_bytes)
 
 
-def prepare_datasets(df_pair):
+def prepare_datasets(df_pair, cc):
 
     def feature_set(sfx_base, sfx_other):
         def calculate_diff(derived_metric, metric):
@@ -53,20 +55,25 @@ def prepare_datasets(df_pair):
         calculate_diff('diff_bw', 'avg_dram_bw')
         calculate_diff('diff_mpc', 'mpc')
         calculate_diff('diff_thread', 'thread_count')
+        calculate_diff('diff_rbh', 'avg_rbh')
+
+        df_pair['sum_bw_'+sfx_base] = df_pair['avg_dram_bw_x'] + df_pair[
+            'avg_dram_bw_y']
 
         cols = [c + '_' + sfx_base for c in cols_prefix]
         X = df_pair[cols].values
         X = X.astype(np.float32)
 
+        sld_col = '1_sld' if sfx_base == 'x' else '2_sld'
+        y = df_pair[sld_col]
+
         print('X invalid?', np.isnan(X).any())
-        return X
+        return X, y
 
-    X1 = feature_set('x', 'y')
-    X2 = feature_set('y', 'x')
+    X1, y1 = feature_set('x', 'y')
+    X2, y2 = feature_set('y', 'x')
+
     X = np.concatenate((X1, X2), axis=0)
-
-    y1 = df_pair['1_sld']
-    y2 = df_pair['2_sld']
     y = np.concatenate((y1, y2), axis=0)
 
     X, y = shuffle(X, y, random_state=7)
