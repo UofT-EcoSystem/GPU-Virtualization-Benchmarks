@@ -3,7 +3,7 @@
   '1_grid_y': 'stream 1, gridDim= \([0-9]*,([0-9]*)'
   '1_grid_z': 'stream 1, gridDim= \([0-9]*,[0-9]*,([0-9]*)'
   '1_block_x': 'stream 1, .*blockDim\s=\s\(([0-9]*),'
-  '1_block_y': 'stream 1, .*blockDim\s=\s\([0-9]*,([0-9])'
+  '1_block_y': 'stream 1, .*blockDim\s=\s\([0-9]*,([0-9]*)'
   '1_block_z': 'stream 1, .*blockDim\s=\s\([0-9]*,[0-9]*,([0-9]*)'
   '1_ctas/SM': 'Stream 1/2.*:\s(.*)\sctas/SM'
   '1_runtime': 'gpu_tot_sim_cycle\[1\]\s*:\s*(.*)'
