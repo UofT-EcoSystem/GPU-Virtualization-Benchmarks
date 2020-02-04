@@ -77,7 +77,7 @@ for app in args.apps:
         print(p.stdout.decode("utf-8"))
 
 
-    base_config = "TITANV-SEP_RW-CONCURRENT"
+    base_config = "TITANV-SEP_RW-PAE-CONCURRENT"
     bypass_l2d = "BYPASS_L2D_S1"
 
     l2_fract = [0.25, 0.5, 0.75, 1.0]
