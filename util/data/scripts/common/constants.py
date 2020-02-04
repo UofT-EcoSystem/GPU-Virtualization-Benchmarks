@@ -20,7 +20,7 @@ app_dict = OrderedDict([
             ('parb_stencil-0', [16, 1024]),
             ('parb_lbm-0', [12, 18000]),
             ('parb_spmv-0', [16, 1147]),
-            ('rod_mummer-0', [8, 5727]),
+            #('rod_mummer-0', [8, 5727]),
             ('rod_heartwall-0', [5, 51]),
             ('rod_hotspot-0', [8, 1849]),
             ('rod_hotspot3d-0', [8, 1024]),

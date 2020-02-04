@@ -32,7 +32,7 @@ if args.random:
     config_str = "TITANV-SEP_RW-RANDOM"
     jobname = 'seq-rand'
 else:
-    config_str = "TITANV-SEP_RW"
+    config_str = "TITANV-SEP_RW-PAE"
     jobname = 'seq'
 
 for benchmark in args.app:
