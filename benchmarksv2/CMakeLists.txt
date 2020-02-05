@@ -16,6 +16,9 @@ option(rod_pathfinder "compiling rodinia pathfinder kernels" OFF)
 option(rod_lavamd "compiling rodinia lavamd kernels" OFF)
 option(rod_myocyte "compiling rodinia myocyte kernels" OFF)
 option(rod_hotspot3d "compiling rodinia hotspot3d kernels" OFF)
+option(nvd_dxtc "compiling nvidia dxtc kernels" OFF)
+option(nvd_fdtd3d "compiling nvidia fdtd3d kernels" OFF)
+option(nvd_blackscholes "compiling nvidia blackscholes kernels" OFF)
 
 
 find_package(OpenMP)
@@ -58,6 +61,7 @@ add_executable(driver main.cu)
 add_subdirectory(parboil)
 add_subdirectory(cutlass)
 add_subdirectory(rodinia)
+add_subdirectory(nvidia)
 
 # include cuda dir
 target_include_directories(driver PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -136,6 +140,23 @@ if(rod_hotspot3d)
   MESSAGE ("cmake: rodinia hotspot3d.")
   target_compile_definitions(driver PRIVATE RODINIA_HOTSPOT3D)
 endif()
+
+if(nvd_dxtc)
+  MESSAGE ("cmake: nvidia dxtc.")
+  target_compile_definitions(driver PRIVATE NVD_DXTC)
+endif()
+
+if(nvd_fdtd3d)
+  MESSAGE ("cmake: nvidia fdtd3d.")
+  target_compile_definitions(driver PRIVATE NVD_FDTD3D)
+endif()
+
+if(nvd_blackscholes)
+  MESSAGE ("cmake: nvidia blackscholes.")
+  target_compile_definitions(driver PRIVATE NVD_BLACKSCHOLES)
+endif()
+
+
 
 
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)

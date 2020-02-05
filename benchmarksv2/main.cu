@@ -24,6 +24,7 @@
 #include "parboil/benchmarks/interface.h"
 #include "cutlass/interface.h"
 #include "rodinia/benchmarks/interface.h"
+#include "nvidia/interface.h"
 
 std::vector<bool> done_flags;
 std::vector<bool> start_flags;
@@ -185,6 +186,25 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_hotspot3d;
 #endif
   }
+  else if (strcmp(argv[0], "nvd_dxtc") == 0) {
+    std::cout << "main: nvidia dxtc" << std::endl;
+#ifdef NVD_DXTC
+    func = main_dxtc;
+#endif
+  }
+  else if (strcmp(argv[0], "nvd_fdtd3d") == 0) {
+    std::cout << "main: nvidia fdtd3d" << std::endl;
+#ifdef NVD_FDTD3D
+    func = main_fdtd3d;
+#endif
+  }
+  else if (strcmp(argv[0], "nvd_blackscholes") == 0) {
+    std::cout << "main: nvidia blackscholes" << std::endl;
+#ifdef NVD_BLACKSCHOLES
+    func = main_blackscholes;
+#endif
+  }
+
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
   }
