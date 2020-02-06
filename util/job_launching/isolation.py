@@ -62,7 +62,7 @@ for app in args.apps:
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
                '--app', app,
-               '--bench_home', DEFAULT_BENCH_HOME,
+               '--bench_home', args.bench_home,
                '--launch_name', jobname,
                '--env', args.env
                ]
