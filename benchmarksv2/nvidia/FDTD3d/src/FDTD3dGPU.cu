@@ -18,6 +18,9 @@
 
 #include "FDTD3dGPUKernel.cuh"
 
+extern bool set_and_check(int uid, bool start);
+
+
 bool getTargetDeviceGlobalMemSize(memsize_t *result, const int argc, const char **argv)
 {
     int               deviceCount  = 0;
@@ -43,7 +46,7 @@ bool getTargetDeviceGlobalMemSize(memsize_t *result, const int argc, const char 
     return true;
 }
 
-bool fdtdGPU(float *output, const float *input, const float *coeff, const int dimx, const int dimy, const int dimz, const int radius, const int timesteps, const int argc, const char **argv)
+bool fdtdGPU(float *output, const float *input, const float *coeff, const int dimx, const int dimy, const int dimz, const int radius, const int timesteps, const int argc, const char **argv, int uid, cudaStream_t & stream)
 {
     const int         outerDimx  = dimx + 2 * radius;
     const int         outerDimy  = dimy + 2 * radius;
@@ -57,7 +60,8 @@ bool fdtdGPU(float *output, const float *input, const float *coeff, const int di
     dim3              dimGrid;
 
     // Ensure that the inner data starts on a 128B boundary
-    const int padding = (128 / sizeof(float)) - radius;
+//    const int padding = (128 / sizeof(float)) - radius;
+    const int padding = 0;
     const size_t paddedVolumeSize = volumeSize + padding;
 
 #ifdef GPU_PROFILING
@@ -132,13 +136,18 @@ bool fdtdGPU(float *output, const float *input, const float *coeff, const int di
     }
 
     // Copy the input to the device input buffer
-    checkCudaErrors(cudaMemcpy(bufferIn + padding, input, volumeSize * sizeof(float), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpyAsync(bufferIn + padding, input, volumeSize * sizeof(float), 
+          cudaMemcpyHostToDevice, stream));
 
     // Copy the input to the device output buffer (actually only need the halo)
-    checkCudaErrors(cudaMemcpy(bufferOut + padding, input, volumeSize * sizeof(float), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpyAsync(bufferOut + padding, input, volumeSize * sizeof(float), 
+          cudaMemcpyHostToDevice, stream));
 
     // Copy the coefficients to the device coefficient buffer
-    checkCudaErrors(cudaMemcpyToSymbol(stencil, (void *)coeff, (radius + 1) * sizeof(float)));
+    checkCudaErrors(cudaMemcpyToSymbolAsync(stencil, 
+          (void *)coeff, (radius + 1) * sizeof(float), 0,
+          cudaMemcpyHostToDevice, 
+          stream));
 
 
 #ifdef GPU_PROFILING
@@ -160,13 +169,19 @@ bool fdtdGPU(float *output, const float *input, const float *coeff, const int di
     checkCudaErrors(cudaEventRecord(profileStart, 0));
 #endif
 
+    cudaStreamSynchronize(stream);
+    while (!set_and_check(uid, true));
+
+    bool can_exit = false;
+
+    // while(!can_exit)
     for (int it = 0 ; it < timesteps ; it++)
     {
-        printf("\tt = %d ", it);
+        // printf("\tt = %d ", it);
 
         // Launch the kernel
         printf("launch kernel\n");
-        FiniteDifferencesKernel<<<dimGrid, dimBlock>>>(bufferDst, bufferSrc, dimx, dimy, dimz);
+        FiniteDifferencesKernel<<<dimGrid, dimBlock, 0, stream>>>(bufferDst, bufferSrc, dimx, dimy, dimz);
 
         // Toggle the buffers
         // Visual Studio 2005 does not like std::swap
@@ -174,6 +189,9 @@ bool fdtdGPU(float *output, const float *input, const float *coeff, const int di
         float *tmp = bufferDst;
         bufferDst = bufferSrc;
         bufferSrc = tmp;
+
+        cudaStreamSynchronize(stream);
+        can_exit = set_and_check(uid, false);
     }
 
     printf("\n");
@@ -184,10 +202,12 @@ bool fdtdGPU(float *output, const float *input, const float *coeff, const int di
 #endif
 
     // Wait for the kernel to complete
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
 
     // Read the result back, result is in bufferSrc (after final toggle)
-    checkCudaErrors(cudaMemcpy(output, bufferSrc, volumeSize * sizeof(float), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpyAsync(output, bufferSrc, volumeSize * sizeof(float), 
+          cudaMemcpyDeviceToHost, stream));
+    cudaStreamSynchronize(stream);
 
     // Report time
 #ifdef GPU_PROFILING

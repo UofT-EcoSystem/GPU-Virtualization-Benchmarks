@@ -18,6 +18,7 @@
 #include "FDTD3dGPU.h"
 
 #include <helper_functions.h>
+#include "cuda_runtime_api.h"
 
 #include <math.h>
 #include <assert.h>
@@ -30,10 +31,10 @@
 //const char *printfFile = "FDTD3d.txt";
 
 // Forward declarations
-bool runTest(int argc, const char **argv);
+bool runTest(int argc, const char **argv, int uid, cudaStream_t & stream);
 void showHelp(const int argc, const char **argv);
 
-int main(int argc, char **argv)
+int main_fdtd3d (int argc, char** argv, int uid, cudaStream_t & stream)
 {
     bool bTestResult = false;
     // Start the log
@@ -49,7 +50,7 @@ int main(int argc, char **argv)
     else
     {
         // Execute
-        bTestResult = runTest(argc, (const char **)argv);
+        bTestResult = runTest(argc, (const char **)argv, uid, stream);
     }
 
     // Finish
@@ -75,7 +76,7 @@ void showHelp(const int argc, const char **argv)
     std::cout << std::endl;
 }
 
-bool runTest(int argc, const char **argv)
+bool runTest(int argc, const char **argv, int uid, cudaStream_t & stream)
 {
     float *host_output;
     float *device_output;
@@ -201,7 +202,9 @@ bool runTest(int argc, const char **argv)
 
     // Execute on the device
     printf("fdtdGPU...\n");
-    fdtdGPU(device_output, input, coeff, dimx, dimy, dimz, radius, timesteps, argc, argv);
+    fdtdGPU(device_output, input, coeff, dimx, dimy, dimz, radius, timesteps, 
+        argc, argv, 
+        uid, stream);
     printf("fdtdGPU complete\n");
 
     // Compare the results

@@ -10,9 +10,9 @@
  */
 
 #include "FDTD3dGPU.h"
-#include <cooperative_groups.h>
+//#include <cooperative_groups.h>
 
-namespace cg = cooperative_groups;
+//namespace cg = cooperative_groups;
 
 // Note: If you change the RADIUS, you should also change the unrolling below
 #define RADIUS 4
@@ -34,7 +34,7 @@ __global__ void FiniteDifferencesKernel(float *output,
     const int workx = blockDim.x;
     const int worky = blockDim.y;
     // Handle to thread block group
-    cg::thread_block cta = cg::this_thread_block();
+//    cg::thread_block cta = cg::this_thread_block();
     __shared__ float tile[k_blockDimMaxY + 2 * RADIUS][k_blockDimX + 2 * RADIUS];
 
     const int stride_y = dimx + 2 * RADIUS;
@@ -107,7 +107,8 @@ __global__ void FiniteDifferencesKernel(float *output,
 
         inputIndex  += stride_z;
         outputIndex += stride_z;
-        cg::sync(cta);
+//        cg::sync(cta);
+        __syncthreads();
 
         // Note that for the work items on the boundary of the problem, the
         // supplied index when reading the halo (below) may wrap to the
@@ -132,7 +133,8 @@ __global__ void FiniteDifferencesKernel(float *output,
         }
 
         tile[ty][tx] = current;
-        cg::sync(cta);
+//        cg::sync(cta);
+        __syncthreads();
 
         // Compute the output value
         float value = stencil[0] * current;
