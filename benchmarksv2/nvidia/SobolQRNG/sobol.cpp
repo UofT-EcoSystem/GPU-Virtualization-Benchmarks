@@ -66,7 +66,8 @@ void printHelp(int argc, char *argv[])
     std::cout << std::endl;
 }
 
-int main(int argc, char *argv[])
+
+int main_sobol(int argc, char** argv, int uid, cudaStream_t & stream)
 {
     bool ok = true;
 
@@ -187,15 +188,18 @@ int main(int argc, char *argv[])
 
     // Copy the direction numbers to the device
     std::cout << "Copying direction numbers to device..." << std::endl;
-    checkCudaErrors(cudaMemcpy(d_directions, h_directions, n_dimensions * n_directions * sizeof(unsigned int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaDeviceSynchronize());
+    checkCudaErrors(cudaMemcpyAsync(d_directions, h_directions, n_dimensions * n_directions * sizeof(unsigned int),
+        cudaMemcpyHostToDevice, stream));
+
 
     // Execute the QRNG on the device
     std::cout << "Executing QRNG on GPU..." << std::endl;
     sdkResetTimer(&hTimer);
     sdkStartTimer(&hTimer);
-    sobolGPU(n_vectors, n_dimensions, d_directions, d_output);
-    checkCudaErrors(cudaDeviceSynchronize());
+
+    sobolGPU(n_vectors, n_dimensions, d_directions, d_output, uid, stream);
+
+//    checkCudaErrors(cudaDeviceSynchronize());
     sdkStopTimer(&hTimer);
     time = sdkGetTimerValue(&hTimer);
 
@@ -209,7 +213,9 @@ int main(int argc, char *argv[])
     }
 
     std::cout << "Reading results from GPU..." << std::endl;
-    checkCudaErrors(cudaMemcpy(h_outputGPU, d_output, n_vectors * n_dimensions * sizeof(float), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpyAsync(h_outputGPU, d_output, n_vectors * n_dimensions * sizeof(float), cudaMemcpyDeviceToHost, stream));
+
+    cudaStreamSynchronize(stream);
 
     std::cout << std::endl;
     // Execute the QRNG on the host

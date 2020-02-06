@@ -19,4 +19,8 @@ if (nvd_binomial)
   add_subdirectory(binomialOptions)
 endif()
 
+if (nvd_sobol)
+  add_subdirectory(SobolQRNG)
+endif()
+
 

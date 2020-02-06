@@ -20,6 +20,7 @@ option(nvd_dxtc "compiling nvidia dxtc kernels" OFF)
 option(nvd_fdtd3d "compiling nvidia fdtd3d kernels" OFF)
 option(nvd_blackscholes "compiling nvidia blackscholes kernels" OFF)
 option(nvd_binomial "compiling nvidia binomial kernels" OFF)
+option(nvd_sobol "compiling nvidia sobol kernels" OFF)
 
 
 find_package(OpenMP)
@@ -162,7 +163,10 @@ if(nvd_binomial)
   target_compile_definitions(driver PRIVATE NVD_BINOMIAL)
 endif()
 
-
+if(nvd_sobol)
+  MESSAGE ("cmake: nvidia sobol.")
+  target_compile_definitions(driver PRIVATE NVD_SOBOL)
+endif()
 
 
 set_target_properties(driver PROPERTIES LINKER_LANGUAGE CUDA)

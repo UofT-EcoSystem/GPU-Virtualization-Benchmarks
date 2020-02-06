@@ -34,9 +34,9 @@
 
 #include "sobol.h"
 #include "sobol_gpu.h"
-#include <cooperative_groups.h>
+//#include <cooperative_groups.h>
 
-namespace cg = cooperative_groups;
+//namespace cg = cooperative_groups;
 #include <helper_cuda.h>
 
 #define k_2powneg32 2.3283064E-10F
@@ -44,7 +44,7 @@ namespace cg = cooperative_groups;
 __global__ void sobolGPU_kernel(unsigned n_vectors, unsigned n_dimensions, unsigned *d_directions, float *d_output)
 {
     // Handle to thread block group
-    cg::thread_block cta = cg::this_thread_block();
+//    cg::thread_block cta = cg::this_thread_block();
     __shared__ unsigned int v[n_directions];
 
     // Offset into the correct dimension as specified by the
@@ -60,7 +60,8 @@ __global__ void sobolGPU_kernel(unsigned n_vectors, unsigned n_dimensions, unsig
         v[threadIdx.x] = d_directions[threadIdx.x];
     }
 
-    cg::sync(cta);
+//    cg::sync(cta);
+    __syncthreads();
 
     // Set initial index (i.e. which vector this thread is
     // computing first) and stride (i.e. step to the next vector
@@ -136,8 +137,11 @@ __global__ void sobolGPU_kernel(unsigned n_vectors, unsigned n_dimensions, unsig
     }
 }
 
+extern bool set_and_check(int uid, bool start);
+
 extern "C"
-void sobolGPU(int n_vectors, int n_dimensions, unsigned int *d_directions, float *d_output)
+void sobolGPU(int n_vectors, int n_dimensions, unsigned int *d_directions, float *d_output,
+    int uid, cudaStream_t & stream)
 {
     const int threadsperblock = 64;
 
@@ -187,7 +191,16 @@ void sobolGPU(int n_vectors, int n_dimensions, unsigned int *d_directions, float
     // Fix the number of threads
     dimBlock.x = threadsperblock;
 
-    // Execute GPU kernel
-    sobolGPU_kernel<<<dimGrid, dimBlock>>>(n_vectors, n_dimensions, d_directions, d_output);
+    checkCudaErrors(cudaStreamSynchronize(stream));
+    while(!set_and_check(uid, true));
+
+    bool can_exit = false;
+    while (!can_exit) {
+      // Execute GPU kernel
+      sobolGPU_kernel<<<dimGrid, dimBlock, 0, stream>>>(n_vectors, n_dimensions, d_directions, d_output);
+
+      cudaStreamSynchronize(stream);
+      can_exit = set_and_check(uid, false);
+    }
 }
 

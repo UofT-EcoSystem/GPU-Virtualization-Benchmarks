@@ -210,6 +210,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_binomial;
 #endif
   }
+  else if (strcmp(argv[0], "nvd_sobol") == 0) {
+    std::cout << "main: nvidia sobol" << std::endl;
+#ifdef NVD_SOBOL
+    func = main_sobol;
+#endif
+  }
 
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
