@@ -8,4 +8,4 @@
 #SBATCH --export=ALL
 #SBATCH --output=%x.%j.log
 
-REPLACE_PREFIX ./simulate.sh
+REPLACE_PREFIX hostname
