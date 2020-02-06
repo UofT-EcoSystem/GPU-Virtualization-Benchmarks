@@ -30,7 +30,9 @@ const static char *sSDKsample = "Interval Computing";
 #include "cuda_interval.h"
 #include "cpu_interval.h"
 
-int main(int argc,char *argv[])
+extern bool set_and_check(int uid, bool start);
+
+int main_interval(int argc, char** argv, int uid, cudaStream_t & stream)
 {
     int implementation_choice = 0;
 
@@ -87,18 +89,28 @@ int main(int argc,char *argv[])
 
     CHECKED_CALL(cudaEventRecord(start, 0));
 
-    for (int it = 0; it < NUM_RUNS; ++it)
+    while (!set_and_check(uid, true));
+
+    bool can_exit = false;
+
+    while (!can_exit)
+//    for (int it = 0; it < NUM_RUNS; ++it)
     {
-        test_interval_newton<T><<<GRID_SIZE, BLOCK_SIZE>>>(d_result, d_nresults, i, implementation_choice);
+        test_interval_newton<T><<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(d_result, d_nresults, i, implementation_choice);
+
+        cudaStreamSynchronize(stream);
+        can_exit = set_and_check(uid, false);
+
         CHECKED_CALL(cudaGetLastError());
     }
 
     CHECKED_CALL(cudaEventRecord(stop, 0));
-    CHECKED_CALL(cudaDeviceSynchronize());
+//    CHECKED_CALL(cudaDeviceSynchronize());
 
     I_CPU *h_result = new I_CPU[THREADS * DEPTH_RESULT];
-    CHECKED_CALL(cudaMemcpy(h_result, d_result, THREADS * DEPTH_RESULT * sizeof(*d_result), cudaMemcpyDeviceToHost));
-    CHECKED_CALL(cudaMemcpy(h_nresults, d_nresults, THREADS * sizeof(*d_nresults), cudaMemcpyDeviceToHost));
+    CHECKED_CALL(cudaMemcpyAsync(h_result, d_result, THREADS * DEPTH_RESULT * sizeof(*d_result), cudaMemcpyDeviceToHost, stream));
+    CHECKED_CALL(cudaMemcpyAsync(h_nresults, d_nresults, THREADS * sizeof(*d_nresults), cudaMemcpyDeviceToHost, stream));
+    cudaStreamSynchronize(stream);
 
     std::cout << "Found " << h_nresults[0] << " intervals that may contain the root(s)\n";
     std::cout.precision(15);

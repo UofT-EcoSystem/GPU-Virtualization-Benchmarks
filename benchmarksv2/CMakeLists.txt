@@ -21,6 +21,8 @@ option(nvd_fdtd3d "compiling nvidia fdtd3d kernels" OFF)
 option(nvd_blackscholes "compiling nvidia blackscholes kernels" OFF)
 option(nvd_binomial "compiling nvidia binomial kernels" OFF)
 option(nvd_sobol "compiling nvidia sobol kernels" OFF)
+option(nvd_stereo "compiling nvidia stereo kernels" OFF)
+option(nvd_interval "compiling nvidia interval kernels" OFF)
 
 
 find_package(OpenMP)
@@ -166,6 +168,16 @@ endif()
 if(nvd_sobol)
   MESSAGE ("cmake: nvidia sobol.")
   target_compile_definitions(driver PRIVATE NVD_SOBOL)
+endif()
+
+if(nvd_stereo)
+  MESSAGE ("cmake: nvidia stereo.")
+  target_compile_definitions(driver PRIVATE NVD_STEREO)
+endif()
+
+if(nvd_interval)
+  MESSAGE ("cmake: nvidia interval.")
+  target_compile_definitions(driver PRIVATE NVD_INTERVAL)
 endif()
 
 

@@ -23,4 +23,12 @@ if (nvd_sobol)
   add_subdirectory(SobolQRNG)
 endif()
 
+if (nvd_stereo)
+  add_subdirectory(stereoDisparity)
+endif()
+
+if (nvd_interval)
+  add_subdirectory(interval)
+endif()
+
 

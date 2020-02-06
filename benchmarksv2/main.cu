@@ -216,6 +216,18 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_sobol;
 #endif
   }
+  else if (strcmp(argv[0], "nvd_stereo") == 0) {
+    std::cout << "main: nvidia stereo" << std::endl;
+#ifdef NVD_STEREO
+    func = main_stereo;
+#endif
+  }
+  else if (strcmp(argv[0], "nvd_interval") == 0) {
+    std::cout << "main: nvidia interval" << std::endl;
+#ifdef NVD_INTERVAL
+    func = main_interval;
+#endif
+  }
 
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;
