@@ -14,14 +14,16 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <stdio.h>
 #include <stdlib.h>
-#include <cooperative_groups.h>
+//#include <cooperative_groups.h>
 
-namespace cg = cooperative_groups;
+//namespace cg = cooperative_groups;
 
 #include <helper_cuda.h>
 #include "binomialOptions_common.h"
 #include "realtype.h"
 
+
+extern bool set_and_check(int uid, bool start);
 
 //Preprocessed input option data
 typedef struct
@@ -67,7 +69,7 @@ __device__ inline double expiryCallValue(double S, double X, double vDt, int i)
 __global__ void binomialOptionsKernel()
 {
     // Handle to thread block group
-    cg::thread_block cta = cg::this_thread_block();
+//    cg::thread_block cta = cg::this_thread_block();
     __shared__ real call_exchange[THREADBLOCK_SIZE + 1];
 
     const int     tid = threadIdx.x;
@@ -91,9 +93,11 @@ __global__ void binomialOptionsKernel()
     for(int i = NUM_STEPS; i > 0; --i)
     {
         call_exchange[tid] = call[0];
-        cg::sync(cta);
+//        cg::sync(cta);
+        __syncthreads();
         call[ELEMS_PER_THREAD] = call_exchange[tid + 1];
-        cg::sync(cta);
+//        cg::sync(cta);
+        __syncthreads();
 
         if (i > final_it)
         {
@@ -115,7 +119,9 @@ __global__ void binomialOptionsKernel()
 extern "C" void binomialOptionsGPU(
     real *callValue,
     TOptionData  *optionData,
-    int optN
+    int optN,
+    int uid,
+    cudaStream_t & stream
 )
 {
     __TOptionData h_OptionData[MAX_OPTIONS];
@@ -147,8 +153,21 @@ extern "C" void binomialOptionsGPU(
         h_OptionData[i].pdByDf = (real)pdByDf;
     }
 
-    checkCudaErrors(cudaMemcpyToSymbol(d_OptionData, h_OptionData, optN * sizeof(__TOptionData)));
-    binomialOptionsKernel<<<optN, THREADBLOCK_SIZE>>>();
+    checkCudaErrors(cudaMemcpyToSymbolAsync(d_OptionData, h_OptionData, optN * sizeof(__TOptionData),
+        0, cudaMemcpyHostToDevice, stream));
+
+    cudaStreamSynchronize(stream);
+    while(!set_and_check(uid, true));
+
+    bool can_exit = false;
+
+    while (!can_exit) {
+      binomialOptionsKernel<<<optN, THREADBLOCK_SIZE, 0, stream>>>();
+
+      cudaStreamSynchronize(stream);
+      can_exit = set_and_check(uid, false);
+    }
+
     getLastCudaError("binomialOptionsKernel() execution failed.\n");
     checkCudaErrors(cudaMemcpyFromSymbol(callValue, d_CallValue, optN *sizeof(real)));
 }

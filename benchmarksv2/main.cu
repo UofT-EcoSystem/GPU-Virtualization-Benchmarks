@@ -204,6 +204,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_blackscholes;
 #endif
   }
+  else if (strcmp(argv[0], "nvd_binomial") == 0) {
+    std::cout << "main: nvidia binomial" << std::endl;
+#ifdef NVD_BINOMIAL
+    func = main_binomial;
+#endif
+  }
 
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;

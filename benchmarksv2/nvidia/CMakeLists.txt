@@ -15,4 +15,8 @@ if (nvd_blackscholes)
   add_subdirectory(BlackScholes)
 endif()
 
+if (nvd_binomial)
+  add_subdirectory(binomialOptions)
+endif()
+
 

@@ -52,7 +52,9 @@ extern "C" void binomialOptionsCPU(
 extern "C" void binomialOptionsGPU(
     real *callValue,
     TOptionData  *optionData,
-    int optN
+    int optN,
+    int uid,
+    cudaStream_t & stream
 );
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +72,7 @@ real randData(real low, real high)
 ////////////////////////////////////////////////////////////////////////////////
 // Main program
 ////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char **argv)
+int main_binomial(int argc, char** argv, int uid, cudaStream_t & stream)
 {
     printf("[%s] - Starting...\n", argv[0]);
 
@@ -107,13 +109,14 @@ int main(int argc, char **argv)
     }
 
     printf("Running GPU binomial tree...\n");
-    checkCudaErrors(cudaDeviceSynchronize());
+//    checkCudaErrors(cudaDeviceSynchronize());
     sdkResetTimer(&hTimer);
     sdkStartTimer(&hTimer);
 
-    binomialOptionsGPU(callValueGPU, optionData, OPT_N);
+    binomialOptionsGPU(callValueGPU, optionData, OPT_N, uid, stream);
 
-    checkCudaErrors(cudaDeviceSynchronize());
+//    checkCudaErrors(cudaDeviceSynchronize());
+    checkCudaErrors(cudaStreamSynchronize(stream));
     sdkStopTimer(&hTimer);
     gpuTime = sdkGetTimerValue(&hTimer);
     printf("Options count            : %i     \n", OPT_N);

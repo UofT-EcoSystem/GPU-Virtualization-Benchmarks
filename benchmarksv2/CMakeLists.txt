@@ -19,6 +19,7 @@ option(rod_hotspot3d "compiling rodinia hotspot3d kernels" OFF)
 option(nvd_dxtc "compiling nvidia dxtc kernels" OFF)
 option(nvd_fdtd3d "compiling nvidia fdtd3d kernels" OFF)
 option(nvd_blackscholes "compiling nvidia blackscholes kernels" OFF)
+option(nvd_binomial "compiling nvidia binomial kernels" OFF)
 
 
 find_package(OpenMP)
@@ -154,6 +155,11 @@ endif()
 if(nvd_blackscholes)
   MESSAGE ("cmake: nvidia blackscholes.")
   target_compile_definitions(driver PRIVATE NVD_BLACKSCHOLES)
+endif()
+
+if(nvd_binomial)
+  MESSAGE ("cmake: nvidia binomial.")
+  target_compile_definitions(driver PRIVATE NVD_BINOMIAL)
 endif()
 
 
