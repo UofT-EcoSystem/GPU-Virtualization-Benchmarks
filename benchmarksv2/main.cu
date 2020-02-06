@@ -186,12 +186,7 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_hotspot3d;
 #endif
   }
-  else if (strcmp(argv[0], "nvd_dxtc") == 0) {
-    std::cout << "main: nvidia dxtc" << std::endl;
-#ifdef NVD_DXTC
-    func = main_dxtc;
-#endif
-  }
+
   else if (strcmp(argv[0], "nvd_fdtd3d") == 0) {
     std::cout << "main: nvidia fdtd3d" << std::endl;
 #ifdef NVD_FDTD3D
@@ -214,12 +209,6 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     std::cout << "main: nvidia sobol" << std::endl;
 #ifdef NVD_SOBOL
     func = main_sobol;
-#endif
-  }
-  else if (strcmp(argv[0], "nvd_stereo") == 0) {
-    std::cout << "main: nvidia stereo" << std::endl;
-#ifdef NVD_STEREO
-    func = main_stereo;
 #endif
   }
   else if (strcmp(argv[0], "nvd_interval") == 0) {

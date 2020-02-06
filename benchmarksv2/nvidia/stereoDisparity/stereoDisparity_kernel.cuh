@@ -23,9 +23,9 @@
 // (see convolution CUDA Sample for example)
 #define STEPS 3
 
-#include <cooperative_groups.h>
+//#include <cooperative_groups.h>
 
-namespace cg = cooperative_groups;
+//namespace cg = cooperative_groups;
 
 ////////////////////////////////////////////////////////////////////////////////
 // This function applies the video intrinsic operations to compute a
@@ -74,7 +74,7 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
                       cudaTextureObject_t tex2Dright)
 {
     // Handle to thread block group
-    cg::thread_block cta = cg::this_thread_block();
+//    cg::thread_block cta = cg::this_thread_block();
     // access thread id
     const int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     const int tidy = blockDim.y * blockIdx.y + threadIdx.y;
@@ -131,7 +131,8 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
             }
         }
 
-        cg::sync(cta);
+//        cg::sync(cta);
+        __syncthreads();
 
         // sum cost horizontally
 #pragma unroll
@@ -147,9 +148,11 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
                 cost += diff[sidy+offset][sidx+i];
             }
 
-            cg::sync(cta);
+//            cg::sync(cta);
+            __syncthreads();
             diff[sidy+offset][sidx] = cost;
-            cg::sync(cta);
+//            cg::sync(cta);
+            __syncthreads();
         }
 
         // sum cost vertically
@@ -168,7 +171,8 @@ stereoDisparityKernel(unsigned int *g_img0, unsigned int *g_img1,
             bestDisparity = d+8;
         }
 
-        cg::sync(cta);
+//        cg::sync(cta);
+        __syncthreads();
 
     }
 

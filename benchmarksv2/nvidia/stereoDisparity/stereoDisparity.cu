@@ -40,23 +40,24 @@ int iDivUp(int a, int b)
 
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
-void runTest(int argc, char **argv);
+void runTest(int argc, char **argv, int uid, cudaStream_t & stream);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
-int
-main(int argc, char **argv)
+int main_stereo(int argc, char** argv, int uid, cudaStream_t & stream)
 {
     printf("%s Starting...\n\n", sSDKsample);
-    runTest(argc, argv);
+    runTest(argc, argv, uid, stream);
+
+    return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //! CUDA Sample for calculating depth maps
 ////////////////////////////////////////////////////////////////////////////////
 void
-runTest(int argc, char **argv)
+runTest(int argc, char **argv, int uid, cudaStream_t & stream)
 {
     cudaDeviceProp deviceProp;
     deviceProp.major = 0;
@@ -86,8 +87,10 @@ runTest(int argc, char **argv)
     unsigned char *h_img0 = NULL;
     unsigned char *h_img1 = NULL;
     unsigned int w, h;
-    char *fname0 = sdkFindFilePath("stereo.im0.640x533.ppm", argv[0]);
-    char *fname1 = sdkFindFilePath("stereo.im1.640x533.ppm", argv[0]);
+//    char *fname0 = sdkFindFilePath("stereo.im0.640x533.ppm", argv[0]);
+    char* fname0 = argv[1];
+//    char *fname1 = sdkFindFilePath("stereo.im1.640x533.ppm", argv[0]);
+    char* fname1 = argv[2];
 
     printf("Loaded <%s> as image 0\n", fname0);
 
@@ -123,9 +126,11 @@ runTest(int argc, char **argv)
     checkCudaErrors(cudaMalloc((void **) &d_img1, memSize));
 
     // copy host memory to device to initialize to zeros
-    checkCudaErrors(cudaMemcpy(d_img0,  h_img0, memSize, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_img1,  h_img1, memSize, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_odata, h_odata, memSize, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpyAsync(d_img0,  h_img0, memSize, cudaMemcpyHostToDevice, stream));
+    checkCudaErrors(cudaMemcpyAsync(d_img1,  h_img1, memSize, cudaMemcpyHostToDevice, stream));
+    checkCudaErrors(cudaMemcpyAsync(d_odata, h_odata, memSize, cudaMemcpyHostToDevice, stream));
+
+    cudaStreamSynchronize(stream);
 
     cudaChannelFormatDesc ca_desc0 = cudaCreateChannelDesc<unsigned int>();
     cudaChannelFormatDesc ca_desc1 = cudaCreateChannelDesc<unsigned int>();

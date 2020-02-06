@@ -25,8 +25,8 @@ namespace cg = cooperative_groups;
 #include "permutations.h"
 
 // Definitions
-#define INPUT_IMAGE "lena_std.ppm"
-#define REFERENCE_IMAGE "lena_ref.dds"
+#define INPUT_IMAGE "/mnt/GPU-Virtualization-Benchmarks/benchmarksv2/nvidia/dxtc/data/lena_std.ppm"
+#define REFERENCE_IMAGE "/mnt/GPU-Virtualization-Benchmarks/benchmarksv2/nvidia/dxtc/data/lena_ref.dds"
 
 #define ERROR_THRESHOLD 0.02f
 
@@ -575,12 +575,12 @@ static int compareBlock(const BlockDXT1 *b0, const BlockDXT1 *b1)
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char **argv)
+int main_dxtc (int argc, char** argv, int uid, cudaStream_t & stream)
 {
     printf("%s Starting...\n\n", argv[0]);
 
     // use command-line specified CUDA device, otherwise use device with highest Gflops/s
-    findCudaDevice(argc, (const char **)argv);
+//    findCudaDevice(argc, (const char **)argv);
 
     // Load input image.
     unsigned char *data = NULL;
