@@ -159,13 +159,27 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
                    sim_run_dir, args):
     bench_str = '-'.join(bench)
 
+    this_directory = os.path.dirname(os.path.realpath(__file__))
+
+    job_script = os.path.join(this_directory, 'job_scripts', 'slurm.sim')
+
     if args.env == 'eco':
-        queue_name = "batch"
-        job_script = 'torque.sim'
+        partition_name = "batch"
+        cmd_prefix = 'docker exec gpusim'
     else:
         # use cpu partition in vector cluster
-        queue_name = 'cpu'
-        job_script = 'slurm.sim'
+        partition_name = 'cpu'
+        cmd_prefix = ''
+
+    replacement_dict = {
+            "NAME": bench_str + '-' + config_name + '-' + gpusim_version,
+            "QUEUE_NAME": partition_name,
+            "PREFIX": cmd_prefix,
+    }
+ 
+
+
+    simulate_script = os.path.join(this_directory, 'job_scripts', 'simulate.sh')
 
     _input_1 = common.get_inputs_from_app(bench[0])
     _app_1_cmake = _input_1.split(' ')[0]
@@ -198,7 +212,6 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
         "PATH": os.getenv("PATH"),
     }
 
-    this_directory = os.path.dirname(os.path.realpath(__file__))
 
     with open(os.path.join(this_directory, job_script)) as f:
         script_text = f.read().strip()

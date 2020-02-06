@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH -J REPLACE_NAME
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=2
+#SBATCH --time=200:00:00
+#SBATCH --partition=REPLACE_QUEUE_NAME
+#SBATCH --export=ALL
+#SBATCH --output=%x.%j.log
+
+REPLACE_PREFIX ./simulate.sh
