@@ -43,10 +43,6 @@ def parse_args():
                                 "/benchmarksv2",
                         help="Benchmark home folder.")
 
-    parser.add_argument("--gpusim_home",
-                        default="/mnt/gpgpu-sim_distribution",
-                        help="GPGPU-Sim home folder.")
-
     parser.add_argument("--no_launch", action="store_true",
                         help="No real jobs will be launched, but run folder "
                              "will be set up.")
@@ -72,20 +68,20 @@ def parse_args():
 
 
 def sanity_checks(args):
-#    # Check if gpgpusim set up is run
-#    if str(os.getenv("GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN")) != "1":
-#        sys.exit(
-#            "ERROR - Please run setup_environment before running this script")
-#
-#    # Check the existence of required env variables
-#    if str(os.getenv("GPGPUSIM_ROOT")) == "None":
-#        exit("\nERROR - Specify GPGPUSIM_ROOT prior to running this script")
-#    if str(os.getenv("GPGPUSIM_CONFIG")) == "None":
-#        exit(
-#            "\nERROR - Specify GPGPUSIM_CONFIG prior to running this script")
+    # Check if gpgpusim set up is run
+    if str(os.getenv("GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN")) != "1":
+        sys.exit(
+            "ERROR - Please run setup_environment before running this script")
+
+    # Check the existence of required env variables
+    if str(os.getenv("GPGPUSIM_ROOT")) == "None":
+        exit("\nERROR - Specify GPGPUSIM_ROOT prior to running this script")
+    if str(os.getenv("GPGPUSIM_CONFIG")) == "None":
+        exit(
+            "\nERROR - Specify GPGPUSIM_CONFIG prior to running this script")
 
     # Check if job scheduler is installed
-    if args.env == 'dev':
+    if args.env == 'eco':
         # Test for the existence of torque on the system
         if not any([os.path.isfile(os.path.join(p, "qsub")) for p in
                     os.getenv("PATH").split(os.pathsep)]):
@@ -101,11 +97,11 @@ def sanity_checks(args):
                 "Is slurm installed on this machine?")
 
     # Check if NVCC is in path
-#    if not any([os.path.isfile(os.path.join(p, "nvcc")) for p in
-#                os.getenv("PATH").split(os.pathsep)]):
-#        exit(
-#            "ERROR - Cannot find nvcc PATH... "
-#            "Is CUDA_INSTALL_PATH/bin in the system PATH?")
+    if not any([os.path.isfile(os.path.join(p, "nvcc")) for p in
+                os.getenv("PATH").split(os.pathsep)]):
+        exit(
+            "ERROR - Cannot find nvcc PATH... "
+            "Is CUDA_INSTALL_PATH/bin in the system PATH?")
 
 
 def copy_so_to_run_dir(launch_run_dir):
@@ -181,13 +177,7 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
             "PREFIX": cmd_prefix,
     }
  
-    with open(os.path.join(this_directory, job_script)) as f:
-        script_text = f.read().strip()
 
-    for entry in replacement_dict:
-        script_text = re.sub("REPLACE_" + entry,
-                             str(replacement_dict[entry]),
-                             script_text)
 
     simulate_script = os.path.join(this_directory, 'job_scripts', 'simulate.sh')
 
@@ -206,7 +196,9 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
         _app_2_cmake = 'dont_care'
 
     replacement_dict = {
-        "GPGPUSIM_ROOT": args.gpusim_home,
+        "NAME": bench_str + '-' + config_name + '-' + gpusim_version,
+        "QUEUE_NAME": queue_name,
+        "GPGPUSIM_ROOT": os.getenv("GPGPUSIM_ROOT"),
         "BENCH_HOME": args.bench_home,
         "LIBPATH": so_run_dir,
         "SUBDIR": sim_run_dir,
@@ -220,15 +212,15 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
         "PATH": os.getenv("PATH"),
     }
 
-    with open(os.path.join(this_directory, simulate_script)) as f:
-        sim_text = f.read().strip()
+
+    with open(os.path.join(this_directory, job_script)) as f:
+        script_text = f.read().strip()
 
     for entry in replacement_dict:
-        sim_text = re.sub("REPLACE_" + entry,
-                          str(replacement_dict[entry]),
-                          sim_text)
-
-    return script_text, sim_text
+        script_text = re.sub("REPLACE_" + entry,
+                             str(replacement_dict[entry]),
+                             script_text)
+    return script_text
 
 
 def gen_gpusim_config(config):
@@ -245,7 +237,7 @@ def gen_gpusim_config(config):
     return config_name, config_str, src_config_dir
 
 
-def setup_sim_dir(sim_run_dir, job_str, sim_str, config_str, src_config_dir):
+def setup_sim_dir(sim_run_dir, job_script_str, config_str, src_config_dir):
     mkdir(sim_run_dir)
 
     # Copy config files into sim run dir
@@ -259,10 +251,7 @@ def setup_sim_dir(sim_run_dir, job_str, sim_str, config_str, src_config_dir):
 
     # Write job script
     with open(os.path.join(sim_run_dir, 'job.sim'), 'w+') as f:
-        f.write(job_str)
-
-    with open(os.path.join(sim_run_dir, 'simulate.sh'), 'w+') as f:
-        f.write(sim_str)
+        f.write(job_script_str)
 
     # Write gpgpusim config file
     with open(os.path.join(sim_run_dir, 'gpgpusim.config'), 'w+') as f:
@@ -277,7 +266,7 @@ def launch_sim_job(sim_run_dir, args):
     if args.env == 'eco':
         cmd = ["qsub", "-W", "umask=022", job_script]
     else:
-        cmd = ["sbatch", "--nodelist=eco-11", job_script]
+        cmd = ["sbatch", job_script]
 
     p = subprocess.run(cmd, stdout=subprocess.PIPE)
 
@@ -332,12 +321,11 @@ def main():
                     rm(sim_run_dir)
 
             # Generate job script for this bench
-            job_str, sim_str = gen_job_script(bench, config_name,
-                                              gpusim_version,
-                                              so_run_dir, sim_run_dir, args)
+            job_script_str = gen_job_script(bench, config_name, gpusim_version,
+                                            so_run_dir, sim_run_dir, args)
 
             # Real deal: create sim run dir and launch sim job
-            setup_sim_dir(sim_run_dir, job_str, sim_str, config_str,
+            setup_sim_dir(sim_run_dir, job_script_str, config_str,
                           src_config_dir)
 
             if not args.no_launch:
