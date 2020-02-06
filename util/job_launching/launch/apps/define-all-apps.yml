@@ -23,9 +23,9 @@ cutlass:
 
 
 parboil:
-  data_dirs: "$BENCH_HOME/parboil/datasets"
+  data_dirs: "$BENCH_HOME/parboil /datasets"
   execs:
-    - parb_sad:
+    - parb_sad:  
       - -i DATA/sad/default/input/reference.bin,DATA/sad/default/input/frame.bin -o out.bin
 
     - parb_sgemm:
@@ -82,6 +82,20 @@ rodinia:
     - rod_myocyte:
       - 100 1 0
 
+
+nvidia:
+  data_dirs: ""
+  execs:
+    - nvd_binomial:
+      - -device=0
+    - nvd_blackscholes:
+      - -device=0
+    - nvd_fdtd3d:
+      - --timesteps 1
+    - nvd_interval:
+      - -n=1
+    - nvd_sobol:
+      - -device=0
 
         ################## END TESTED portion #################
 
