@@ -20,13 +20,18 @@ app_dict = OrderedDict([
             ('parb_stencil-0', [16, 1024]),
             ('parb_lbm-0', [12, 18000]),
             ('parb_spmv-0', [16, 1147]),
-            #('rod_mummer-0', [8, 5727]),
+            # ('rod_mummer-0', [8, 5727]),
             ('rod_heartwall-0', [5, 51]),
             ('rod_hotspot-0', [8, 1849]),
             ('rod_hotspot3d-0', [8, 1024]),
             ('rod_streamcluster-0', [3, 128]),
             ('rod_pathfinder-0', [8, 463]),
             ('rod_lavamd-0', [9, 1000]),
+            ('nvd_binomial-0', [16, 1024]),
+            ('nvd_blackscholes-0', [16, 15625]),
+            ('nvd_fdtd3d-0', [1, 288]),
+            ('nvd_interval-0', [12, 1024]),
+            ('nvd_sobol-0', [32, 51200]),
             ])
 
 pair_ignore = ['cut_sgemm-0', 'cut_wmma-1', 'parb_sgemm-0', 'rod_mummer-0']
