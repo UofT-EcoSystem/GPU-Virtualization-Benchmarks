@@ -131,7 +131,7 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
 
     # Build GPGPU-Sim config string
     def build_config(row):
-        config_base = 'TITANV-PAE-CONCURRENT-SEP_RW'
+        config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
         if random:
             config_base += '-RANDOM'
 
