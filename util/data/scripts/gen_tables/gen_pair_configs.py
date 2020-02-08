@@ -47,6 +47,10 @@ def parse_args(_args):
                         help='Fail fast simulation: cap runtime at n times '
                              'the longer kernel. Default is 2.5x.')
 
+    parser.add_argument('--top',
+            action='store_true',
+            help='Cherry pick the top configs.')
+
     results = parser.parse_args(_args)
     return results
 
@@ -127,7 +131,7 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
 
     # Build GPGPU-Sim config string
     def build_config(row):
-        config_base = 'TITANV-CONCURRENT-SEP_RW'
+        config_base = 'TITANV-PAE-CONCURRENT-SEP_RW'
         if random:
             config_base += '-RANDOM'
 
@@ -156,7 +160,7 @@ def main(_args):
     args = parse_args(_args)
 
     df_prod = build_df_prod(args.intra_pkl, args.qos, args.apps,
-                            random=args.random, cap=args.cap, top_only=True)
+                            random=args.random, cap=args.cap, top_only=args.top)
 
     df_prod.to_pickle(args.output)
 

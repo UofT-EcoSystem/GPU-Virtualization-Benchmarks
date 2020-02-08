@@ -100,7 +100,7 @@ pair_count = 0
 for pair in args.pair:
     apps = pair.split('+')
 
-    base_config = "TITANV-SEP_RW-CONCURRENT"
+    base_config = "TITANV-PAE-SEP_RW-CONCURRENT"
     if args.random:
         base_config += "-RANDOM"
 
