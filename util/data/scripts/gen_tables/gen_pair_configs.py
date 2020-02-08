@@ -92,7 +92,7 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
     if len(df_prod) == 0:
         print('Error. No feasible pair configs for {0}+{1} at QoS {2}.'
               .format(apps[0], apps[1], qos))
-        return []
+        return pd.DataFrame()
 
     # calculate difference in memory latency
     df_prod['diff_mflat'] = np.abs(df_prod['avg_mem_lat_y'] -
@@ -162,22 +162,25 @@ def main(_args):
     df_prod = build_df_prod(args.intra_pkl, args.qos, args.apps,
                             random=args.random, cap=args.cap, top_only=args.top)
 
-    df_prod.to_pickle(args.output)
+    if len(df_prod.index) > 0:
+        df_prod.to_pickle(args.output)
 
-    def print_config(*str):
-        if args.print:
-            print(*str)
+        def print_config(*str):
+            if args.print:
+                print(*str)
 
-    print_config('')
-    print_config('-' * 10, 'Top Candidate(s)', '-' * 10)
-    print_config('app order:', args.apps[0], args.apps[1])
+        print_config('')
+        print_config('-' * 10, 'Top Candidate(s)', '-' * 10)
+        print_config('app order:', args.apps[0], args.apps[1])
 
-    for config in df_prod['config']:
-        print_config('gpusim config:', config)
+        for config in df_prod['config']:
+            print_config('gpusim config:', config)
 
-    print_config('-' * 30)
+        print_config('-' * 30)
 
-    return df_prod['config']
+        return df_prod['config']
+    else:
+        return []
 
 
 if __name__ == "__main__":
