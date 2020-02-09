@@ -142,12 +142,13 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
         config_intra = 'INTRA_0:' + str(row['intra_x']) + ':' \
                        + str(row['intra_y']) + '_CTA'
         config_l2 = 'PARTITION_L2_0:' + str(row['l2_x']) + ':' + str(row['l2_y'])
-        if row['pair_str_x'] == row['penalized']:
-            config_icnt = 'ICNT_0:2:1_PRIORITY'
-        else:
-            config_icnt = 'ICNT_0:1:2_PRIORITY'
 
-        config = '-'.join([config_base, config_intra, config_l2, config_icnt])
+#        if row['pair_str_x'] == row['penalized']:
+#            config_icnt = 'ICNT_0:2:1_PRIORITY'
+#        else:
+#            config_icnt = 'ICNT_0:1:2_PRIORITY'
+
+        config = '-'.join([config_base, config_intra, config_l2])
 
         return config
 
