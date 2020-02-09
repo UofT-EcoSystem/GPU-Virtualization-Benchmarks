@@ -23,7 +23,7 @@ cutlass:
 
 
 parboil:
-  data_dirs: "$BENCH_HOME/parboil /datasets"
+  data_dirs: "$BENCH_HOME/parboil/datasets"
   execs:
     - parb_sad:  
       - -i DATA/sad/default/input/reference.bin,DATA/sad/default/input/frame.bin -o out.bin
