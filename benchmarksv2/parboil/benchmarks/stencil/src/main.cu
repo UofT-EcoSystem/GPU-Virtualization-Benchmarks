@@ -19,12 +19,20 @@
 
 #include "interface.h" 
 
-__global__ void block2D_hybrid_coarsen_x(float c0,float c1,float *A0,float *Anext, int nx, int ny, int nz)
+__global__ void block2D_hybrid_coarsen_x(float c0, float c1,float *A0,float *Anext, int nx, int ny, int nz,
+    int subgrid_id, dim3 subgrid_dim)
 {
+  if (threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
+    printf("id: %d, A0: %p, Anext: %p\n", subgrid_id, A0, Anext);
+  }
   //thread coarsening along x direction
+//  const int i = blockIdx.x*blockDim.x*2+threadIdx.x;
+//  const int i2= blockIdx.x*blockDim.x*2+threadIdx.x+blockDim.x;
+//  const int j = blockIdx.y*blockDim.y+threadIdx.y;
+
   const int i = blockIdx.x*blockDim.x*2+threadIdx.x;
   const int i2= blockIdx.x*blockDim.x*2+threadIdx.x+blockDim.x;
-  const int j = blockIdx.y*blockDim.y+threadIdx.y;
+  const int j = (subgrid_id*subgrid_dim.y + blockIdx.y)*blockDim.y+threadIdx.y;
   const int sh_id=threadIdx.x + threadIdx.y*blockDim.x*2;
   const int sh_id2=threadIdx.x +blockDim.x+ threadIdx.y*blockDim.x*2;
 
@@ -211,6 +219,8 @@ int main_stencil(int argc, char** argv, int uid, cudaStream_t & stream) {
 	dim3 block (tx, ty, 1);
 	//also change threads size maping from tx by ty to 2tx x ty
 	dim3 grid ((nx+tx*2-1)/(tx*2), (ny+ty-1)/ty,1);
+	printf("grid.x: %d, grid.y: %d\n", grid.x, grid.y);
+
 	int sh_size = tx*2*ty*sizeof(float);	
  
   set_and_check(uid, true);
@@ -221,22 +231,77 @@ int main_stencil(int argc, char** argv, int uid, cudaStream_t & stream) {
 	//main execution
 	pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
-  bool can_exit = false;
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
 
-  while (!can_exit) {
-//    for(int t=0;t<iteration;t++)
-    {
-      block2D_hybrid_coarsen_x<<<grid, block, sh_size, stream>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
+
+//  bool can_exit = false;
+
+	bool graphCreated = false;
+	cudaGraph_t graph;
+	cudaGraphExec_t instance;
+
+
+//  while (!can_exit) {
+  for(int t=0;t<iteration/2;t++) {
+    if (true) {
+
+      if (!graphCreated) {
+        cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+        const dim3 subgrid_dim(8, 18, 1);
+        for (int subgrid_id = 0; subgrid_id < 8; subgrid_id++)
+        {
+          dim3 subgrid = subgrid_dim;
+          if (subgrid_id == 7) {
+            subgrid.y = 2;
+          }
+          block2D_hybrid_coarsen_x<<<subgrid, block, sh_size, stream>>>(c0, c1, d_A0, d_Anext, nx, ny, nz, subgrid_id, subgrid_dim);
+        }
+
+        float *d_temp = d_A0;
+        d_A0 = d_Anext;
+        d_Anext = d_temp;
+
+        for (int subgrid_id = 0; subgrid_id < 8; subgrid_id++)
+        {
+          dim3 subgrid = subgrid_dim;
+          if (subgrid_id == 7) {
+            subgrid.y = 2;
+          }
+          block2D_hybrid_coarsen_x<<<subgrid, block, sh_size, stream>>>(c0, c1, d_A0, d_Anext, nx, ny, nz, subgrid_id, subgrid_dim);
+        }
+
+        cudaStreamEndCapture(stream, &graph);
+        cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+        graphCreated = true;
+
+        cudaEventRecord(start, stream);
+      }
+
+
+      cudaGraphLaunch(instance, stream);
+
+
+    } else {
+      block2D_hybrid_coarsen_x<<<grid, block, sh_size, stream>>>(c0, c1, d_A0, d_Anext, nx, ny, nz, 0, grid);
+
       float *d_temp = d_A0;
       d_A0 = d_Anext;
       d_Anext = d_temp;
-
     }
-    CUERR // check and clear any existing errors
-    cudaStreamSynchronize(stream);
-
-    can_exit = set_and_check(uid, false);
   }
+
+  cudaEventRecord(stop, stream);
+
+  cudaEventSynchronize(stop);
+
+  float msecTotal = 0.0f;
+  cudaEventElapsedTime(&msecTotal, start, stop);
+
+  printf("Stencil %d iterations took %f msec\n", iteration, msecTotal);
+
+  set_and_check(uid, false);
 
   float *d_temp = d_A0;
   d_A0 = d_Anext;
