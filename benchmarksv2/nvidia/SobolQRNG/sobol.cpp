@@ -298,5 +298,5 @@ int main_sobol(int argc, char** argv, int uid, cudaStream_t & stream)
     checkCudaErrors(cudaFree(d_output));
 
     // Check pass/fail using L1 error
-    exit(l1error < L1ERROR_TOLERANCE ? EXIT_SUCCESS : EXIT_FAILURE);
+   return l1error < L1ERROR_TOLERANCE ? EXIT_SUCCESS : EXIT_FAILURE;
 }

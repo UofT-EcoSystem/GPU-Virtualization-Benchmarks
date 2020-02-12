@@ -202,5 +202,5 @@ int main_binomial(int argc, char** argv, int uid, cudaStream_t & stream)
     }
 
     printf("Test passed\n");
-    exit(EXIT_SUCCESS);
+    return EXIT_SUCCESS;
 }

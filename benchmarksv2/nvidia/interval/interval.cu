@@ -146,5 +146,5 @@ int main_interval(int argc, char** argv, int uid, cudaStream_t & stream)
     delete [] h_result;
     delete [] h_nresults;
 
-    exit(bTestResult ? EXIT_SUCCESS : EXIT_FAILURE);
+    return (bTestResult ? EXIT_SUCCESS : EXIT_FAILURE);
 }
