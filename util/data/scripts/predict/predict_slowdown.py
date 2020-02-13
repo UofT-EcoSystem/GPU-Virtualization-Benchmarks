@@ -68,6 +68,11 @@ def prepare_datasets(df_pair, cc):
         y = df_pair[sld_col]
 
         print('X invalid?', np.isnan(X).any())
+        print('y invalid?', np.isnan(y).any())
+
+        # replace inf and -inf
+        X = np.nan_to_num(X, neginf=-1e30)
+
         return X, y
 
     X1, y1 = feature_set('x', 'y')
@@ -132,7 +137,9 @@ def plot_importance(clf):
 
 def predict_from_df(clf, df_pair, suffix):
     cols = [c + '_' + suffix for c in cols_prefix]
-    X = df_pair[cols].values
+
+    X = df_pair[cols].values.astype(float)
+    X = np.nan_to_num(X, neginf=-1e30)
 
     return clf.predict(X)
 

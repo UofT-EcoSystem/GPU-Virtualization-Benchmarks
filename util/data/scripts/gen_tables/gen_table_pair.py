@@ -56,6 +56,11 @@ def parse_args():
 def preprocess_df_pair(df_pair, parse_config):
     df_pair = df_pair.copy()
 
+    # filter out any entries that have zero instructions (failed one way the
+    # other)
+    df_pair = df_pair[df_pair['1_instructions'] > 0]
+    df_pair.reset_index(inplace=True, drop=True)
+
     # avg mem bandwidth
     df_pair['avg_dram_bw'] = df_pair['dram_bw'].transform(hi.avg_array)
 
@@ -124,6 +129,8 @@ def main():
 
     # Read CSV file
     df_pair = pd.read_csv(args.csv)
+    df_pair.dropna(how="any", inplace=True)
+
     df_pair = preprocess_df_pair(df_pair, not args.smk)
 
     # Calculate weighted speedup and fairness w.r.t seq
