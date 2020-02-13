@@ -55,8 +55,8 @@ struct SlicingBlockSwizzle {
     dim3 result;
     // original grid size = 32 * 16
     result.x = flatten_id % 32;
-    result.y = flatten_id / 16;
-    result.z = 1;
+    result.y = flatten_id / 32;
+    result.z = 0;
 
 
     return result;

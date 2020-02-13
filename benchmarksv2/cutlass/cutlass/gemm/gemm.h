@@ -151,10 +151,8 @@ struct Gemm {
     block.x = kThreads;
 
 
-    printf("grid.x = %d, grid.y = %d\n", grid.x, grid.y);
-
-    dim3 subgrid = {1, 36, 1};
-    dim3 leftover = {1, 8, 1};
+    dim3 subgrid = {36, 1, 1};
+    dim3 leftover = {8, 1, 1};
 
 
     for (int subgrid_id = 0; subgrid_id < 15; subgrid_id++) {
@@ -282,6 +280,7 @@ struct Gemm {
     // Scale the id.
     block.x *= Traits::OutputTile::kW;
     block.y *= Traits::OutputTile::kH;
+
 
     // We may want to use shared memory to clear the registers.
     typedef typename Traits::ClearAccumulators ClearAccumulators;

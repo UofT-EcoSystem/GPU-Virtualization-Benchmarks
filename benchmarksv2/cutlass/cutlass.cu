@@ -81,29 +81,48 @@ static void run_gemm(
 
   bool can_exit = false;
 
-  while (!can_exit) {
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  cudaEventRecord(start, stream);
+
+  int iteration = 100;
+
+//  while (!can_exit) {
+  for (int iter = 0; iter < iteration; iter++) {
     Gemm::launch(params, stream);
 
-    cudaStreamSynchronize(stream);
+//    cudaStreamSynchronize(stream);
     can_exit = set_and_check(uid, false);
   }
 
 
-  cudaError_t result;
-  do
-  {
-    result = cudaDeviceSynchronize();
-  }while(result!=cudaSuccess);
-  printf("Successfully Launched\n");
+  cudaEventRecord(stop, stream);
 
-  int save=1;
-  int completedsuccessfully=testbed.verify_with_host(save,save);
-  if (completedsuccessfully==1){
-    printf("Result Verified\n");
-  }
-  else{
-    printf("ERROR");
-  }
+  cudaEventSynchronize(stop);
+
+  float msecTotal = 0.0f;
+  cudaEventElapsedTime(&msecTotal, start, stop);
+
+  printf("Cutlass SGEMM %d iterations took %f msec\n", iteration, msecTotal);
+
+
+//  cudaError_t result;
+//  do
+//  {
+//    result = cudaDeviceSynchronize();
+//  }while(result!=cudaSuccess);
+//  printf("Successfully Launched\n");
+//
+//  int save=1;
+//  int completedsuccessfully=testbed.verify_with_host(save,save);
+//  if (completedsuccessfully==1){
+//    printf("Result Verified\n");
+//  }
+//  else{
+//    printf("ERROR");
+//  }
 
 }
 
