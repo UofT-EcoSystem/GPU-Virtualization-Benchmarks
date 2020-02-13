@@ -4,6 +4,10 @@ import os
 import job_launching.launch.common as common
 import oyaml as yaml
 import glob
+import threading
+import multiprocessing
+from joblib import Parallel, delayed
+from time import sleep
 
 
 def load_stats_yamls(filename):
@@ -110,7 +114,7 @@ def has_exited(gpusim_logfile):
 
         lines = f.readlines()
 
-        max_line_count = 10000
+        max_line_count = 300
         for line in reversed(lines):
             max_line_count -= 1
             if max_line_count < 0:
@@ -130,7 +134,7 @@ def collect_stats(outputfile, stats_to_pull):
     f = open(outputfile)
     lines = f.readlines()
 
-    for line in lines:
+    for line in reversed(lines):
         # If we ended simulation due to too many insn -
         # ignore the last kernel launch, as it is no complete.
         # Note: This only appies if we are doing kernel-by-kernel stats
@@ -157,9 +161,84 @@ def collect_stats(outputfile, stats_to_pull):
                     else:
                         stat_map[stat_name].append(number)
 
+        if len(stat_map) == len(stats_to_pull):
+            # we collected all the info, exit!
+            break
+
     f.close()
 
     return hit_max, stat_map
+
+
+def parse_app_files(app, args, stats_to_pull):
+    csv_list = []
+    failed = False
+    file_count = 0
+    hit_max_count = 0
+
+    stats_list = list(stats_to_pull.keys())
+    app_path = os.path.join(args.run_dir, app)
+    configs = [sd for sd in os.listdir(app_path) if
+               os.path.isdir(os.path.join(app_path, sd))]
+
+    # go into each config directory
+    for config in configs:
+        # check exclude strings
+        if len(args.exclude) > 0 and \
+                any(exclude in config for exclude in args.exclude):
+            continue
+
+        # check must include strings
+        if len(args.include) > 0 and \
+                not all(include in config for include in args.include):
+            continue
+
+        config_path = os.path.join(app_path, config)
+
+        # for this config path we need to find the latest modified
+        # output log file and parse it
+        gpusim_logs = glob.glob(os.path.join(config_path, '*.log'))
+        timestamps = [os.path.getmtime(x) for x in gpusim_logs]
+        latest_index = timestamps.index(max(timestamps))
+        latest_log = gpusim_logs[latest_index]
+
+        # do a reverse pass to check whether simulation exited
+        if not has_exited(latest_log):
+            pretty_print("Detected that {0} does not contain a "
+                         "terminating string from GPGPU-Sim. Skip.".format
+                         (latest_log))
+            failed = True
+            continue
+
+        # get parameters from the file name and parent directory
+        gpusim_version, job_Id = parse_outputfile_name(latest_log, app,
+                                                       config)
+        # build a csv string to be written to file from this output
+        csv_str = app + ',' + config + ',' + \
+                  gpusim_version + ',' + job_Id
+
+        hit_max, stat_map = collect_stats(latest_log, stats_to_pull)
+
+        for stat in stats_list:
+            if stat in stat_map:
+                if stats_to_pull[stat][1] == 'scalar':
+                    csv_str += ',' + stat_map[stat]
+                else:
+                    csv_str += ',[' + ' '.join(stat_map[stat]) + ']'
+            else:
+                if stats_to_pull[stat][1] == 'scalar':
+                    csv_str += ',' + '0'
+                else:
+                    csv_str += ',[0]'
+
+        csv_list.append(csv_str)
+
+        file_count += 1
+
+        if hit_max:
+            hit_max_count += 1
+
+    return '\n'.join(csv_list), failed, file_count, hit_max_count
 
 
 def main():
@@ -172,7 +251,6 @@ def main():
 
     # process app, config and stat yamls
     stats_to_pull = process_yamls(args)
-    stats_list = list(stats_to_pull.keys())
 
     apps = [d for d in os.listdir(args.run_dir) if
             os.path.isdir(os.path.join(args.run_dir, d))]
@@ -182,7 +260,8 @@ def main():
 
     f_csv = open(args.output, "w+")
     f_csv.write(
-        'pair_str,config,gpusim_version,jobId,' + ','.join(stats_list) + '\n')
+        'pair_str,config,gpusim_version,jobId,' + ','.join(
+            stats_to_pull.keys()) + '\n')
 
     # book keeping numbers:
     file_count = 0
@@ -190,67 +269,23 @@ def main():
     failed_apps = set()
     good_apps = set()
 
-    for app in apps:
-        app_path = os.path.join(args.run_dir, app)
-        configs = [sd for sd in os.listdir(app_path) if
-                   os.path.isdir(os.path.join(app_path, sd))]
+    num_cores = multiprocessing.cpu_count()
+    results = Parallel(n_jobs=num_cores)(
+        delayed(parse_app_files)(app, args, stats_to_pull) for app in apps)
 
-        # go into each config directory
-        for config in configs:
-            # check exclude strings
-            if len(args.exclude) > 0 and \
-                    any(exclude in config for exclude in args.exclude):
-                continue
+    for idx, app_result in enumerate(results):
+        # app_result: csv, failed, file_count, hit_max_count
+        if app_result[2] > 0:
+            f_csv.write(app_result[0])
+            f_csv.write('\n')
 
-            # check must include strings
-            if len(args.include) > 0 and \
-                    not all(include in config for include in args.include):
-                continue
+        if app_result[1]:
+            failed_apps.add(apps[idx])
+        else:
+            good_apps.add(apps[idx])
 
-            config_path = os.path.join(app_path, config)
-
-            # for this config path we need to find the latest modified
-            # output log file and parse it
-            gpusim_logs = glob.glob(os.path.join(config_path, '*.log'))
-            timestamps = [os.path.getmtime(x) for x in gpusim_logs]
-            latest_index = timestamps.index(max(timestamps))
-            latest_log = gpusim_logs[latest_index]
-
-            # do a reverse pass to check whether simulation exited
-            if not has_exited(latest_log):
-                pretty_print("Detected that {0} does not contain a "
-                             "terminating string from GPGPU-Sim. Skip.".format
-                             (latest_log))
-                failed_apps.add(app)
-                continue
-
-            good_apps.add(app)
-
-            # get parameters from the file name and parent directory
-            gpusim_version, job_Id = parse_outputfile_name(latest_log, app,
-                                                           config)
-
-            # build a csv string to be written to file from this output
-            csv_str = app + ',' + config + ',' + \
-                      gpusim_version + ',' + job_Id
-
-            hit_max, stat_map = collect_stats(latest_log, stats_to_pull)
-
-            for stat in stats_list:
-                if stat in stat_map:
-                    if stats_to_pull[stat][1] == 'scalar':
-                        csv_str += ',' + stat_map[stat]
-                    else:
-                        csv_str += ',[' + ' '.join(stat_map[stat]) + ']'
-                else:
-                    csv_str += ',' + '0'
-
-            # append information from this output file to the csv file
-            f_csv.write(csv_str + '\n')
-            file_count += 1
-
-            if hit_max:
-                hit_max_count += 1
+        file_count += app_result[2]
+        hit_max_count += app_result[3]
 
     f_csv.close()
 
