@@ -548,6 +548,7 @@ struct GemmTraits {
   struct Params {
     /// The dimensions of the GEMM.
     Index m, n, k;
+    int subgrid, subgrid_id;
     /// The params for the A stream.
     typename GlobalLoadStreamA::Params global_stream_a;
     /// The params for the B stream.
@@ -585,7 +586,11 @@ struct GemmTraits {
 
       // The epilogue.
       return epilogue.initialize(desc);
+
+      this->subgrid = 1;
+      this->subgrid_id = 0;
     }
+
   };
 
   // The storage for A.
@@ -805,7 +810,8 @@ struct SimplifiedGemmTraits : public GemmTraits<
                                   // The epilogue.
                                   Epilogue_,
                                   // The block swizzle to reorganize the grid.
-                                  IdentityBlockSwizzle,
+//                                  IdentityBlockSwizzle,
+                                  SlicingBlockSwizzle,
                                   // The index.
                                   Index_,
                                   // The tool used to clear accumulators.

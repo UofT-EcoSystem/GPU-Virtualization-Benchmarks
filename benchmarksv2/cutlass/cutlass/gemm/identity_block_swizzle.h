@@ -42,6 +42,28 @@ struct IdentityBlockSwizzle {
   CUTLASS_DEVICE dim3 swizzle() { return blockIdx; }
 };
 
+struct SlicingBlockSwizzle {
+
+  /// Ctor.
+  CUTLASS_DEVICE SlicingBlockSwizzle() {
+  }
+
+  /// Swizzle the block index.
+  CUTLASS_DEVICE dim3 swizzle(int subgrid, int subgrid_id) {
+    int flatten_id = subgrid * subgrid_id + blockIdx.x;
+
+    dim3 result;
+    // original grid size = 32 * 16
+    result.x = flatten_id % 32;
+    result.y = flatten_id / 16;
+    result.z = 1;
+
+
+    return result;
+  }
+};
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }  // namespace gemm

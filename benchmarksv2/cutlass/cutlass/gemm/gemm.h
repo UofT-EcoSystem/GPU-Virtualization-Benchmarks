@@ -134,11 +134,12 @@ struct Gemm {
       desc.ldd = ldd;
       return Traits::Params::initialize(desc);
     }
+
   };
 
 #if !defined(__CUDACC_RTC__)
   /// Launch the kernel.
-  static __host__ cudaError_t launch(Params const& params,
+  static __host__ cudaError_t launch(Params & params,
                                      cudaStream_t stream = cudaStreamDefault) {
     // Setup the grid.
     dim3 grid;
@@ -149,15 +150,29 @@ struct Gemm {
     dim3 block;
     block.x = kThreads;
 
-    // Launch the kernel.
-    void const* params_ = reinterpret_cast<void const*>(&params);
 
-    return cudaLaunchKernel(reinterpret_cast<void*>(&gemm_kernel<This_>),
-                            grid,
-                            block,
-                            const_cast<void**>(&params_),
-                            0,
-                            stream);
+    printf("grid.x = %d, grid.y = %d\n", grid.x, grid.y);
+
+    dim3 subgrid = {1, 36, 1};
+    dim3 leftover = {1, 8, 1};
+
+
+    for (int subgrid_id = 0; subgrid_id < 15; subgrid_id++) {
+      // Launch the kernel.
+      params.subgrid_id = subgrid_id;
+      params.subgrid = 36;
+      void const* params_ = reinterpret_cast<void const*>(&params);
+
+      dim3 actual_grid = subgrid_id < 14 ? subgrid : leftover;
+      cudaLaunchKernel(reinterpret_cast<void*>(&gemm_kernel<This_>),
+                                  actual_grid,
+                                  block,
+                                  const_cast<void**>(&params_),
+                                  0,
+                                  stream);
+    }
+
+    return cudaGetLastError();
   }
 
   /// Launch the kernel.
@@ -262,7 +277,7 @@ struct Gemm {
   CUTLASS_DEVICE void multiply_add() {
     // Swizzle the IDs of the block (to enable better cache behavior).
     typename Traits::BlockSwizzle block_swizzle;
-    dim3 block = block_swizzle.swizzle();
+    dim3 block = block_swizzle.swizzle(params.subgrid, params.subgrid_id);
 
     // Scale the id.
     block.x *= Traits::OutputTile::kW;
