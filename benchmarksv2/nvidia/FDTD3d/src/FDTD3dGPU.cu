@@ -174,8 +174,8 @@ bool fdtdGPU(float *output, const float *input, const float *coeff, const int di
 
     bool can_exit = false;
 
-    // while(!can_exit)
-    for (int it = 0 ; it < timesteps ; it++)
+    while(!can_exit)
+    // for (int it = 0 ; it < timesteps ; it++)
     {
         // printf("\tt = %d ", it);
 
