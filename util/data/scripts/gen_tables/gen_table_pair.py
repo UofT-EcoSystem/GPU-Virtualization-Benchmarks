@@ -78,6 +78,7 @@ def preprocess_df_pair(df_pair, parse_config):
 
 
 def evaluate_df_pair(df_pair, df_baseline):
+    df_baseline.set_index('pair_str', inplace=True)
     df_pair = df_pair.copy()
 
     # Special handling: if simulation breaks due to cycle count limit,
@@ -135,7 +136,6 @@ def main():
 
     # Calculate weighted speedup and fairness w.r.t seq
     df_seq = pd.read_pickle(args.seq_pkl)
-    df_seq.set_index('pair_str', inplace=True)
     df_pair = evaluate_df_pair(df_pair, df_seq)
 
     # Get profiled info from intra pkl
