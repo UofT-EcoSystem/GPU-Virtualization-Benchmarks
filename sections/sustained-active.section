@@ -1,0 +1,39 @@
+Identifier: "PertSustainedActive"
+DisplayName: "% of sustainable rate achieved during active cycles"
+Header {
+  Metrics {
+    Label: "ALU"
+    Name: "sm__inst_executed_pipe_alu.avg.pct_of_peak_sustained_active"
+   }
+  Metrics {
+    Label: "FMA"
+    Name: "sm__inst_executed_pipe_fma.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "FP16"
+    Name: "sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "FP64"
+    Name: "sm__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "SPU"
+    Name: "sm__inst_executed_pipe_xu.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "Tensor"
+    Name: "sm__inst_executed_pipe_tensor.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "Load/Store"
+    Name: "sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active"
+  }
+  Metrics {
+    Label: "Eligible"
+    Name: "smsp__issue_active.avg.pct_of_peak_sustained_active"
+  }
+
+
+}
+

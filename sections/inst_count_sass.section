@@ -1,0 +1,33 @@
+Identifier: "SassCounter"
+DisplayName: "Instruction count for SASS ops"
+Header {
+  Metrics {
+    Label: "EXEC"
+    Name: "smsp__sass_thread_inst_executed.sum"
+  }
+
+  Metrics {
+    Label: "INT"
+    Name: "smsp__sass_thread_inst_executed_op_integer_pred_on.sum"
+   }
+  Metrics {
+    Label: "FP32"
+    Name: "smsp__sass_thread_inst_executed_op_fp32_pred_on.sum"
+  }
+  Metrics {
+    Label: "FP16"
+    Name: "smsp__sass_thread_inst_executed_op_fp16_pred_on.sum"
+  }
+  Metrics {
+    Label: "FP64"
+    Name: "smsp__sass_thread_inst_executed_op_fp64_pred_on.sum"
+  }
+  Metrics {
+    Label: "Control"
+    Name: "smsp__sass_thread_inst_executed_op_control_pred_on.sum"
+  }
+
+
+
+}
+

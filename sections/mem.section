@@ -1,0 +1,53 @@
+Identifier: "Memory_Usage"
+DisplayName: "Memory utilization related data"
+Header {
+  Metrics {
+    Label: "STATIC_SHARED_USAGE"
+    Name: "launch__shared_mem_per_block_static"
+   }
+  Metrics {
+    Label: "DYNAMIC_SHARED_USAGE"
+    Name: "launch__shared_mem_per_block_dynamic"
+   }
+  Metrics {
+    Label: "REGISTER_USAGE"
+    Name: "launch__registers_per_thread"
+   }
+  Metrics {
+    Label: "OCCUPANCY"
+    Name: "sm__warps_active.avg.pct_of_peak_sustained_active"
+   }
+  Metrics {
+    Label: "DRAM_UTIL_PCT"
+    Name: "dram__throughput.avg.pct_of_peak_sustained_elapsed"
+  }
+  Metrics {
+    Label: "L1 Hit Rate"
+    Name: "tex__hitrate_pct"
+    Options {
+      Name: "l1tex__t_sector_hit_rate.pct"
+      Filter {
+        MinArch: TU10x
+      }
+    }
+  }
+  Metrics {
+    Label: "L2 Hit Rate"
+    Name: "lts__request_total_sectors_hitrate_pct"
+    Options {
+      Name: "lts__t_sector_hit_rate.pct"
+      Filter {
+        MinArch: TU10x
+      }
+    }
+  }
+  Metrics {
+    Label: "Block Size"
+    Name: "launch__block_size"
+  }
+  Metrics {
+    Label: "Shm Config Size"
+    Name: "launch__shared_mem_config_size"
+  }
+}
+
