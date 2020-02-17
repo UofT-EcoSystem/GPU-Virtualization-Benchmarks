@@ -73,6 +73,27 @@ Header {
     Label: "Eligible"
     Name: "smsp__issue_active.avg.pct_of_peak_sustained_active"
   }
+  Metrics {
+     Label: "long_score"
+     Name: "smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.ratio"
+  }
+  Metrics {
+     Label: "short_score"
+     Name: "smsp__average_warps_issue_stalled_short_scoreboard_per_issue_active.ratio"
+  }
+
+  Metrics {
+      Label: "math_pipe"
+      Name: "smsp__average_warps_issue_stalled_math_pipe_throttle_per_issue_active.ratio"
+  }
+  Metrics {
+    Label: "wait"
+    Name: "smsp__average_warps_issue_stalled_wait_per_issue_active.ratio"
+  }
+
+
+
+                                                                       
 
 
 
