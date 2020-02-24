@@ -11,10 +11,10 @@ num_sm_volta = 80
 
 # max ctas according to resource constraints, grid size
 app_dict = OrderedDict([
-            ('cut_sgemm-0', [2, 128]),
+            # ('cut_sgemm-0', [2, 128]),
             ('cut_sgemm-1', [2, 512]),
             ('cut_wmma-0', [4, 128]),
-            ('cut_wmma-1', [4, 1024]),
+            # ('cut_wmma-1', [4, 1024]),
             # ('parb_sgemm-0', [11, 528]),
             ('parb_cutcp-0', [16, 121]),
             ('parb_stencil-0', [16, 1024]),
