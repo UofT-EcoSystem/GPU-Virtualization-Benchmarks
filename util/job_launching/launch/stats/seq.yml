@@ -54,6 +54,50 @@
     'smem=(.*),'
   'mem_count':
     'gpgpu_n_mem_read_global\s=\s(.*)'
+  'sp_winsn':
+    'gpgpu_n_sp_winsn\s*=\s*(.*)'
+  'dp_winsn':
+    'gpgpu_n_dp_winsn\s*=\s*(.*)'
+  'int_winsn':
+    'gpgpu_n_int_winsn\s*=\s*(.*)'
+  'tensor_winsn':
+    'gpgpu_n_tensor_winsn\s*=\s*(.*)'
+  'sfu_winsn':
+    'gpgpu_n_sfu_winsn\s*=\s*(.*)'
+  'mem_insn':
+    'gpgpu_n_mem_winsn\s*=\s*(.*)'
+  'sp_busy':
+    'gpgpu_sp_busy\s*=\s*(.*)'
+  'dp_busy':
+    'gpgpu_dp_busy\s*=\s*(.*)'
+  'int_busy':
+    'gpgpu_int_busy\s*=\s*(.*)'
+  'tensor_busy':
+    'gpgpu_tensor_busy\s*=\s*(.*)'
+  'sfu_busy':
+    'gpgpu_sfu_busy\s*=\s*(.*)'
+  'barrier_cycles':
+    'barrier_cycles\[1\]\s*=\s*(.*)'
+  'inst_empty_cycles':
+    'inst_empty_cycles\[1\]\s*=\s*(.*)'
+  'branch_cycles':
+    'branch_cycles\[1\]\s*=\s*(.*)'
+  'scoreboard_cycles':
+    'stall_scoreboard_cycles\[1\]\s*=\s*(.*)'
+  'stall_sp_cycles':
+    'stall_sp_cycles\[1\]\s*=\s*(.*)'
+  'stall_dp_cycles':
+    'stall_dp_cycles\[1\]\s*=\s*(.*)'
+  'stall_int_cycles':
+    'stall_int_cycles\[1\]\s*=\s*(.*)'
+  'stall_tensor_cycles':
+    'stall_tensor_cycles\[1\]\s*=\s*(.*)'
+  'stall_sfu_cycles':
+    'stall_sfu_cycles\[1\]\s*=\s*(.*)'
+  'stall_mem_cycles':
+    'stall_mem_cycles\[1\]\s*=\s*(.*)'
+  'not_selected_cycles':
+    'not_selected_cycles\[1\]\s*=\s*(.*)'
 'vector':
   'dram_eff': 'dram_eff=(.*)$'
   'dram_bw': 'bw_util=(.*)$'
