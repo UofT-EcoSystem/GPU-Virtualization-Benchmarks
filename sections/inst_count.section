@@ -2,6 +2,14 @@ Identifier: "InstCounter"
 DisplayName: "Instruction count for different pipelines"
 Header {
   Metrics {
+    Label: "Elapsed Cycles"
+    Name: "gpc__elapsed_cycles_max" 
+    Options {
+      Name: "gpc__cycles_elapsed.max"
+    }
+
+  }
+  Metrics {
     Label: "EXEC"
     Name: "smsp__inst_executed.sum"
   }
