@@ -46,14 +46,18 @@ app_df['achieved_sm'] = np.ceil(app_df['grid'] / app_df['max_cta']) \
 
 args = parse_args()
 
+if args.apps[0] == 'all':
+    args.apps = const.app_dict.keys()
+
 for app in args.apps:
     if app not in app_df.index.values:
         print("{0} is not in application map. Skip.".format(app))
 
 
     def launch_job(sm_config, jobname):
-        configs = ["-".join([base_config, sm, l2])
-                   for sm in sm_config for l2 in l2_partition]
+#        configs = ["-".join([base_config, sm, l2])
+#                   for sm in sm_config for l2 in l2_partition]
+        configs = ["-".join([base_config, sm]) for sm in sm_config]
 
         #        if app in mem_intense:
         #            configs = configs + [c + '-' + bypass_l2d for c in configs \
