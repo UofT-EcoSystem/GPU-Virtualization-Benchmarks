@@ -81,13 +81,14 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
     # Step 2: drop any pair that exceeds resource usage:
     # 'cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio',
     # 'l2', 'dram_busy', 'comp_busy'
-    resources = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio', 'l2']
+    # resources = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio', 'l2']
+    resources = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio']
 
     for rsrc in resources:
         df_prod = df_prod[(df_prod[rsrc + '_x'] + df_prod[rsrc + '_y']) <= 1.0]
 
     # for l2 only, keep the ones that add up to 1.0 exactly
-    df_prod = df_prod[(df_prod['l2_x'] + df_prod['l2_y'] == 1.0)]
+    # df_prod = df_prod[(df_prod['l2_x'] + df_prod['l2_y'] == 1.0)]
 
     if len(df_prod) == 0:
         print('Error. No feasible pair configs for {0}+{1} at QoS {2}.'
@@ -141,14 +142,16 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
 
         config_intra = 'INTRA_0:' + str(row['intra_x']) + ':' \
                        + str(row['intra_y']) + '_CTA'
-        config_l2 = 'PARTITION_L2_0:' + str(row['l2_x']) + ':' + str(row['l2_y'])
+        # config_l2 = 'PARTITION_L2_0:' + str(row['l2_x']) + ':'
+        # + str(row['l2_y'])
 
 #        if row['pair_str_x'] == row['penalized']:
 #            config_icnt = 'ICNT_0:2:1_PRIORITY'
 #        else:
 #            config_icnt = 'ICNT_0:1:2_PRIORITY'
 
-        config = '-'.join([config_base, config_intra, config_l2])
+        # config = '-'.join([config_base, config_intra, config_l2])
+        config = '-'.join([config_base, config_intra])
 
         return config
 

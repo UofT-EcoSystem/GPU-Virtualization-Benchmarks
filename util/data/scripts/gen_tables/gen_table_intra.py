@@ -50,7 +50,8 @@ def process_df_intra(df_intra, df_seq):
                                           axis=1)
 
     # gpusim config
-    hi.process_config_column('intra', 'l2', df=df_intra)
+    # hi.process_config_column('intra', 'l2', df=df_intra)
+    hi.process_config_column('intra', df=df_intra)
 
     # concurrent thread count per SM
     df_intra['thread_count'] = df_intra['intra'] * df_intra['block_x'] * \
@@ -100,8 +101,11 @@ def process_df_intra(df_intra, df_seq):
                 usage = df_intra[r] ** 2
         return usage
 
+    # df_intra['usage'] = pow_2('cta_ratio', 'thread_ratio', 'smem_ratio',
+    #                           'reg_ratio', 'l2', 'dram_busy', 'comp_busy')
+
     df_intra['usage'] = pow_2('cta_ratio', 'thread_ratio', 'smem_ratio',
-                              'reg_ratio', 'l2', 'dram_busy', 'comp_busy')
+                              'reg_ratio', 'dram_busy', 'comp_busy')
 
     return df_intra
 
@@ -119,8 +123,8 @@ def get_best_intra(df_intra):
     bench_list = df_intra['pair_str'].unique()
     for bench in bench_list:
         idx = df_intra[(df_intra['norm_ipc'] > 0.8) &
-                       (df_intra['pair_str'] == bench) &
-                       (df_intra['l2'] > 0.25)]['perfdollar'].idxmax()
+                       (df_intra['pair_str'] == bench)]['perfdollar'].idxmax()
+        # (df_intra['l2'] > 0.25)]['perfdollar'].idxmax()
         best_df.append(df_intra.iloc[idx])
 
     best_df = pd.concat(best_df, axis=1).T
