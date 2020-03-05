@@ -27,7 +27,7 @@ parboil:
   execs:
     - parb_sad:  
       - -i DATA/sad/default/input/reference.bin,DATA/sad/default/input/frame.bin -o out.bin
-
+      - -i DATA/sad/large/input/reference.bin,DATA/sad/default/input/frame.bin -o out.bin
     - parb_sgemm:
       - -i DATA/sgemm/medium/input/matrix1.txt,DATA/sgemm/medium/input/matrix2t.txt,DATA/sgemm/medium/input/matrix2t.txt -o matrix3.txt
 
@@ -46,6 +46,7 @@ parboil:
 
     - parb_histo:
       - -i DATA/histo/default/input/img.bin -o ref.bmp -- 20 4
+      - -i DATA/histo/large/input/img.bin -o ref.bmp -- 10000 4
 
     - parb_spmv:
       - -i DATA/spmv/large/input/Dubcova3.mtx.bin,DATA/spmv/large/input/vector.bin -o Dubcova3.mtx.out
