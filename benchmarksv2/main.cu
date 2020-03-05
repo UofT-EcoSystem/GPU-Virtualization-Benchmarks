@@ -132,6 +132,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_sad;
 #endif
   }
+  else if (strcmp(argv[0], "parb_histo") == 0) {
+    std::cout << "main: parboil histo" << std::endl;
+#ifdef PARBOIL_HISTO
+    func = main_histo;
+#endif
+  }
   else if (strcmp(argv[0], "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
 #ifdef CUT_SGEMM

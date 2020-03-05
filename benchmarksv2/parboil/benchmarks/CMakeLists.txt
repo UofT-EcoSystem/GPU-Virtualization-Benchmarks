@@ -24,3 +24,7 @@ if (parb_sad)
   add_subdirectory(sad)
 endif()
 
+if (parb_histo)
+  add_subdirectory(histo)
+endif()
+

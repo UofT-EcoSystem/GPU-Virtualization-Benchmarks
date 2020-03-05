@@ -59,9 +59,11 @@ __global__ void histo_final_kernel (
 * Finally, a reduction is performed to combine all the partial histograms into
 * the final result.
 ******************************************************************************/
+extern int set_and_check(int uid, bool start);
 
-int main(int argc, char* argv[]) {
-  struct pb_TimerSet timers;
+int main_histo(int argc, char** argv, int uid, cudaStream_t & stream)
+{
+//  struct pb_TimerSet timers;
   struct pb_Parameters *parameters;
 
   parameters = pb_ReadParameters(&argc, argv);
@@ -79,15 +81,15 @@ int main(int argc, char* argv[]) {
   char *mains = "MainKernel";
   char *finals = "FinalKernel";
 
-  pb_InitializeTimerSet(&timers);
-  
-  pb_AddSubTimer(&timers, prescans, pb_TimerID_KERNEL);
-  pb_AddSubTimer(&timers, postpremems, pb_TimerID_KERNEL);
-  pb_AddSubTimer(&timers, intermediates, pb_TimerID_KERNEL);
-  pb_AddSubTimer(&timers, mains, pb_TimerID_KERNEL);
-  pb_AddSubTimer(&timers, finals, pb_TimerID_KERNEL);
-  
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
+//  pb_InitializeTimerSet(&timers);
+//
+//  pb_AddSubTimer(&timers, prescans, pb_TimerID_KERNEL);
+//  pb_AddSubTimer(&timers, postpremems, pb_TimerID_KERNEL);
+//  pb_AddSubTimer(&timers, intermediates, pb_TimerID_KERNEL);
+//  pb_AddSubTimer(&timers, mains, pb_TimerID_KERNEL);
+//  pb_AddSubTimer(&timers, finals, pb_TimerID_KERNEL);
+//
+//  pb_SwitchToTimer(&timers, pb_TimerID_IO);
 
   int numIterations;
   if (argc >= 2){
@@ -142,32 +144,37 @@ int main(int argc, char* argv[]) {
   cudaMalloc((void**)&global_overflow , img_width*histo_height*sizeof(unsigned int));
   cudaMalloc((void**)&final_histo     , img_width*histo_height*sizeof(unsigned char));
 
-  cudaMemset(final_histo , 0 , img_width*histo_height*sizeof(unsigned char));
+  cudaMemsetAsync(final_histo , 0 , img_width*histo_height*sizeof(unsigned char), stream);
 
   for (int y=0; y < img_height; y++){
-    cudaMemcpy(&(((unsigned int*)input)[y*even_width]),&img[y*img_width],img_width*sizeof(unsigned int), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(&(((unsigned int*)input)[y*even_width]),&img[y*img_width],img_width*sizeof(unsigned int), cudaMemcpyHostToDevice, stream);
   }
 
-  pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
+//  pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
-  for (int iter = 0; iter < numIterations; iter++) {
+  cudaStreamSynchronize(stream);
+  while (!set_and_check(uid, true)) {};
+  bool can_exit = false;
+
+  while (!can_exit) {
+//  for (int iter = 0; iter < numIterations; iter++) {
     unsigned int ranges_h[2] = {UINT32_MAX, 0};
 
-    cudaMemcpy(ranges,ranges_h, 2*sizeof(unsigned int), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(ranges,ranges_h, 2*sizeof(unsigned int), cudaMemcpyHostToDevice, stream);
     
-    pb_SwitchToSubTimer(&timers, prescans , pb_TimerID_KERNEL);
+//    pb_SwitchToSubTimer(&timers, prescans , pb_TimerID_KERNEL);
 
-    histo_prescan_kernel<<<dim3(PRESCAN_BLOCKS_X),dim3(PRESCAN_THREADS)>>>((unsigned int*)input, img_height*img_width, ranges);
+    histo_prescan_kernel<<<dim3(PRESCAN_BLOCKS_X),dim3(PRESCAN_THREADS), 0, stream>>>((unsigned int*)input, img_height*img_width, ranges);
     
-    pb_SwitchToSubTimer(&timers, postpremems , pb_TimerID_KERNEL);
+//    pb_SwitchToSubTimer(&timers, postpremems , pb_TimerID_KERNEL);
 
-    cudaMemcpy(ranges_h,ranges, 2*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(ranges_h,ranges, 2*sizeof(unsigned int), cudaMemcpyDeviceToHost, stream);
 
-    cudaMemset(global_subhisto,0,img_width*histo_height*sizeof(unsigned int));
+    cudaMemsetAsync(global_subhisto,0,img_width*histo_height*sizeof(unsigned int), stream);
     
-    pb_SwitchToSubTimer(&timers, intermediates, pb_TimerID_KERNEL);
+//    pb_SwitchToSubTimer(&timers, intermediates, pb_TimerID_KERNEL);
 
-    histo_intermediates_kernel<<<dim3((img_height + UNROLL-1)/UNROLL), dim3((img_width+1)/2)>>>(
+    histo_intermediates_kernel<<<dim3((img_height + UNROLL-1)/UNROLL), dim3((img_width+1)/2), 0, stream>>>(
                 (uint2*)(input),
                 (unsigned int)img_height,
                 (unsigned int)img_width,
@@ -175,10 +182,10 @@ int main(int argc, char* argv[]) {
                 (uchar4*)(sm_mappings)
     );
     
-    pb_SwitchToSubTimer(&timers, mains, pb_TimerID_KERNEL);
+//    pb_SwitchToSubTimer(&timers, mains, pb_TimerID_KERNEL);
     
     
-    histo_main_kernel<<<dim3(BLOCK_X, ranges_h[1]-ranges_h[0]+1), dim3(THREADS)>>>(
+    histo_main_kernel<<<dim3(BLOCK_X, ranges_h[1]-ranges_h[0]+1), dim3(THREADS), 0, stream>>>(
                 (uchar4*)(sm_mappings),
                 img_height*img_width,
                 ranges_h[0], ranges_h[1],
@@ -188,9 +195,9 @@ int main(int argc, char* argv[]) {
                 (unsigned int*)(global_overflow)    
     );
     
-    pb_SwitchToSubTimer(&timers, finals, pb_TimerID_KERNEL);
+//    pb_SwitchToSubTimer(&timers, finals, pb_TimerID_KERNEL);
     
-    histo_final_kernel<<<dim3(BLOCK_X*3), dim3(512)>>>(
+    histo_final_kernel<<<dim3(BLOCK_X*3), dim3(512), 0, stream>>>(
                 ranges_h[0], ranges_h[1],
                 histo_height, histo_width,
                 (unsigned int*)(global_subhisto),
@@ -198,10 +205,15 @@ int main(int argc, char* argv[]) {
                 (unsigned int*)(global_overflow),
                 (unsigned int*)(final_histo)
     );
-  }
-  pb_SwitchToTimer(&timers, pb_TimerID_IO);
 
-  cudaMemcpy(histo,final_histo, histo_height*histo_width*sizeof(unsigned char), cudaMemcpyDeviceToHost);
+    cudaStreamSynchronize(stream);
+    can_exit = set_and_check(uid, false);
+  }
+//  pb_SwitchToTimer(&timers, pb_TimerID_IO);
+
+  cudaMemcpyAsync(histo,final_histo, histo_height*histo_width*sizeof(unsigned char), cudaMemcpyDeviceToHost, stream);
+
+  cudaStreamSynchronize(stream);
 
   cudaFree(input);
   cudaFree(ranges);
@@ -215,18 +227,18 @@ int main(int argc, char* argv[]) {
     dump_histo_img(histo, histo_height, histo_width, parameters->outFile);
   }
 
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+//  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
 
   free(img);
   free(histo);
 
-  pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+//  pb_SwitchToTimer(&timers, pb_TimerID_NONE);
 
   printf("\n");
-  pb_PrintTimerSet(&timers);
+//  pb_PrintTimerSet(&timers);
   pb_FreeParameters(parameters);
   
-  pb_DestroyTimerSet(&timers);
+//  pb_DestroyTimerSet(&timers);
 
   return 0;
 }

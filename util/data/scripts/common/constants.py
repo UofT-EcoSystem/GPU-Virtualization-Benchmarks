@@ -39,5 +39,7 @@ app_dict = OrderedDict([
 pair_ignore = ['cut_sgemm-0', 'cut_wmma-1', 'parb_sgemm-0', 'rod_mummer-0']
 app_for_pair = [app for app in app_dict if app not in pair_ignore]
 
-multi_kernel_app = OrderedDict([('parb_sad-0', 3)])
+multi_kernel_app = OrderedDict([('parb_sad-0', 3),
+                                ('parb_histo-0', 4),
+                                ])
 
