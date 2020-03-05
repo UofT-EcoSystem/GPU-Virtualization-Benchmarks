@@ -325,8 +325,8 @@ int main_sad(int argc, char** argv, int uid, cudaStream_t & stream)
     cudaMalloc((void **)&d_sads, 41 * MAX_POS_PADDED * image_size_macroblocks *
 	       sizeof(unsigned short));
     CUDA_ERRCK
-    cudaMemset(d_sads, 0, 41 * MAX_POS_PADDED * image_size_macroblocks *
-	       sizeof(unsigned short));
+    cudaMemsetAsync(d_sads, 0, 41 * MAX_POS_PADDED * image_size_macroblocks *
+	       sizeof(unsigned short), stream);
     CUDA_ERRCK
 
     pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
