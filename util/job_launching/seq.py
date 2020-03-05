@@ -36,18 +36,30 @@ else:
     jobname = 'seq'
 
 for benchmark in args.app:
-    cmd = ['python3',
-            os.path.join(RUN_HOME, 'run_simulations.py'),
-            '--app', benchmark,
-            '--config', config_str,
-            '--bench_home', args.bench_home,
-            '--launch_name', jobname,
-            '--env', args.env
-            ]
-    if args.no_launch:
-        cmd.append('--no_launch')
+    def run_seq_sim(config):
+        cmd = ['python3',
+               os.path.join(RUN_HOME, 'run_simulations.py'),
+               '--app', benchmark,
+               '--config', config,
+               '--bench_home', args.bench_home,
+               '--launch_name', jobname,
+               '--env', args.env
+               ]
 
-    print(cmd)
-    p = subprocess.run(cmd, stdout=subprocess.PIPE)
+        if args.no_launch:
+            cmd.append('--no_launch')
 
-    print(p.stdout.decode("utf-8"))
+        print(cmd)
+        p = subprocess.run(cmd, stdout=subprocess.PIPE)
+
+        print(p.stdout.decode("utf-8"))
+
+    if benchmark in const.multi_kernel_app.keys():
+        # launch independent simulation for each unique kernel
+        for kidx in range(1, const.multi_kernel_app[benchmark] + 1, 1):
+            ext_config_str = config_str + "-MIX_{}_KIDX".format(kidx)
+            run_seq_sim(ext_config_str)
+    else:
+        run_seq_sim(config_str)
+
+

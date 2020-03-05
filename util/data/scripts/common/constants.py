@@ -9,7 +9,9 @@ max_smem = 96*1024
 max_register = 64*1024
 num_sm_volta = 80
 
-# max ctas according to resource constraints, grid size
+# elements in value:
+# 1. max ctas according to resource constraints,
+# 2. grid size,
 app_dict = OrderedDict([
             # ('cut_sgemm-0', [2, 128]),
             ('cut_sgemm-1', [2, 512]),
@@ -36,4 +38,6 @@ app_dict = OrderedDict([
 
 pair_ignore = ['cut_sgemm-0', 'cut_wmma-1', 'parb_sgemm-0', 'rod_mummer-0']
 app_for_pair = [app for app in app_dict if app not in pair_ignore]
+
+multi_kernel_app = OrderedDict([('parb_sad-0', 3)])
 
