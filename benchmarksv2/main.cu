@@ -126,6 +126,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_cutcp;
 #endif
   } 
+  else if (strcmp(argv[0], "parb_sad") == 0) {
+    std::cout << "main: parboil sad" << std::endl;
+#ifdef PARBOIL_SAD
+    func = main_sad;
+#endif
+  }
   else if (strcmp(argv[0], "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
 #ifdef CUT_SGEMM

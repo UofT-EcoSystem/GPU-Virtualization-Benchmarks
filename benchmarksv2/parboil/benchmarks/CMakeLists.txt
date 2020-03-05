@@ -20,3 +20,7 @@ if (parb_cutcp)
   add_subdirectory(cutcp)
 endif()
 
+if (parb_sad)
+  add_subdirectory(sad)
+endif()
+

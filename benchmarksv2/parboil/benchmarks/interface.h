@@ -21,4 +21,9 @@ int main_spmv(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_cutcp(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef PARBOIL_SAD
+int main_sad(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
+
 #endif

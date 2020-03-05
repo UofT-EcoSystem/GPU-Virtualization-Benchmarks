@@ -237,8 +237,9 @@ print_test_sads(unsigned short *sads_computed,
 
 /* MAIN */
 
-int
-main(int argc, char **argv)
+extern bool set_and_check(int uid, bool start);
+
+int main_sad(int argc, char** argv, int uid, cudaStream_t & stream)
 {
   struct image_i16 *ref_image;
   struct image_i16 *cur_image;
@@ -255,10 +256,11 @@ main(int argc, char **argv)
   params = pb_ReadParameters(&argc, argv);
 
   if (pb_Parameters_CountInputs(params) != 2)
-    {
-      fprintf(stderr, "Expecting two input filenames\n");
-      exit(-1);
-    }
+  {
+    printf("number of inputs: %d\n", pb_Parameters_CountInputs(params));
+    fprintf(stderr, "Expecting two input filenames\n");
+    exit(-1);
+  }
 
   /* Read input files */
   pb_SwitchToTimer(&timers, pb_TimerID_IO);
@@ -302,18 +304,19 @@ main(int argc, char **argv)
     CUDA_ERRCK
 
     /* Transfer current image to device */
-    cudaMemcpy(d_cur_image, cur_image->data, image_size_bytes,
-               cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(d_cur_image, cur_image->data, image_size_bytes,
+               cudaMemcpyHostToDevice, stream);
     CUDA_ERRCK
 
     /* Transfer reference image to device */
-    cudaMemcpy2DToArray(ref_ary,
+    cudaMemcpy2DToArrayAsync(ref_ary,
                         0, 0,
                         ref_image->data,
                         ref_image->width * sizeof(unsigned short),
                         ref_image->width * sizeof(unsigned short),
                         ref_image->height,
-                        cudaMemcpyHostToDevice);
+                        cudaMemcpyHostToDevice,
+                        stream);
     CUDA_ERRCK
     cudaBindTextureToArray(get_ref(), ref_ary);
     CUDA_ERRCK
@@ -328,38 +331,51 @@ main(int argc, char **argv)
 
     pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
-    /* Run the 4x4 kernel */
-    mb_sad_calc<<<dim3(CEIL(ref_image->width / 4, THREADS_W),
-		       CEIL(ref_image->height / 4, THREADS_H)),
-      dim3(CEIL(MAX_POS, POS_PER_THREAD) * THREADS_W * THREADS_H),
-      SAD_LOC_SIZE_BYTES>>>
-      (d_sads,
-       (unsigned short *)d_cur_image,
-       image_width_macroblocks,
-       image_height_macroblocks);
-    CUDA_ERRCK
+    while (!set_and_check(uid, true)) {};
+    bool can_exit = false;
 
-    /* Run the larger-blocks kernels */
-    larger_sad_calc_8<<<macroblock_grid, dim3(32, 4)>>>
-      (d_sads,
-       image_width_macroblocks,
-       image_height_macroblocks);
-    CUDA_ERRCK
+    while (!can_exit) {
 
-    larger_sad_calc_16<<<macroblock_grid, dim3(32, 1)>>>
+      /* Run the 4x4 kernel */
+      mb_sad_calc<<<dim3(CEIL(ref_image->width / 4, THREADS_W),
+              CEIL(ref_image->height / 4, THREADS_H)),
+              dim3(CEIL(MAX_POS, POS_PER_THREAD) * THREADS_W * THREADS_H),
+              SAD_LOC_SIZE_BYTES,
+              stream>>>
+              (d_sads,
+                  (unsigned short *)d_cur_image,
+                  image_width_macroblocks,
+                  image_height_macroblocks);
+//      CUDA_ERRCK
+
+      /* Run the larger-blocks kernels */
+      larger_sad_calc_8<<<macroblock_grid, dim3(32, 4), 0, stream>>>
       (d_sads,
-       image_width_macroblocks,
-       image_height_macroblocks);
-    CUDA_ERRCK
+          image_width_macroblocks,
+          image_height_macroblocks);
+//      CUDA_ERRCK
+
+      larger_sad_calc_16<<<macroblock_grid, dim3(32, 1), 0, stream>>>
+      (d_sads,
+          image_width_macroblocks,
+          image_height_macroblocks);
+//      CUDA_ERRCK
+
+      cudaStreamSynchronize(stream);
+      can_exit = set_and_check(uid, false);
+    }
+
 
     pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 
     /* Transfer SAD data to the host */
-    cudaMemcpy(sads_computed,// + 25 * MAX_POS_PADDED * image_size_macroblocks,
+    cudaMemcpyAsync(sads_computed,// + 25 * MAX_POS_PADDED * image_size_macroblocks,
 	       d_sads,// + 25 * MAX_POS_PADDED * image_size_macroblocks,
 	       41 * MAX_POS_PADDED * image_size_macroblocks * sizeof(unsigned short),
-         cudaMemcpyDeviceToHost);
+         cudaMemcpyDeviceToHost, stream);
     CUDA_ERRCK
+
+    cudaStreamSynchronize(stream);
 
     /* Free GPU memory */
     cudaFree(d_sads);
