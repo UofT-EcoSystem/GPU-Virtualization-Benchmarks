@@ -106,7 +106,7 @@ def parse_outputfile_name(logfile, app, config):
 def has_exited(gpusim_logfile):
     exit_str = "GPGPU-Sim: \*\*\* exit detected \*\*\*"
 
-    with open(gpusim_logfile) as f:
+    with open(gpusim_logfile, errors='ignore') as f:
         bytes_to_read = int(250 * 1024 * 1024)
         file_size = int(os.stat(gpusim_logfile).st_size)
         if file_size > bytes_to_read:
@@ -131,7 +131,7 @@ def collect_stats(outputfile, stats_to_pull):
     hit_max = False
     stat_map = {}
 
-    f = open(outputfile)
+    f = open(outputfile, errors='ignore')
     lines = f.readlines()
 
     for line in reversed(lines):
