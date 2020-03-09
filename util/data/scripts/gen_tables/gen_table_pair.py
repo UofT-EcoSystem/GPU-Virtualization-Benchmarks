@@ -71,7 +71,7 @@ def preprocess_df_pair(df_pair, parse_config):
 
     # extract resource allocation size
     if parse_config:
-        hi.process_config_column('1_intra', '2_intra', '1_l2', '2_l2',
+        hi.process_config_column('1_intra', '2_intra',
                                  df=df_pair)
 
     return df_pair
