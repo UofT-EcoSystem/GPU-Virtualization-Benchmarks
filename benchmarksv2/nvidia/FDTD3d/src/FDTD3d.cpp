@@ -54,7 +54,7 @@ int main_fdtd3d (int argc, char** argv, int uid, cudaStream_t & stream)
     }
 
     // Finish
-    exit(bTestResult ? EXIT_SUCCESS : EXIT_FAILURE);
+    return (bTestResult ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
 void showHelp(const int argc, const char **argv)
