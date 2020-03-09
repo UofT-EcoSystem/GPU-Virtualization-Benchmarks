@@ -107,10 +107,11 @@ def has_exited(gpusim_logfile):
     exit_str = "GPGPU-Sim: \*\*\* exit detected \*\*\*"
 
     with open(gpusim_logfile, errors='ignore') as f:
-        bytes_to_read = int(250 * 1024 * 1024)
+        bytes_to_read = int(256*1024*1024)
         file_size = int(os.stat(gpusim_logfile).st_size)
         if file_size > bytes_to_read:
-            f.seek(-bytes_to_read, os.SEEK_END)
+            f.seek(0, os.SEEK_END)
+            f.seek(f.tell()-bytes_to_read, os.SEEK_SET)
 
         lines = f.readlines()
 
