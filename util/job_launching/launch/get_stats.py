@@ -173,7 +173,7 @@ def collect_stats(outputfile, stats_to_pull):
 
 def parse_app_files(app, args, stats_to_pull):
     csv_list = []
-    failed = False
+    found_failed_app = False
     file_count = 0
     hit_max_count = 0
 
@@ -199,26 +199,38 @@ def parse_app_files(app, args, stats_to_pull):
         # for this config path we need to find the latest modified
         # output log file and parse it
         gpusim_logs = glob.glob(os.path.join(config_path, '*.log'))
-        timestamps = [os.path.getmtime(x) for x in gpusim_logs]
-        latest_index = timestamps.index(max(timestamps))
-        latest_log = gpusim_logs[latest_index]
 
-        # do a reverse pass to check whether simulation exited
-        if not has_exited(latest_log):
-            pretty_print("Detected that {0} does not contain a "
+        # sort logs based on time stamps
+        def get_timestamp(x):
+            return os.path.getmtime(x)
+        gpusim_logs = sorted(gpusim_logs, reverse=True, key=get_timestamp)
+
+        found_valid_log = False
+        valid_log = ''
+        for latest_log in gpusim_logs:
+            # do a reverse pass to check whether simulation exited
+            if not has_exited(latest_log):
+                continue
+            else:
+                found_failed_app = True
+                found_valid_log = True
+                valid_log = latest_log
+
+        if not found_valid_log:
+            pretty_print("--app {0} --config {1} log does not contain a "
                          "terminating string from GPGPU-Sim. Skip.".format
-                         (latest_log))
-            failed = True
+                         (app, config))
+            # continue to the next config folder
             continue
 
         # get parameters from the file name and parent directory
-        gpusim_version, job_Id = parse_outputfile_name(latest_log, app,
+        gpusim_version, job_Id = parse_outputfile_name(valid_log, app,
                                                        config)
         # build a csv string to be written to file from this output
         csv_str = app + ',' + config + ',' + \
                   gpusim_version + ',' + job_Id
 
-        hit_max, stat_map = collect_stats(latest_log, stats_to_pull)
+        hit_max, stat_map = collect_stats(valid_log, stats_to_pull)
 
         for stat in stats_list:
             if stat in stat_map:
@@ -239,7 +251,7 @@ def parse_app_files(app, args, stats_to_pull):
         if hit_max:
             hit_max_count += 1
 
-    return '\n'.join(csv_list), failed, file_count, hit_max_count
+    return '\n'.join(csv_list), found_failed_app, file_count, hit_max_count
 
 
 def main():
