@@ -67,6 +67,10 @@ def process_df_intra(df_intra, df_seq):
     # avg dram efficiency
     df_intra['avg_dram_eff'] = df_intra['dram_eff'].transform(hi.avg_array)
 
+    # MPKI
+    df_intra['MPKI'] = df_intra['l2_total_accesses'] * df_intra['l2_miss_rate']\
+                       /(df_intra['instructions'] / 1000)
+
     # memory requests per cycle
     df_intra['mpc'] = df_intra['mem_count'] / df_intra['runtime']
 
@@ -81,6 +85,10 @@ def process_df_intra(df_intra, df_seq):
         .sum(axis=1)
     df_intra['comp_busy'] = df_intra['tot_warp_insn'] / \
                             (df_intra['tot_warp_insn'] + idle_sum)
+
+    # scaled warp cycles
+    df_intra['scaled_inst_empty'] = df_intra['thread_count'] / 32 * df_intra[
+        'inst_empty_cycles']
 
     # resource usage ratio
     df_intra['cta_ratio'] = df_intra['intra'] / const.max_cta_volta
