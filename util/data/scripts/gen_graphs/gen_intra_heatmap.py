@@ -6,8 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-import common.help_iso as hi
-import common.constants as const
+import data.scripts.common.help_iso as hi
+import data.scripts.common.constants as const
 
 mpl.style.use('seaborn-paper')
 
