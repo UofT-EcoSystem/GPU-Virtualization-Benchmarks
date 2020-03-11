@@ -118,7 +118,7 @@ def prepare_datasets(df_pair):
     X = np.concatenate((X1, X2), axis=0)
     y = np.concatenate((y1, y2), axis=0)
 
-    X, y = shuffle(X, y, random_state=7)
+    X, y = shuffle(X, y)
 
     print(X.shape, y.shape)
 
