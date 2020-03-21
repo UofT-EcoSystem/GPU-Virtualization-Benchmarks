@@ -36,7 +36,7 @@ else:
     jobname = 'seq'
 
 for benchmark in args.app:
-    def run_seq_sim(config):
+    def run_seq_sim(config, jobname):
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
                '--app', benchmark,
@@ -55,11 +55,12 @@ for benchmark in args.app:
         print(p.stdout.decode("utf-8"))
 
     if benchmark in const.multi_kernel_app.keys():
+        ext_jobname = jobname + "-multi"
         # launch independent simulation for each unique kernel
         for kidx in range(1, const.multi_kernel_app[benchmark] + 1, 1):
             ext_config_str = config_str + "-MIX_{}_KIDX".format(kidx)
-            run_seq_sim(ext_config_str)
+            run_seq_sim(ext_config_str, ext_jobname)
     else:
-        run_seq_sim(config_str)
+        run_seq_sim(config_str, jobname)
 
 
