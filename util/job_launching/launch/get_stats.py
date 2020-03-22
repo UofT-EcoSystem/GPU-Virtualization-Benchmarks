@@ -210,9 +210,9 @@ def parse_app_files(app, args, stats_to_pull):
         for latest_log in gpusim_logs:
             # do a reverse pass to check whether simulation exited
             if not has_exited(latest_log):
+                found_failed_app = True
                 continue
             else:
-                found_failed_app = True
                 found_valid_log = True
                 valid_log = latest_log
 
