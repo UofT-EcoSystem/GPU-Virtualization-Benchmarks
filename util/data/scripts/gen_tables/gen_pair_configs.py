@@ -21,7 +21,7 @@ def parse_args(_args):
                         help='Pair of benchmarks to be considered.')
 
     parser.add_argument('--qos',
-                        default=0.75,
+                        default=0.5,
                         type=float,
                         help='Quality of Service for each benchmark '
                              'in terms of normalized IPC.')
@@ -49,6 +49,7 @@ def parse_args(_args):
 
     parser.add_argument('--top',
             action='store_true',
+            default=False,
             help='Cherry pick the top configs.')
 
     results = parser.parse_args(_args)
