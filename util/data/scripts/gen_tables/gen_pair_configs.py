@@ -73,6 +73,19 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
         _df = df_intra[df_intra['pair_str'] == app].copy()
         _df['key'] = 0
 
+        # Shrink down number of jobs to be launched:
+        # If max CTAs/SM <= 8, granularity = 1
+        # If max CTAs/SM <= 16, granularity = 2
+        # If max CTAs/SM <= 32, granularity = 4
+        # Always include max config (baseline ipc)
+        max_intra = _df['intra'].max()
+        if 8 < max_intra <= 16:
+            # take rows that are factors of 2
+            _df = _df[(_df['intra'].mod(2) == 0) | (_df['intra'] == max_intra)]
+        elif 16 < max_intra <= 32:
+            # take rows that are factors of 4
+            _df = _df[(_df['intra'].mod(4) == 0) | (_df['intra'] == max_intra)]
+
         df_app.append(_df)
 
     # create cartesian product of the two dfs
