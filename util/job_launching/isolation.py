@@ -14,6 +14,11 @@ def parse_args():
 
     parser.add_argument('--apps', required=True, nargs='+',
                         help="Apps to run.")
+    parser.add_argument('--id_start', type=int, default=0,
+                        help='For all apps only. Starting app id.')
+    parser.add_argument('--count', type=int, default=20,
+                        help='Max number of apps to launch.')
+
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
                         help='Benchmark home folder.')
     parser.add_argument('--intra', action='store_true',
@@ -46,7 +51,10 @@ app_df['achieved_sm'] = np.minimum(const.num_sm_volta, app_df['grid'])
 args = parse_args()
 
 if args.apps[0] == 'all':
-    args.apps = const.app_dict.keys()
+    all_apps = list(const.app_dict.keys())
+
+    last_index = min(len(all_apps), args.count + args.id_start)
+    args.apps = all_apps[args.id_start:last_index]
 
 for app in args.apps:
     if app not in app_df.index.values:
