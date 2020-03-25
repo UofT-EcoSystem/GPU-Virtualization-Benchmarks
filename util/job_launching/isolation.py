@@ -16,9 +16,9 @@ def parse_args():
                         help="Apps to run.")
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
                         help='Benchmark home folder.')
-    parser.add_argument('--intra', default=True, action='store_true',
+    parser.add_argument('--intra', action='store_true',
                         help='Run intra experiments or not. Default to yes.')
-    parser.add_argument('--inter', default=False, action='store_true',
+    parser.add_argument('--inter', action='store_true',
                         help='Run inter experiments or not. Default to no.')
 
     parser.add_argument('--cta_configs', default=4, type=int,
@@ -30,7 +30,7 @@ def parse_args():
                         help='Do not actually trigger job launching.')
 
     parser.add_argument('--env', default='eco', choices=['eco', 'vector'],
-            help='Environment to launch.')
+                        help='Environment to launch.')
 
     results = parser.parse_args()
 
@@ -41,8 +41,7 @@ app_df = pd.DataFrame.from_dict(const.app_dict, orient='index',
                                 columns=['max_cta', 'grid'])
 app_df['achieved_cta'] = pd.DataFrame([np.ceil(app_df['grid'] / 80),
                                        app_df['max_cta']]).min().astype('int32')
-app_df['achieved_sm'] = np.ceil(app_df['grid'] / app_df['max_cta']) \
-    .astype('int32')
+app_df['achieved_sm'] = np.minimum(const.num_sm_volta, app_df['grid'])
 
 args = parse_args()
 
@@ -55,13 +54,13 @@ for app in args.apps:
 
 
     def launch_job(sm_config, jobname):
-#        configs = ["-".join([base_config, sm, l2])
-#                   for sm in sm_config for l2 in l2_partition]
+        #        configs = ["-".join([base_config, sm, l2])
+        #                   for sm in sm_config for l2 in l2_partition]
         configs = ["-".join([base_config, sm]) for sm in sm_config]
 
-        #        if app in mem_intense:
-        #            configs = configs + [c + '-' + bypass_l2d for c in configs \
-        #                    if ('L2_0:0.125' in c) or ('L2_0:0.25' in c)]
+        # if app in mem_intense:
+        #     configs = configs + [c + '-' + bypass_l2d for c in configs \
+        #                          if ('L2_0:0.125' in c) or ('L2_0:0.25' in c)]
 
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
@@ -104,5 +103,7 @@ for app in args.apps:
         inter_sm = ["INTER_0:{0}:0_SM".format(i)
                     for i in range(_step, _abs_max, _step)]
         inter_sm.append("INTER_0:{0}:0_SM".format(_abs_max))
+
+        print(app, inter_sm)
 
         launch_job(inter_sm, 'isolation-inter')
