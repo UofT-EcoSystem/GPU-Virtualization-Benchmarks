@@ -320,6 +320,7 @@ def simulate(apps, interference, iter_lim, offset, offset_app):
         scaled_runtimes[rem_app][ind] += apps[rem_app][ind]
 
     iter_[rem_app] += 1
+    print("iterations are: ", iter_)
     logger.debug("Full completed iterations are {}".format(iter_))
     logger.debug("========================================================================")
     logger.debug("Completing the remaining iterations of app {} in isolation".format(rem_app))
@@ -331,6 +332,7 @@ def simulate(apps, interference, iter_lim, offset, offset_app):
     # complete the rest of the required iterations of remaining app in isolation
     rem_kern = [x * rem_iter for x in apps[rem_app]]
     iter_[rem_app] += rem_iter
+    print("remaining iterations are: ", rem_iter)
     scaled_runtimes[rem_app] = [sum(x) for x in zip(rem_kern, scaled_runtimes[rem_app])]
     logger.info("=================================== Final Info =====================================")
     logger.debug("Total isolated runtimes of app 0 {}".format([x * iter_[0] for x in apps[0]]))
@@ -345,7 +347,7 @@ def simulate(apps, interference, iter_lim, offset, offset_app):
 
 
 """Initializing data structures and parameters"""
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 equality_error = 0.00001
 steady_step = 20
 qos_loss_error = 0.01
@@ -361,7 +363,7 @@ errors_harm_mean = np.empty([1, 0])
 errors_steady = np.empty([1, 0])
 
 
-for i in range(100):
+for i in range(10):
 
     # list to keep track of estimated qos using steady state estimate
     steady_state_qos = [-1, -1]
