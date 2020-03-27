@@ -46,7 +46,8 @@ app_df = pd.DataFrame.from_dict(const.app_dict, orient='index',
                                 columns=['max_cta', 'grid'])
 app_df['achieved_cta'] = pd.DataFrame([np.ceil(app_df['grid'] / 80),
                                        app_df['max_cta']]).min().astype('int32')
-app_df['achieved_sm'] = np.minimum(const.num_sm_volta, app_df['grid'])
+# app_df['achieved_sm'] = np.minimum(const.num_sm_volta, app_df['grid'])
+app_df['achieved_sm'] = const.num_sm_volta
 
 args = parse_args()
 
