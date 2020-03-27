@@ -702,6 +702,7 @@ int main_heartwall(int argc, char *argv [], int uid, cudaStream_t & stream){
 	cudaMemcpyAsync(common.tEpiColLoc, common.d_tEpiColLoc, common.epi_mem * common.no_frames, cudaMemcpyDeviceToHost, stream);
 
 
+  cudaStreamSynchronize(stream);
 
 #ifdef OUTPUT
 
