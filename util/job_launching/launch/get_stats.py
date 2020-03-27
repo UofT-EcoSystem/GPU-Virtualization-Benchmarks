@@ -210,13 +210,13 @@ def parse_app_files(app, args, stats_to_pull):
         for latest_log in gpusim_logs:
             # do a reverse pass to check whether simulation exited
             if not has_exited(latest_log):
-                found_failed_app = True
                 continue
             else:
                 found_valid_log = True
                 valid_log = latest_log
 
         if not found_valid_log:
+            found_failed_app = True
             pretty_print("--app {0} --config {1} log does not contain a "
                          "terminating string from GPGPU-Sim. Skip.".format
                          (app, config))

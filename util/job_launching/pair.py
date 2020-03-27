@@ -4,6 +4,7 @@ import pandas as pd
 from job_launching.constant import *
 import data.scripts.common.constants as const
 import data.scripts.gen_tables.gen_pair_configs as dynamic
+import data.scripts.gen_tables.gen_inter_configs as inter
 
 # (Intra CTAs/SM, L2 usage, disable l2D)
 bench_opt_config = {
@@ -30,7 +31,7 @@ def parse_args():
     parser.add_argument('--app_exclude', default=[], nargs='+',
                         help='Select all pairs that do not include this app. '
                              'Only checked when all is passed to --pair.')
-    parser.add_argument('--how', choices=['smk', 'static', 'dynamic'],
+    parser.add_argument('--how', choices=['smk', 'static', 'dynamic', 'inter'],
                         help='How to partition resources between benchmarks.')
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
                         help='Benchmark home folder.')
@@ -135,7 +136,7 @@ for pair in args.pair:
             config += "-BYPASS_L2D_S1"
 
         configs = [config]
-    else:
+    elif args.how == 'dynamic':
         pair_config_args = ['--apps'] + apps
 
         if args.random:
@@ -150,6 +151,18 @@ for pair in args.pair:
 
         if len(configs) == 0:
             # gen_pair_configs did not generate feasible config candidates
+            continue
+
+    else:
+        # inter-SM sharing
+        pair_config_args = ['--apps'] + apps
+        pair_config_args.append('--print')
+        pair_config_args.append('--top')
+        pair_config_args += ['--cap', str(args.cap)]
+
+        configs = inter.main(pair_config_args)
+
+        if len(configs) == 0:
             continue
 
     for config in configs:
