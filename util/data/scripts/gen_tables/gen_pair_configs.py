@@ -32,11 +32,6 @@ def parse_args(_args):
                         help='Output path for the pair '
                              'candidate dataframe pickle')
 
-    parser.add_argument('--random',
-                        default=False,
-                        action='store_true',
-                        help='Use random address mapping for global access.')
-
     parser.add_argument('--print',
                         action='store_true',
                         help='Whether to print selected configs to console.')
@@ -56,7 +51,7 @@ def parse_args(_args):
     return results
 
 
-def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
+def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
     df_intra = pd.read_pickle(intra_pkl)
 
     # Step 1: get rid of all intra configs that do not meet QoS
@@ -147,8 +142,6 @@ def build_df_prod(intra_pkl, qos, apps, random, cap, top_only=False):
     # Build GPGPU-Sim config string
     def build_config(row):
         config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
-        if random:
-            config_base += '-RANDOM'
 
         # fail fast config
         max_cycle = int(cap * max(row['runtime_x'], row['runtime_y']))
@@ -178,7 +171,7 @@ def main(_args):
     args = parse_args(_args)
 
     df_prod = build_df_prod(args.intra_pkl, args.qos, args.apps,
-                            random=args.random, cap=args.cap, top_only=args.top)
+                            cap=args.cap, top_only=args.top)
 
     if len(df_prod.index) > 0:
         df_prod.to_pickle(args.output)

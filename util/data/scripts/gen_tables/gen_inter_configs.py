@@ -50,10 +50,12 @@ def parse_args(_args):
     return results
 
 
-def build_df_prod(df_inter, args):
-    df_a1 = df_inter[df_inter['pair_str'] == args.apps[0]].copy()
+def build_df_prod(inter_pkl, apps, cap):
+    df_inter = pd.read_pickle(inter_pkl)
+
+    df_a1 = df_inter[df_inter['pair_str'] == apps[0]].copy()
     df_a1['key'] = 0
-    df_a2 = df_inter[df_inter['pair_str'] == args.apps[1]].copy()
+    df_a2 = df_inter[df_inter['pair_str'] == apps[1]].copy()
     df_a2['key'] = 0
 
     df_prod = df_a1.merge(df_a2, how='outer', on='key')
@@ -69,7 +71,7 @@ def build_df_prod(df_inter, args):
         config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
         # fail fast config
-        max_cycle = int(args.cap * max(row['runtime_x'], row['runtime_y']))
+        max_cycle = int(cap * max(row['runtime_x'], row['runtime_y']))
         config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
 
         config_inter = 'INTER_0:' + str(row['inter_x']) + ':' \
@@ -91,8 +93,7 @@ def main(_args):
         print("Number of apps is not equal to 2. Abort.")
         exit(1)
 
-    df_inter = pd.read_pickle(args.inter_pkl)
-    df_prod = build_df_prod(df_inter, args)
+    df_prod = build_df_prod(args.inter_pkl, args.apps, args.cap)
 
     if len(df_prod.index) > 0:
         if args.top:

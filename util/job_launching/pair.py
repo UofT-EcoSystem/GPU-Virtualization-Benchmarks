@@ -25,37 +25,40 @@ def parse_args():
 
     parser.add_argument('--pair', required=True, nargs='+',
                         help="Apps to run.")
+    parser.add_argument('--id_start', type=int, default=0,
+                        help='For all pairs only. Starting pair id.')
+    parser.add_argument('--count', type=int, default=20,
+                        help='Max number of simulations to launch.')
+
     parser.add_argument('--app_match', default='',
                         help='Select all pairs that include this app. Only '
                              'checked when all is passed to --pair.')
     parser.add_argument('--app_exclude', default=[], nargs='+',
                         help='Select all pairs that do not include this app. '
                              'Only checked when all is passed to --pair.')
+
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic', 'inter'],
                         help='How to partition resources between benchmarks.')
-    parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
-                        help='Benchmark home folder.')
-    parser.add_argument('--no_launch', default=False, action='store_true',
-                        help='Do not actually trigger job launching.')
-    parser.add_argument('--random', default=False, action='store_true',
-                        help='Use random address mapping for global access.')
-    parser.add_argument('--id_start', type=int, default=0,
-                        help='For all pairs only. Starting pair id.')
-    parser.add_argument('--count', type=int, default=20,
-                        help='Max number of simulations to launch.')
-    parser.add_argument('--env', default='eco', choices=['eco', 'vector'],
-                        help='Environment to launch.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
                         help='Fail fast simulation: cap runtime at n times '
                              'the longer kernel. Default is 2.5x.')
+
+    parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
+                        help='Benchmark home folder.')
+    parser.add_argument('--no_launch', default=False, action='store_true',
+                        help='Do not actually trigger job launching.')
+
+    parser.add_argument('--env', default='eco', choices=['eco', 'vector'],
+                        help='Environment to launch.')
+
     parser.add_argument('--new_only', action='store_true',
                         help='If this flag is passed, do not launch jobs if '
                              'the same job config exists. Run folder is '
                              'checked.')
     parser.add_argument("--overwrite", action="store_true",
-            help="Overwrite existing sim run dir completely.")
+                        help="Overwrite existing sim run dir completely.")
 
     results = parser.parse_args()
 
@@ -102,8 +105,6 @@ for pair in args.pair:
     apps = pair.split('+')
 
     base_config = "TITANV-PAE-SEP_RW-CONCURRENT"
-    if args.random:
-        base_config += "-RANDOM"
 
     if args.how == 'smk':
         configs = [base_config]
@@ -138,9 +139,6 @@ for pair in args.pair:
         configs = [config]
     elif args.how == 'dynamic':
         pair_config_args = ['--apps'] + apps
-
-        if args.random:
-            pair_config_args.append('--random')
 
         pair_config_args.append('--print')
 
@@ -185,7 +183,9 @@ for pair in args.pair:
             cmd.append('--overwrite')
 
         p = subprocess.run(cmd, stdout=subprocess.PIPE)
-        print(p.stdout.decode("utf-8"))
+
+        if not args.no_launch:
+            print(p.stdout.decode("utf-8"))
 
     pair_count += 1
     job_count += len(configs)
