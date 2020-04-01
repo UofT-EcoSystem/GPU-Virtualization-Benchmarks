@@ -12,24 +12,22 @@ import os
 
 import data.scripts.common.constants as const
 
-cols_prefix = ['norm_ipc',
-               'avg_rbh',
-               'MPKI',
-               'ratio_rbh',
-               'diff_mflat',
-               'ratio_mpc',
-               'ratio_bw',
-               'sum_bw',
-               'ratio_thread',
-               'ratio_inst_empty',
-               'sum_inst_empty',
-               # 'ratio_sp_busy',
-               # 'sum_sp_busy',
-               'ratio_int_busy',
-               'sum_int_busy',
-               'diff_ipc',
-               'l2_miss_rate',
-               ]
+cols_prefix = [
+    'norm_ipc',
+    # 'ratio_rbh',
+    'diff_mflat',
+    'ratio_mpc',
+    'ratio_bw',
+    'sum_bw',
+    'ratio_thread',
+    'ratio_sp_busy',
+    'sum_sp_busy',
+    'ratio_int_busy',
+    'sum_int_busy',
+    'sum_not_selected_cycles',
+    'ratio_dp_busy',
+    'sum_dp_busy',
+]
 
 cols_ws = ['sum_norm_ipc',
            'sum_avg_rbh',
@@ -54,26 +52,28 @@ def export_tree(clf, path_png, tree_id=300):
     )
 
     graph = Source(dot_data)
-    png_bytes = graph.pipe(format='png')
+    png_bytes = graph.pipe(format='pdf')
     with open(path_png, 'wb') as f:
         f.write(png_bytes)
 
 
 def prepare_datasets(df_pair):
-
     def feature_set(sfx_base, sfx_other):
         def calculate_diff(derived_metric, metric):
-            df_pair[derived_metric+'_'+sfx_base] = \
-                (df_pair[metric+'_'+sfx_base] - df_pair[metric+'_'+sfx_other]) \
-                / df_pair[metric+'_'+sfx_base]
+            df_pair[derived_metric + '_' + sfx_base] = \
+                (df_pair[metric + '_' + sfx_base] - df_pair[
+                    metric + '_' + sfx_other]) \
+                / df_pair[metric + '_' + sfx_base]
 
         def calculate_ratio(derived_metric, metric):
-            df_pair[derived_metric+'_'+sfx_base] = \
-                    df_pair[metric+'_'+sfx_base] / df_pair[metric+'_'+sfx_other]
+            df_pair[derived_metric + '_' + sfx_base] = \
+                df_pair[metric + '_' + sfx_base] / df_pair[
+                    metric + '_' + sfx_other]
 
         def calculate_sum(derived_metric, metric):
-            df_pair[derived_metric+'_'+sfx_base] = \
-                    df_pair[metric+'_'+sfx_base] + df_pair[metric+'_'+sfx_other]
+            df_pair[derived_metric + '_' + sfx_base] = \
+                df_pair[metric + '_' + sfx_base] + df_pair[
+                    metric + '_' + sfx_other]
 
         calculate_diff('diff_mflat', 'avg_mem_lat')
         calculate_diff('diff_ipc', 'ipc')
@@ -86,14 +86,16 @@ def prepare_datasets(df_pair):
         calculate_ratio('ratio_sp_busy', 'sp_busy')
         calculate_sum('sum_sp_busy', 'sp_busy')
 
+        calculate_ratio('ratio_dp_busy', 'dp_busy')
+        calculate_sum('sum_dp_busy', 'dp_busy')
+
         calculate_ratio('ratio_int_busy', 'int_busy')
         calculate_sum('sum_int_busy', 'int_busy')
 
-        # calculate_ratio('ratio_int_cycles', 'stall_int_cycles')
-        # calculate_sum('sum_int_cycles', 'stall_int_cycles')
+        calculate_sum('sum_not_selected_cycles', 'not_selected_cycles')
 
         calculate_ratio('ratio_thread', 'thread_count')
-        
+
         calculate_ratio('ratio_inst_empty', 'inst_empty_cycles')
         calculate_sum('sum_inst_empty', 'inst_empty_cycles')
 
@@ -159,8 +161,8 @@ def train(X, y):
     # #########################################################################
     # Fit gradient boost tree regression model using K-fold cross validation
     kf = KFold(n_splits=5, shuffle=True)
-    params = {'n_estimators': 300, 'max_depth': 9, 'min_samples_split': 2,
-              'learning_rate': 0.1, 'loss': 'huber'}
+    params = {'n_estimators': 400, 'max_depth': 9, 'min_samples_split': 2,
+              'learning_rate': 0.05, 'loss': 'huber'}
 
     for train_index, test_index in kf.split(X):
         X_train, X_test = X[train_index], X[test_index]
@@ -246,4 +248,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
