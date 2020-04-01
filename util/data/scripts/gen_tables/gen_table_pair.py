@@ -1,6 +1,7 @@
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
-import data.scripts.gen_tables.gen_pair_configs as pair_config
+import data.scripts.gen_tables.gen_pair_configs as intra_pair_config
+import data.scripts.gen_tables.gen_inter_configs as inter_pair_config
 
 import argparse
 import os
@@ -26,13 +27,14 @@ def parse_args():
                                              'pickles/seq.pkl'),
                         help='Pickle file for seq run')
 
-    parser.add_argument('--intra_pkl',
+    parser.add_argument('--isolated_pkl',
                         default=os.path.join(const.DATA_HOME,
                                              'pickles/intra.pkl'),
-                        help='Pickle file for intra run')
+                        help='Pickle file for isolated intra/inter run')
 
-    parser.add_argument('--smk', default=False, action='store_true',
-                        help='Whether we should parse gpusim config.')
+    parser.add_argument('--how', choices=['smk', 'dynamic', 'inter'],
+                        default='dynamic',
+                        help='How to partition resources between benchmarks.')
 
     parser.add_argument('--random', action='store_true',
                         help='Is baseline using random address mapping.')
@@ -53,7 +55,7 @@ def parse_args():
     return results
 
 
-def preprocess_df_pair(df_pair, parse_config):
+def preprocess_df_pair(df_pair, how):
     df_pair = df_pair.copy()
 
     # filter out any entries that have zero instructions (failed one way the
@@ -70,9 +72,10 @@ def preprocess_df_pair(df_pair, parse_config):
     df_pair = pd.concat([df_bench, df_pair], axis=1)
 
     # extract resource allocation size
-    if parse_config:
-        hi.process_config_column('1_intra', '2_intra',
-                                 df=df_pair)
+    if how == 'dynamic':
+        hi.process_config_column('1_intra', '2_intra', df=df_pair)
+    elif how == 'inter':
+        hi.process_config_column('1_inter', '2_inter', df=df_pair)
 
     return df_pair
 
@@ -89,11 +92,11 @@ def evaluate_df_pair(df_pair, df_baseline):
     def handle_incomplete(row):
         result = {}
         for app_id in ['1', '2']:
-            result[app_id+'_infer'] = (row[app_id + '_runtime'] == 0)
+            result[app_id + '_infer'] = (row[app_id + '_runtime'] == 0)
 
-            runtime = row['runtime'] if result[app_id+'_infer'] \
-                else row[app_id+'_runtime']
-            result[app_id+'_ipc'] = row[app_id+'_instructions'] / runtime
+            runtime = row['runtime'] if result[app_id + '_infer'] \
+                else row[app_id + '_runtime']
+            result[app_id + '_ipc'] = row[app_id + '_instructions'] / runtime
 
         return pd.Series(result)
 
@@ -132,29 +135,39 @@ def main():
     df_pair = pd.read_csv(args.csv)
     df_pair.dropna(how="any", inplace=True)
 
-    df_pair = preprocess_df_pair(df_pair, not args.smk)
+    df_pair = preprocess_df_pair(df_pair, args.how)
 
     # Calculate weighted speedup and fairness w.r.t seq
     df_seq = pd.read_pickle(args.seq_pkl)
     df_pair = evaluate_df_pair(df_pair, df_seq)
 
-    # Get profiled info from intra pkl
-    app_pairs = df_pair[['1_bench', '2_bench']].drop_duplicates().values
+    if args.how == 'how':
+        df_pair.to_pickle(args.output)
+    else:
+        # Get profiled info from intra pkl
+        app_pairs = df_pair[['1_bench', '2_bench']].drop_duplicates().values
 
-    df_profiled = [pair_config.build_df_prod(args.intra_pkl, args.qos, app,
-                                             args.random, args.cap)
-                   for app in app_pairs]
+        if args.how == 'dynamic':
+            df_profiled = [
+                intra_pair_config.build_df_prod(
+                    args.isolated_pkl, args.qos, app, args.cap)
+                for app in app_pairs]
 
-    df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
+        else:
+            df_profiled = [
+                inter_pair_config.build_df_prod(
+                    args.isolated_pkl, app, args.cap)
+                for app in app_pairs]
 
-    # Join table with profiled info and predicted performance
-    df_join = pd.merge(df_pair, df_profiled,
-                       left_on=['1_bench', '2_bench', 'config'],
-                       right_on=['pair_str_x', 'pair_str_y', 'config'])
+        df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
 
-    # Output pickle
-    # df_pair.to_pickle(args.output)
-    df_join.to_pickle(args.output)
+        # Join table with profiled info and predicted performance
+        df_join = pd.merge(df_pair, df_profiled,
+                           left_on=['1_bench', '2_bench', 'config'],
+                           right_on=['pair_str_x', 'pair_str_y', 'config'])
+
+        # Output pickle
+        df_join.to_pickle(args.output)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import logging
 """Initializing the logger"""
 logger = logging.getLogger("scheduler logger")
 ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
+ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -38,7 +38,8 @@ def isolated_finish(apps, qos, iter_lim):
 Helper function to find qos loss.
 """
 def find_qos(scaled_runtime, num_iter, isolated_total):
-    return sum(scaled_runtime) / (isolated_total * num_iter)
+    # logger.debug("{} {} {}".format(sum(scaled_runtime), num_iter, isolated_total))
+    return (isolated_total * num_iter) / sum(scaled_runtime)
 
 
 # """
@@ -179,7 +180,7 @@ def find_qos(scaled_runtime, num_iter, isolated_total):
 """
 Simulate and visuluze co-running of apps.
 """
-def sim_vis(apps, interference, iter_lim, offset, offset_app):
+def simulate(apps, interference, iter_lim, offset, offset_app):
     # to keep track of iterations completed by apps
     iter_ = [0, 0]
     # scaled_runtimes array will be filled up as we compute
@@ -191,28 +192,28 @@ def sim_vis(apps, interference, iter_lim, offset, offset_app):
     # initializing variables
     rem_app = 0  # app that has remaining kernels after the other app finished
     rem_app_index = 0  # index of current kernel in remaining app
-    print("app 0 is: {}".format(apps[0]))
-    print("interference matrix of app 0 is:")
-    print(interference_matrix[0])
-    print("app 1 is: {}".format(apps[1]))
-    print("interference matrix of app 1 is:")
-    print(interference_matrix[1])
+    logger.debug("app 0 is: {}".format(apps[0]))
+    logger.debug("interference matrix of app 0 is:")
+    logger.debug(interference_matrix[0])
+    logger.debug("app 1 is: {}".format(apps[1]))
+    logger.debug("interference matrix of app 1 is:")
+    logger.debug(interference_matrix[1])
 
     # main loop of the simulation
-    print("=============== Starting Simulation ================")
+    logger.debug("=============== Starting Simulation ================")
     while iter_[0] < iter_lim[0] and iter_[1] < iter_lim[1]:
         # figure out who finishes first by scaling the runtimes by the slowdowns
         app0_ker_scaled = round(rem_runtimes[0] / interference[0][ker[0]][ker[1]], 3)
         app1_ker_scaled = round(rem_runtimes[1] / interference[1][ker[0]][ker[1]], 3)
-        print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        logger.debug("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
         if abs(app0_ker_scaled - app1_ker_scaled) <= equality_error:
             # both kernels finished at the same time
-            # print info about app 0
-            print("iter {}  ker {}  |--- {} / {} = {} ---|".format(
+            # logger.debug info about app 0
+            logger.debug("iter {}  ker {}  |--- {} / {} = {} ---|".format(
                 iter_[0], ker[0], rem_runtimes[0], interference[0][ker[0]][ker[1]], app0_ker_scaled,
             ))
-            # print info about app 1
-            print("iter {}  ker {}  |--- {} / {} = {} ---|".format(
+            # logger.debug info about app 1
+            logger.debug("iter {}  ker {}  |--- {} / {} = {} ---|".format(
                 iter_[1], ker[1], rem_runtimes[1], interference[1][ker[0]][ker[1]], app1_ker_scaled,
             ))
             scaled_runtimes[0][ker[0]] += app0_ker_scaled
@@ -246,12 +247,12 @@ def sim_vis(apps, interference, iter_lim, offset, offset_app):
             # remainder of app1 runtime scaled by slowdown
             scaled_rem_time_longer_ker = round(app1_ker_scaled - app0_ker_scaled, 3)
             raw_rem_time_longer_ker = round(scaled_rem_time_longer_ker * interference[1][ker[0]][ker[1]], 3)
-            # print info about app 0
-            print("iter {}  ker {}  |--- {} / {} = {} ---|".format(
+            # logger.debug info about app 0
+            logger.debug("iter {}  ker {}  |--- {} / {} = {} ---|".format(
                 iter_[0], ker[0], rem_runtimes[0], interference[0][ker[0]][ker[1]], app0_ker_scaled
             ))
-            # print info about app 1
-            print("iter {}  ker {}  |--- {} / {} = {} ---|  ->  |--- {} * {} = {} ---|".format(
+            # logger.debug info about app 1
+            logger.debug("iter {}  ker {}  |--- {} / {} = {} ---|  ->  |--- {} * {} = {} ---|".format(
                 iter_[1], ker[1], rem_runtimes[1], interference[1][ker[0]][ker[1]], app1_ker_scaled,
                 scaled_rem_time_longer_ker, interference[1][ker[0]][ker[1]], raw_rem_time_longer_ker
             ))
@@ -268,20 +269,20 @@ def sim_vis(apps, interference, iter_lim, offset, offset_app):
             # get new remaining runtime for next kernel of app0
             rem_runtimes[0] = apps[0][ker[0]]
         else:
-            # app1 kernel will finish before app0 kernel
+            # app1 kernel will finish before app0 kernel so we add shorter time to both
             scaled_runtimes[0][ker[0]] += app1_ker_scaled
             scaled_runtimes[1][ker[1]] += app1_ker_scaled
             # remainder of app0 runtime scaled by slowdown
             scaled_rem_time_longer_ker = round(app0_ker_scaled - app1_ker_scaled, 3)
             # compute raw remaining runtime of app0
             raw_rem_time_longer_ker = round(scaled_rem_time_longer_ker * interference[0][ker[0]][ker[1]], 3)
-            # print info about app 0
-            print("iter {}  ker {}  |--- {} / {} = {} ---|  ->  |--- {} * {} = {} ---|".format(
+            # logger.debug info about app 0
+            logger.debug("iter {}  ker {}  |--- {} / {} = {} ---|  ->  |--- {} * {} = {} ---|".format(
                 iter_[0], ker[0], rem_runtimes[0], interference[0][ker[0]][ker[1]], app0_ker_scaled,
                 scaled_rem_time_longer_ker, interference[0][ker[0]][ker[1]], raw_rem_time_longer_ker
             ))
-            # print info about app 1
-            print("iter {}  ker {}  |--- {} / {} = {} ---|".format(
+            # logger.debug info about app 1
+            logger.debug("iter {}  ker {}  |--- {} / {} = {} ---|".format(
                 iter_[1], ker[1], rem_runtimes[1], interference[1][ker[0]][ker[1]], app1_ker_scaled,
             ))
             rem_runtimes[0] = raw_rem_time_longer_ker
@@ -295,173 +296,87 @@ def sim_vis(apps, interference, iter_lim, offset, offset_app):
                 iter_[1] += 1
             # get new remaining runtime for next kernel of app1
             rem_runtimes[1] = apps[1][ker[1]]
-        print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        logger.debug("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        # logger.debug("Scaled Runtimes: {}".format(scaled_runtimes))
     # end of loop
+    logger.debug("======================== finished co-run execution =========================")
+    logger.debug("app 0 = {}".format(apps[0]))
+    logger.debug("app 1 = {}".format(apps[1]))
 
-    # finish off this iteration of remaining app in isolation
-    scaled_runtimes[rem_app][rem_app_index] += rem_runtimes[rem_app]
-    for ind in range(rem_app_index + 1, len(apps[rem_app])):
-        scaled_runtimes[rem_app][ind] += apps[rem_app][ind]
+    # if one app finished before another
+    if iter_[0] != iter_lim[0] or iter_[1] != iter_lim[1]:
+        logger.info("================ completing isolated iteration {} of app {} ===================".format(
+            iter_[rem_app], rem_app))
+        logger.debug("REMAINING APP = app {} : ker index {} out of {} : on iter index {} out of {}".format(
+             rem_app, ker[rem_app], len(apps[rem_app]) - 1, iter_[rem_app], iter_lim[rem_app] - 1
+        ))
+        # finish off this iteration of remaining app in isolation
+        logger.debug("adding remaining isolated tail {} of mixed ker {}".format(rem_runtimes[rem_app], ker[rem_app]))
+        scaled_runtimes[rem_app][ker[rem_app]] += rem_runtimes[rem_app]
+        logger.debug("scaled runtimes are {}".format(scaled_runtimes))
 
-    iter_[rem_app] += 1
-    # at this point, apps stop co-running and the larger app will continue execution in isolation
-    co_run_qos = [0, 0]
-    co_run_qos[0] = find_qos(scaled_runtimes[0], iter_[0], sum(app_lengths[0]))
-    co_run_qos[1] = find_qos(scaled_runtimes[1], iter_[1], sum(app_lengths[1]))
+        ker[rem_app] += 1
+        if ker[rem_app] < len(apps[rem_app]):
+            logger.debug("============= app {} completing mixed iter {} in isolation from ker {} =============".format(
+                rem_app, iter_[rem_app], ker[rem_app]))
 
+            for ind in range(ker[rem_app], len(apps[rem_app])):
+                logger.debug("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+                logger.debug("adding isolated ker {} with runtime {}".format(ind, apps[rem_app][ind]))
+                scaled_runtimes[rem_app][ind] += apps[rem_app][ind]
+                logger.debug("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
-    rem_iter = iter_lim[rem_app] - iter_[rem_app]
+        logger.debug("============== remaining app {} completed mixed iteration {} ================".format(
+            rem_app, iter_[rem_app]))
+        iter_[rem_app] += 1
 
-    # TODO: debug this?
-    #  something is wrong with simulator.
-    # complete the rest of the required iterations of remaining app in isolation
-    # print(apps[rem_app])
-    rem_kern = [x * rem_iter for x in apps[rem_app]]
-    iter_[rem_app] += rem_iter
-    scaled_runtimes[rem_app] = [sum(x) for x in zip(rem_kern, scaled_runtimes[rem_app])]
-    qos = [sum(scaled_runtimes[0]) / (sum(apps[0]) * iter_[0]), sum(scaled_runtimes[1]) / (sum(apps[1]) * iter_[1])]
-    return qos, co_run_qos
+        # at this point we can calculate the co-run qos of the two apps
+        co_run_qos_result = [0, 0]
+        co_run_qos_result[0] = find_qos(scaled_runtimes[0], iter_[0], sum(apps[0]))
+        co_run_qos_result[1] = find_qos(scaled_runtimes[1], iter_[1], sum(apps[1]))
+        logger.debug("co-run QOS of apps is {}".format(co_run_qos_result))
 
-"""
-Simulate co-running of apps.
-"""
-def simulate(apps, interference, iter_lim, offset, offset_app):
-    # to keep track of iterations completed by apps
-    iter_ = [0, 0]
-    # scaled_runtimes array will be filled up as we compute
-    scaled_runtimes = [[0 for x in apps[0]], [0 for y in apps[1]]]
-    # indeces of kernels for two apps - by default 0 and 0
-    ker = [0, 0]
-    # by default the two kernels launch simultaneously
-    rem_runtimes = [apps[0][ker[0]], apps[1][ker[1]]]
-    # initializing variables
-    rem_app = 0  # app that has remaining kernels after the other app finished
-    rem_app_index = 0  # index of current kernel in remaining app
-    # variable to keep track of offsets - used to detect completed period
-    offsets = []
-    # past and total accumulated runtimes of apps
-    past_qos = [0, 0]
+        # if remaining app has any more iterations to complete, they will run in isolation
+        if iter_[rem_app] != iter_lim[rem_app]:
+            rem_iter = iter_lim[rem_app] - iter_[rem_app]
+            logger.debug("============== running remaining {} isolated iterations of app {} ===============".format(
+                rem_iter, rem_app
+            ))
+            # find the number of iterations left for the remaining app
+            # complete the rest of the required iterations of remaining app in isolation
+            logger.debug("scaled runtimes before isolated iterations are {}".format(scaled_runtimes))
+            rem_kern = [x * rem_iter for x in apps[rem_app]]
+            logger.debug("remaining isolated kernels are {}".format(rem_kern))
+            iter_[rem_app] += rem_iter
+            scaled_runtimes[rem_app] = [sum(x) for x in zip(rem_kern, scaled_runtimes[rem_app])]
 
-    # initialize starting offset
-    # start_offset(apps, rem_runtimes, ker, scaled_runtimes, offsets, offset, offset_app)
-    # main loop of the simulation
-    while iter_[0] < iter_lim[0] and iter_[1] < iter_lim[1]:
-        # figure out who finishes first by scaling the runtimes by the slowdowns
-        app0_ker_scaled = rem_runtimes[0] / interference[0][ker[0]][ker[1]]
-        # logger.debug("app0 kernel scaled runtime is: {}".format(app0_ker_scaled))
-        app1_ker_scaled = rem_runtimes[1] / interference[1][ker[0]][ker[1]]
-        # logger.debug("app1 kernel scaled runtime is: {}".format(app1_ker_scaled))
-        if abs(app0_ker_scaled - app1_ker_scaled) <= equality_error:
-            # both kernels finished at the same time
-            scaled_runtimes[0][ker[0]] += app0_ker_scaled
-            scaled_runtimes[1][ker[1]] += app0_ker_scaled
-            # advance the index for both kernels
-            ker[0] += 1
-            # if app0 has finished an iteration
-            if ker[0] == len(apps[0]):
-                rem_app = 1
-                rem_app_index = ker[1]
-                ker[0] = 0
-                # app0 has completed an iteration of all kernels
-                iter_[0] += 1
+        logger.debug("scaled runtimes after isolated iterations are {}".format(scaled_runtimes))
 
-            ker[1] += 1
-            # if app1 has finished an iteration
-            if ker[1] == len(apps[1]):
-                rem_app = 0
-                rem_app_index = ker[0]
-                ker[1] = 0
-                # app1 has completed an iteration of all kernels
-                iter_[1] += 1
-            # get new remaining runtimes using new indeces for both kernels
-            rem_runtimes[0] = apps[0][ker[0]]
-            rem_runtimes[1] = apps[1][ker[1]]
+        # calculate resulting qos
+        qos_result = [sum(scaled_runtimes[0]) / (sum(apps[0]) * iter_[0]), sum(scaled_runtimes[1]) / (sum(apps[1]) * iter_[1])]
+    else:
+        logger.debug("both apps completed their iterations simultaneously")
+        # if both apps finished at the same time, then qos can be calculated immediately
+        qos_result = [sum(scaled_runtimes[0]) / (sum(apps[0]) * iter_[0]), sum(scaled_runtimes[1]) / (sum(apps[1]) * iter_[1])]
+        co_run_qos_result = qos_result
 
-        elif app0_ker_scaled < app1_ker_scaled:
-            # app0 kernel will finish before app1 kernel
-            scaled_runtimes[0][ker[0]] += app0_ker_scaled
-            scaled_runtimes[1][ker[1]] += app0_ker_scaled
-            # remainder of app1 runtime scaled by slowdown
-            rem_runtimes[1] = app1_ker_scaled - app0_ker_scaled
-            # compute raw remaining runtime of app1
-            rem_runtimes[1] = rem_runtimes[1] * interference[1][ker[0]][ker[1]]
-            # move the index to the next kernel for app0
-            ker[0] += 1
-            if ker[0] == len(apps[0]):
-                rem_app = 1
-                rem_app_index = ker[1]
-                ker[0] = 0
-                # app0 has completed an iteration of all kernels
-                iter_[0] += 1
-            # get new remaining runtime for next kernel of app0
-            rem_runtimes[0] = apps[0][ker[0]]
-        else:
-            # app1 kernel will finish before app0 kernel
-            scaled_runtimes[0][ker[0]] += app1_ker_scaled
-            scaled_runtimes[1][ker[1]] += app1_ker_scaled
-            # remainder of app0 runtime scaled by slowdown
-            rem_runtimes[0] = app0_ker_scaled - app1_ker_scaled
-            # compute raw remaining runtime of app0
-            rem_runtimes[0] = rem_runtimes[0] * interference[0][ker[0]][ker[1]]
-            # move the index to the next kernel for app1
-            ker[1] += 1
-            if ker[1] == len(apps[1]):
-                rem_app = 0
-                rem_app_index = ker[0]
-                ker[1] = 0
-                # app1 has completed an iteration of all kernels
-                iter_[1] += 1
-            # get new remaining runtime for next kernel of app1
-            rem_runtimes[1] = apps[1][ker[1]]
-    # end of loop
-    print("scaled runtimes after loop are: {} and {}".format(sum(scaled_runtimes[0]), sum(scaled_runtimes[1])))
-
-
-
-    # finish off this iteration of remaining app in isolation
-    print("remaining apps is {}".format(rem_app))
-    scaled_runtimes[rem_app][rem_app_index] += rem_runtimes[rem_app]
-    for ind in range(rem_app_index + 1, len(apps[rem_app])):
-        scaled_runtimes[rem_app][ind] += apps[rem_app][ind]
-
-    iter_[rem_app] += 1
-    # at this point, apps stop co-running and the larger app will continue execution in isolation
-    co_run_qos = [0, 0]
-    co_run_qos[0] = find_qos(scaled_runtimes[0], iter_[0], sum(app_lengths[0]))
-    co_run_qos[1] = find_qos(scaled_runtimes[1], iter_[1], sum(app_lengths[1]))
-    print("co-run qos' are {}".format(co_run_qos))
-
-    print("scaled runtimes before isolated run: {} and {}".format(sum(scaled_runtimes[0]), sum(scaled_runtimes[1])))
-
-    print("iterations are: ", iter_)
-    print(apps)
-    rem_iter = iter_lim[rem_app] - iter_[rem_app]
-    print("remaining iterations are: ", rem_iter)
-
-    # TODO: debug this?
-    #  something is wrong with simulator.
-    # complete the rest of the required iterations of remaining app in isolation
-    # print(apps[rem_app])
-    rem_kern = [x * rem_iter for x in apps[rem_app]]
-    print(rem_kern)
-    print("remaining runtime of longer app is: ", sum(rem_kern))
-    iter_[rem_app] += rem_iter
-    scaled_runtimes[rem_app] = [sum(x) for x in zip(rem_kern, scaled_runtimes[rem_app])]
-    logger.debug("Total isolated runtimes of remaining app{}".format([x * iter_[rem_app] for x in apps[rem_app]]))
-    qos = [sum(scaled_runtimes[0]) / (sum(apps[0]) * iter_[0]), sum(scaled_runtimes[1]) / (sum(apps[1]) * iter_[1])]
-    return qos, co_run_qos
+    logger.debug("==================== final QOS ========================")
+    logger.debug("QOS of apps is {}".format(qos_result))
+    return qos_result, co_run_qos_result
 
 
 """
 Initializing data structures and parameters for predictions
 """
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 equality_error = 0.00001
 steady_step = 100
 qos_error = 0.001
 
 
 logger.info("Positive error = real QOS is better; Negative Error = real QOS is worse")
+logger.debug("Mixed kernel = kernel that executed both consecutively with other kernel and in isolation")
+logger.debug("Mixed iteration = iteration that has mixed kernels")
 logger.info("========================================================================")
 
 perc_errors = np.empty([1, 0])
@@ -475,8 +390,8 @@ for i in range(1):
     app1_size = random.randrange(1, 5)
 
     # generated random test data
-    interference_0 = np.around(np.random.rand(app0_size, app1_size), decimals=2)
-    interference_1 = np.around(np.random.rand(app0_size, app1_size), decimals=2)
+    interference_0 = np.around(0.01 + np.random.rand(app0_size, app1_size), decimals=2)
+    interference_1 = np.around(0.01 + np.random.rand(app0_size, app1_size), decimals=2)
     interference_matrix = [interference_0, interference_1]
     # print(interference_matrix)
 
@@ -497,10 +412,10 @@ for i in range(1):
     #                                               (1 / np.average(interference_matrix[1])) * sum(app_lengths[1])))
 
     # counter for how many iterations each app has completed
-    iter_limits = [10, 10]
+    iter_numbers = [10, 10]
 
     # compute the QOS losses for both apps
-    qos, co_run_qos = sim_vis(app_lengths, interference_matrix, iter_limits, 0, 0)
+    qos, co_run_qos = simulate(app_lengths, interference_matrix, iter_numbers, 0, 0)
     # logger.info(("Actual times are {}".format(qos)))
 
 #     # estimate using steady state prediction
