@@ -1,18 +1,7 @@
-Steady State Predictor:
+feature names: in col_prefix in util/data/scripts/predict/predict_slowdownpy
 
-Eliminating the -1 in some final predictions:
+to use predict datasets, need to prepare dataframe as an input
 
-- try and use the latest state for both?
-
-by iterating until we obtain prediction for both, we are introducing a potential problem with qos of the longer app:
-its QOS loss will be underestimated.
+to prepare dataframe:
 
 
-When two apps have a very large difference in the number of kernels, the estimate is failing (likely because of the
-point above)
-
-
-If one finished the runtime -> can directly estimate the other one
-
-
-shorter one always estimates properly

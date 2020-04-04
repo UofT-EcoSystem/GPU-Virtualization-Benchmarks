@@ -20,10 +20,10 @@ app1_size = random.randrange(1, 30)
 
 # for each app, pick kernel indeces at random to fill the app's kernels
 df_app0 = (kernels.sample(n=app0_size, replace=True))
-print(df_app0)
-app0 = df_app0.to_numpy()
-print(df_app0.loc[5])
-print(df_app0.iloc[5])
+# print(df_app0)
+# app0 = df_app0.to_numpy()
+# print(df_app0.loc[5])
+# print(df_app0.iloc[5])
 
 # for app 1, pick kernels at rando mas well, but be careful to not have 2 kernels that are in both apps
 
