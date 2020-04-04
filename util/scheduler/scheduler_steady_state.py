@@ -403,6 +403,7 @@ for i in range(1):
     app_lengths = [np.around(np.absolute(np.random.uniform(8, 2000, size=app0_size)), decimals=2),
                    np.around(np.absolute(np.random.uniform(8, 2000, size=app1_size)), decimals=2)]
 
+
     # logger.info("App0 has {} kernels, App1 has {} kernels".format(app0_size, app1_size))
 
     # # hand-crafted data
