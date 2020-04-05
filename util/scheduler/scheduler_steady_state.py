@@ -299,9 +299,12 @@ def simulate(apps, interference, iter_lim, offset, offset_app):
         logger.debug("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
         # logger.debug("Scaled Runtimes: {}".format(scaled_runtimes))
     # end of loop
-    logger.debug("======================== finished co-run execution =========================")
+    logger.debug(" ")
     logger.debug("app 0 = {}".format(apps[0]))
     logger.debug("app 1 = {}".format(apps[1]))
+    logger.debug("======================== finished co-run execution =========================")
+    logger.debug("scaled runtimes are {}".format(scaled_runtimes))
+    logger.debug(" ")
 
     # if one app finished before another
     if iter_[0] != iter_lim[0] or iter_[1] != iter_lim[1]:
@@ -317,6 +320,7 @@ def simulate(apps, interference, iter_lim, offset, offset_app):
 
         ker[rem_app] += 1
         if ker[rem_app] < len(apps[rem_app]):
+            logger.debug(" ")
             logger.debug("============= app {} completing mixed iter {} in isolation from ker {} =============".format(
                 rem_app, iter_[rem_app], ker[rem_app]))
 
@@ -398,6 +402,7 @@ for i in range(1):
     # draw random data from normal distribution
     app_lengths = [np.around(np.absolute(np.random.uniform(8, 2000, size=app0_size)), decimals=2),
                    np.around(np.absolute(np.random.uniform(8, 2000, size=app1_size)), decimals=2)]
+
 
     # logger.info("App0 has {} kernels, App1 has {} kernels".format(app0_size, app1_size))
 
