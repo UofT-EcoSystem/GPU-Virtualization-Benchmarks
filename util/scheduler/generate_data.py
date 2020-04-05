@@ -6,7 +6,7 @@ import pandas as pd
 # convert csv file to dataframe, round to
 slowdowns = pd.read_csv('slowdown.csv', sep=',', header=None).round(3).replace(0.000, 0.500)
 # get the kernels, divide by 2000 to convert cycles to microseconds at 2 GHz, cut first row and round to 3 decimals
-kernels = pd.read_csv('kernel_idx.csv', sep=',', header=0, usecols=["idx", " runtime(cycles)"])
+kernels = pd.read_csv('kernel_idx.csv', sep=',', header=0, usecols=["idx", " runtime(cycles)"]).round(3)
 kernels[" runtime(cycles)"] = kernels[" runtime(cycles)"] / 2000
 # rename the column
 kernels = kernels.rename(columns={"idx": "idx", " runtime(cycles)": "microseconds"})
@@ -17,7 +17,7 @@ kernels = kernels.rename(columns={"idx": "idx", " runtime(cycles)": "microsecond
 apps = []
 
 # build 10000 apps for testing
-for i in range(10):
+for i in range(10000):
     # randomly pick the sizes of two apps
     app0_size = random.randrange(1, 30)
     app1_size = random.randrange(1, 30)
@@ -61,8 +61,8 @@ for i in range(10):
     apps.append(app)
 
 # pickle apps into a file
-pickle.dump(apps, open("10_apps.bin", "wb"))
-print(apps[0])
+pickle.dump(apps, open("10000_apps.bin", "wb"))
+print(apps[7])
 
 
 
