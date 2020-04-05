@@ -37,6 +37,15 @@ app_dict = OrderedDict([
             ('nvd_sobol-0', [32, 51200, 1]),
             ])
 
+
+def get_max_cta_per_sm(kernel):
+    return app_dict[kernel][0]
+
+
+def get_grid_size(kernel):
+    return app_dict[kernel][1]
+
+
 pair_ignore = ['cut_sgemm-0', 'cut_wmma-1', 'parb_sgemm-0', 'rod_mummer-0']
 app_for_pair = [app for app in app_dict if app not in pair_ignore]
 

@@ -74,8 +74,27 @@ def preprocess_df_pair(df_pair, how):
     # extract resource allocation size
     if how == 'dynamic':
         hi.process_config_column('1_intra', '2_intra', df=df_pair)
+
+        def intra_conc_cta(idx):
+            df_pair[idx+'_conc_cta'] = np.minimum(
+                const.num_sm_volta * df_pair[idx+'_intra'],
+                df_pair[idx+'_bench'].apply(const.get_grid_size)
+            )
+
+        intra_conc_cta('1')
+        intra_conc_cta('2')
     elif how == 'inter':
         hi.process_config_column('1_inter', '2_inter', df=df_pair)
+
+        def inter_conc_cta(idx):
+            df_pair[idx+'_conc_cta'] = np.minimum(
+                df_pair[idx+'_inter'] *
+                df_pair[idx+'_bench'].apply(const.get_max_cta_per_sm),
+                df_pair[idx + '_bench'].apply(const.get_grid_size)
+            )
+
+        inter_conc_cta('1')
+        inter_conc_cta('2')
 
     return df_pair
 
@@ -163,6 +182,7 @@ def main():
 
         # Join table with profiled info and predicted performance
         df_join = pd.merge(df_pair, df_profiled,
+                           how='left',
                            left_on=['1_bench', '2_bench', 'config'],
                            right_on=['pair_str_x', 'pair_str_y', 'config'])
 
