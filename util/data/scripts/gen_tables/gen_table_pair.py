@@ -160,7 +160,7 @@ def main():
     df_seq = pd.read_pickle(args.seq_pkl)
     df_pair = evaluate_df_pair(df_pair, df_seq)
 
-    if args.how == 'how':
+    if args.how == 'smk':
         df_pair.to_pickle(args.output)
     else:
         # Get profiled info from intra pkl
