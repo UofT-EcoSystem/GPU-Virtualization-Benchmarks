@@ -4,7 +4,7 @@ import pandas as pd
 from job_launching.constant import *
 import data.scripts.common.constants as const
 import data.scripts.gen_tables.gen_pair_configs as dynamic
-import data.scripts.gen_tables.gen_inter_configs as inter
+import data.scripts.gen_tables.search_best_inter as inter
 
 # (Intra CTAs/SM, L2 usage, disable l2D)
 bench_opt_config = {
@@ -155,8 +155,8 @@ for pair in args.pair:
         # inter-SM sharing
         pair_config_args = ['--apps'] + apps
         pair_config_args.append('--print')
-        pair_config_args.append('--top')
         pair_config_args += ['--cap', str(args.cap)]
+        pair_config_args += ['--how', 'local']
 
         configs = inter.main(pair_config_args)
 

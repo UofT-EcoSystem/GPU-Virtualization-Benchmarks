@@ -20,12 +20,6 @@ def parse_args(_args):
                         default=['cut_sgemm-0', 'parb_spmv-0'],
                         help='Pair of benchmarks to be considered.')
 
-    parser.add_argument('--qos',
-                        default=0.5,
-                        type=float,
-                        help='Quality of Service for each benchmark '
-                             'in terms of normalized IPC.')
-
     parser.add_argument('--output',
                         default=os.path.join(const.DATA_HOME,
                                              'pickles/inter_candidates.pkl'),
