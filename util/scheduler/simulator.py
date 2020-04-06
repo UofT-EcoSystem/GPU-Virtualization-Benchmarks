@@ -24,16 +24,18 @@ def simulate(apps, interference, iter_lim, equality_error):
     # to keep track of iterations completed by apps
     iter_ = [0, 0]
     # scaled_runtimes array will be filled up as we compute
-    scaled_runtimes = [[0 for x in apps[0]], [0 for y in apps[1]]]
+    scaled_runtimes = [[0*x for x in apps[0]], [0*y for y in apps[1]]]
     # indeces of kernels for two apps - by default 0 and 0
     ker = [0, 0]
     # by default the two kernels launch simultaneously
     rem_runtimes = [apps[0][ker[0]], apps[1][ker[1]]]
     # initializing variables
     rem_app = 0  # app that has remaining kernels after the other app finished
+    logger.debug("app 0 size: {}".format(len(apps[0])))
     logger.debug("app 0 is: {}".format(apps[0]))
     logger.debug("interference matrix of app 0 is:")
     logger.debug(interference[0])
+    logger.debug("app 1 size: {}".format(len(apps[1])))
     logger.debug("app 1 is: {}".format(apps[1]))
     logger.debug("interference matrix of app 1 is:")
     logger.debug(interference[1])
@@ -141,8 +143,10 @@ def simulate(apps, interference, iter_lim, equality_error):
 
     # if one app finished before another
     if iter_[0] != iter_lim[0] or iter_[1] != iter_lim[1]:
-        logger.debug("app 0 = {}".format(apps[0]))
-        logger.debug("app 1 = {}".format(apps[1]))
+        # logger.debug("app 0 size: {}".format(len(apps[0])))
+        logger.debug("app 0 = {}, size = {}".format(apps[0], len(apps[0])))
+        # logger.debug("app 1 size: {}".format(len(apps[1])))
+        logger.debug("app 1 = {}, size = {}".format(apps[1], len(apps[1])))
         logger.debug(("remaining app: {}".format(rem_app)))
         logger.debug(("remaining app on iteration: {}".format(iter_[rem_app])))
         logger.debug("remaining app on mixed kernel: {}".format(ker[rem_app]))
@@ -151,7 +155,8 @@ def simulate(apps, interference, iter_lim, equality_error):
         logger.debug("")
 
         logger.debug("===================== EXECUTION OF ISOLATED PORTION OF MIXED KERNEL =========================")
-        logger.debug("scaled runtime {} + tail {}".format(scaled_runtimes[rem_app][ker[rem_app]], rem_runtimes[rem_app]))
+        logger.debug("scaled runtime {} + tail {}".format(
+            scaled_runtimes[rem_app][ker[rem_app]], rem_runtimes[rem_app]))
         scaled_runtimes[rem_app][ker[rem_app]] += rem_runtimes[rem_app]
         ker[rem_app] += 1
         logger.debug("============================ FINISHED EXECUTION OF MIXED KERNEL =============================")
@@ -166,8 +171,15 @@ def simulate(apps, interference, iter_lim, equality_error):
             logger.debug(
                 "==================== EXECUTION OF ISOLATED PORTION OF MIXED ITERATION =======================")
             logger.debug("remaining app on kernel: {}".format(ker[rem_app]))
+            logger.debug(
+                "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
             for ind in range(ker[rem_app], len(apps[rem_app])):
+                logger.debug("executing kernel {}: scaled runtime {} + {}".format(
+                    ind, scaled_runtimes[rem_app][ind], apps[rem_app][ind]
+                ))
                 scaled_runtimes[rem_app][ind] += apps[rem_app][ind]
+                logger.debug(
+                    "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
             logger.debug(
                 "================ FINISHED EXECUTION OF ISOLATED PORTION OF MIXED ITERATION ==================")

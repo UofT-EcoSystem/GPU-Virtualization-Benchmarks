@@ -17,7 +17,7 @@ kernels = kernels.rename(columns={"idx": "idx", " runtime(cycles)": "microsecond
 apps = []
 
 # build 10000 apps for testing
-for i in range(10000):
+for i in range(10):
     # randomly pick the sizes of two apps
     app0_size = random.randrange(1, 30)
     app1_size = random.randrange(1, 30)
@@ -61,8 +61,8 @@ for i in range(10000):
     apps.append(app)
 
 # pickle apps into a file
-pickle.dump(apps, open("10000_apps.bin", "wb"))
-print(apps[7])
+pickle.dump(apps, open("10_apps.bin", "wb"))
+# print(apps[7])
 
 
 

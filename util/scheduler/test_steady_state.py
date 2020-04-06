@@ -1,7 +1,10 @@
 import random
 import numpy as np
+import pickle
+from multiprocessing import Process, Queue, current_process, freeze_support
 
 from simulator import *
+# from steady_state_predictor import *
 
 
 """
@@ -11,51 +14,110 @@ logger.setLevel(logging.INFO)
 equality_error = 0.00001
 steady_step = 100
 qos_error = 0.001
+test_type = "pickled_multi"
 
+# counter for how many iterations each app is to complete
+iter_numbers = [10000, 10000]
 
 logger.info("Positive error = real QOS is better; Negative Error = real QOS is worse")
-logger.debug("Mixed kernel = kernel that executed both consecutively with other kernel and in isolation")
-logger.debug("Mixed iteration = iteration that has mixed kernels")
 
 perc_errors = np.empty([1, 0])
 
-# main loop
-for i in range(2):
+if test_type == "random_single":
+    for i in range(10):
+        # testing random sizes:
+        app0_size = random.randrange(1, 30)
+        app1_size = random.randrange(1, 30)
 
-    # testing random sizes:
-    app0_size = random.randrange(1, 5)
-    app1_size = random.randrange(1, 5)
+        # generated random test data
+        interference_0 = np.around(0.01 + np.random.rand(app0_size, app1_size), decimals=2)
+        interference_1 = np.around(0.01 + np.random.rand(app0_size, app1_size), decimals=2)
+        interference_matrix = [interference_0, interference_1]
+        # print(interference_matrix)
 
-    # generated random test data
-    interference_0 = np.around(0.01 + np.random.rand(app0_size, app1_size), decimals=2)
-    interference_1 = np.around(0.01 + np.random.rand(app0_size, app1_size), decimals=2)
-    interference_matrix = [interference_0, interference_1]
-    # print(interference_matrix)
-
-    # draw random data from normal distribution
-    app_lengths = [np.around(np.absolute(np.random.uniform(8, 2000, size=app0_size)), decimals=2),
-                   np.around(np.absolute(np.random.uniform(8, 2000, size=app1_size)), decimals=2)]
+        # draw random data from normal distribution
+        app_lengths = [np.around(np.absolute(np.random.uniform(8, 2000, size=app0_size)), decimals=2),
+                       np.around(np.absolute(np.random.uniform(8, 2000, size=app1_size)), decimals=2)]
 
 
-    # logger.info("App0 has {} kernels, App1 has {} kernels".format(app0_size, app1_size))
+        # compute the QOS losses for both apps
+        qos, co_run_qos = simulate(app_lengths, interference_matrix, iter_numbers, equality_error)
+        print(qos)
+elif test_type == "pickled":
+    # load pickled data from file:
+    apps = pickle.load(open("10_apps.bin", "rb"))
 
-    # # hand-crafted data
-    # interference_matrix = [np.array([[0.3, 0.4, 0.2], [0.35556, 0.143, 0.59]]),
-    #                        np.array([[0.652, 0.821, 0.469], [0.295, 0.5532, 0.972]])]
-    # app_lengths = [np.array([40, 50, 8]), np.array([2, 3])]
+    for app_pair, interference_pair in apps:
 
-    # print("matrix averages are: {} and {}".format(np.average(interference_matrix[0]), np.average(interference_matrix[1])))
-    # print("app length sums are: {} and {}".format(sum(app_lengths[0]), sum(app_lengths[1])))
-    # print("sanity check avg is: {} and {}".format((1 / np.average(interference_matrix[0])) * sum(app_lengths[0]),
-    #                                               (1 / np.average(interference_matrix[1])) * sum(app_lengths[1])))
+        # compute the QOS losses for both apps
+        qos, co_run_qos = simulate(app_pair, interference_pair, iter_numbers, equality_error)
+        print(qos)
 
-    # counter for how many iterations each app has completed
-    iter_numbers = [10, 10]
+elif test_type == "pickled_multi":
 
-    # compute the QOS losses for both apps
-    qos, co_run_qos = simulate(app_lengths, interference_matrix, iter_numbers, equality_error)
-    print(qos)
-    # logger.info(("Actual times are {}".format(qos)))
+    # load pickled data from file:
+    apps = pickle.load(open("10_apps.bin", "rb"))
+
+    # app_lengths = [x[0] for x in apps]
+    # print(app_lengths)
+
+    # for i in range(10):
+    #     print(apps)
+
+    # Function run by worker processes
+    def worker(input_queue, output_queue):
+        for func, args in iter(input_queue.get, 'STOP'):
+            result = calculate(func, args)
+            output_queue.put(result)
+
+    # Function used to calculate result
+    def calculate(func, args):
+        result = func(*args)
+        print("process {} analyzed app {}".format(current_process().name, result[0]))
+        return result
+
+    # Functions referenced by tasks
+    def sim(ind, app_pair, interference_pair):
+        return ind, simulate(app_pair, interference_pair, iter_numbers, equality_error)[0]
+
+    total_list = []
+
+    NUMBER_OF_PROCESSES = 10
+    TASKS = [(sim, (i, apps[i][0], apps[i][1])) for i in range(10)]
+
+    # Create queues
+    task_queue = Queue()
+    done_queue = Queue()
+
+    # Submit tasks
+    for task in TASKS:
+        task_queue.put(task)
+
+    # Start worker processes
+    for i in range(NUMBER_OF_PROCESSES):
+        Process(target=worker, args=(task_queue, done_queue)).start()
+
+    # Get and print results
+    for i in range(len(TASKS)):
+        idx, lst = done_queue.get()
+        print(lst)
+
+    # Tell child processes to stop
+    for i in range(NUMBER_OF_PROCESSES):
+        task_queue.put('STOP')
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #     # estimate using steady state prediction
 #     co_run_qos_estimate, detection_iterations = estimate_steady_states(app_lengths, interference_matrix)
@@ -92,13 +154,70 @@ for i in range(2):
 # logger.info("Standard deviation is {} %".format(np.std(perc_errors)))
 
 
-# TODO:
-#  1. check if the co-run qos estimate is done correctly - it is, we esentially control the error
-#  2. expand the simulator to account for when apps can not be co-run with one another
-#  you don't need to actually run all the SMs to saturate the input;
-#  how to deal with the tail?
 
 
 
-
-
+#
+# #
+# # Function run by worker processes
+# #
+#
+# def worker(input, output):
+#     for func, args in iter(input.get, 'STOP'):
+#         result = calculate(func, args)
+#         output.put(result)
+#
+# #
+# # Function used to calculate result
+# #
+#
+# def calculate(func, args):
+#     result = func(*args)
+#     # print(result)
+#     return result
+#
+# #
+# # Functions referenced by tasks
+# #
+#
+# def mul(lst, constant):
+#     return [x * constant for x in lst]
+#
+# #
+# #
+# #
+#
+# def test():
+#     total_list = []
+#     NUMBER_OF_PROCESSES = 4
+#     TASKS = [(mul, ([0, 1, 2, 3], 1)),
+#              (mul, ([4, 5, 6, 7], 2)),
+#              (mul, ([8, 9, 10, 11], 3)),
+#              (mul, ([12, 13, 14, 15], 4))]
+#
+#     # Create queues
+#     task_queue = Queue()
+#     done_queue = Queue()
+#
+#     # Submit tasks
+#     for task in TASKS:
+#         task_queue.put(task)
+#
+#     # Start worker processes
+#     for i in range(NUMBER_OF_PROCESSES):
+#         Process(target=worker, args=(task_queue, done_queue)).start()
+#
+#     # Get and print results
+#     for i in range(len(TASKS)):
+#         total_list += done_queue.get()
+#
+#     # Tell child processes to stop
+#     for i in range(NUMBER_OF_PROCESSES):
+#         task_queue.put('STOP')
+#
+#     print(total_list)
+#
+#
+# if __name__ == '__main__':
+#     freeze_support()
+#     test()
