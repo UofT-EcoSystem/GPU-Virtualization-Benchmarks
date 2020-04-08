@@ -48,8 +48,8 @@ def build_config(best_row, cap, inter_cta):
     config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
     # fail fast config
-    max_cycle = int(cap * max(best_row['runtime_x'],
-                              best_row['runtime_y']))
+    max_cycle = int(cap * max(best_row['runtime_x'] * best_row['norm_ipc_x'],
+                              best_row['runtime_y'] * best_row['norm_ipc_y']))
     config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
 
     config_inter = 'INTER_0:' + str(inter_cta) + ':' \

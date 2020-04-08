@@ -65,7 +65,8 @@ def build_df_prod(inter_pkl, apps, cap):
         config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
         # fail fast config
-        max_cycle = int(cap * max(row['runtime_x'], row['runtime_y']))
+        max_cycle = int(cap * max(row['runtime_x'] * row['norm_ipc_x'],
+                                  row['runtime_y'] * row['norm_ipc_y']))
         config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
 
         config_inter = 'INTER_0:' + str(row['inter_x']) + ':' \
