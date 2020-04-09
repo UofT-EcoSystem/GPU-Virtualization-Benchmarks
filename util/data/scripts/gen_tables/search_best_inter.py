@@ -12,6 +12,11 @@ def parse_args(_args):
                                      'based on profiled and simulated best '
                                      'information.')
 
+    parser.add_argument('--seq_csv',
+                        default=os.path.join(const.DATA_HOME,
+                                             'csv/seq.csv'),
+                        help='Seq csv file for runtime cap.')
+
     parser.add_argument('--inter_pkl',
                         default=os.path.join(const.DATA_HOME,
                                              'pickles/inter.pkl'),
@@ -44,12 +49,9 @@ def parse_args(_args):
     return results
 
 
-def build_config(best_row, cap, inter_cta):
+def build_config(max_cycle, inter_cta):
     config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
-    # fail fast config
-    max_cycle = int(cap * max(best_row['runtime_x'] * best_row['norm_ipc_x'],
-                              best_row['runtime_y'] * best_row['norm_ipc_y']))
     config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
 
     config_inter = 'INTER_0:' + str(inter_cta) + ':' \
@@ -60,8 +62,8 @@ def build_config(best_row, cap, inter_cta):
     return config
 
 
-def build_configs_local(inter_pkl, pair_inter_pkl, apps, cap):
-    df_prod = gen_inter_configs.build_df_prod(inter_pkl, apps, cap)
+def build_configs_local(inter_pkl, pair_inter_pkl, apps, max_cycle):
+    df_prod = gen_inter_configs.build_df_prod(inter_pkl, apps, 2.5)
 
     if len(df_prod.index) == 0:
         return []
@@ -106,9 +108,7 @@ def build_configs_local(inter_pkl, pair_inter_pkl, apps, cap):
                 # we should stop going in this current direction
                 break
         else:
-            c = build_config(df_pair_inter.loc[estimated_best_inter],
-                             cap,
-                             inter_x)
+            c = build_config(max_cycle, inter_x)
             return [c]
 
     if reverse_search:
@@ -122,16 +122,14 @@ def build_configs_local(inter_pkl, pair_inter_pkl, apps, cap):
                     # donezo
                     return []
             else:
-                c = build_config(df_pair_inter.loc[estimated_best_inter],
-                                 cap,
-                                 inter_x)
+                c = build_config(max_cycle, inter_x)
                 return [c]
     else:
         return []
 
 
-def build_configs_large(inter_pkl, pair_inter_pkl, apps, cap):
-    df_prod = gen_inter_configs.build_df_prod(inter_pkl, apps, cap)
+def build_configs_large(inter_pkl, pair_inter_pkl, apps, max_cycle):
+    df_prod = gen_inter_configs.build_df_prod(inter_pkl, apps, 2.5)
 
     if len(df_prod.index) == 0:
         return []
@@ -202,7 +200,7 @@ def build_configs_large(inter_pkl, pair_inter_pkl, apps, cap):
         if (inter_cta == best_1_inter) or (inter_cta == best_1_inter + 4):
             continue
 
-        config = build_config(best_row, cap, inter_cta)
+        config = build_config(max_cycle, inter_cta)
         list_configs.append(config)
 
     return list_configs
@@ -215,12 +213,18 @@ def main(_args):
         print("Number of apps is not equal to 2. Abort.")
         exit(1)
 
+    df_seq = pd.read_csv(args.seq_csv)
+    df_seq.set_index('pair_str', inplace=True)
+
+    max_cycle = int(args.cap * max(df_seq.loc[args.apps[0], 'runtime'],
+                                    df_seq.loc[args.apps[1], 'runtime']))
+
     if args.how == 'large':
         list_configs = build_configs_large(args.inter_pkl, args.pair_inter_pkl,
-                                           args.apps, args.cap)
+                                           args.apps, max_cycle)
     else:
         list_configs = build_configs_local(args.inter_pkl, args.pair_inter_pkl,
-                                           args.apps, args.cap)
+                                           args.apps, max_cycle)
 
     if args.print:
         print('-' * 30)
