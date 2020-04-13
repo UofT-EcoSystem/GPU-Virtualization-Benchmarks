@@ -202,7 +202,7 @@ def parse_app_files(app, args, stats_to_pull):
 
         # sort logs based on time stamps
         def get_timestamp(x):
-            return os.path.getmtime(x)
+            return os.path.getctime(x)
         gpusim_logs = sorted(gpusim_logs, reverse=True, key=get_timestamp)
 
         found_valid_log = False
@@ -214,6 +214,7 @@ def parse_app_files(app, args, stats_to_pull):
             else:
                 found_valid_log = True
                 valid_log = latest_log
+                break
 
         if not found_valid_log:
             found_failed_app = True
