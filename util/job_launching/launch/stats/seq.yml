@@ -9,6 +9,7 @@
   'runtime': 'gpu_tot_sim_cycle\[1\]\s*:\s*(.*)'
   'ipc': 'gpu_tot_ipc\s*=\s*(.*)'
   'instructions': 'gpu_tot_sim_insn\[1\]\s*:\s*(.*)'
+  'l2_parallelism': 'partiton_level_parallism\s*=\s*(.*)'
   'avg_mem_lat': 'averagemflatency\[1\]\s*=\s*(.*)'
   'avg_core_to_l2': 'avg_icnt2mem_latency\[1\]\s*=\s*(.*)'
   'avg_l2_to_core': 'avg_icnt2sh_latency\[1\]\s*=\s*(.*)'
