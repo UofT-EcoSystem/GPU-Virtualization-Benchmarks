@@ -81,6 +81,11 @@ def build_configs_local(inter_pkl, pair_inter_pkl, apps, max_cycle):
 
     df_pair_inter.set_index('1_inter', inplace=True)
 
+    if estimated_best_inter not in df_pair_inter.index:
+        print('App {0} and {1} cannot find expected best inter simulation.'.format(
+            apps[0], apps[1]))
+        return []
+
     # real ws of estimated best
     best_ws = df_pair_inter.loc[estimated_best_inter, 'ws']
 
