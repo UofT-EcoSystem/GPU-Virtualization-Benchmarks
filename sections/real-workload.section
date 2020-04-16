@@ -2,6 +2,13 @@ Identifier: "real"
 DisplayName: "Quick facts for real workloads"
 Header {
   Metrics {
+    Label: "Duration"
+    Name: "gpu__time_duration" 
+    Options: {
+      Name: "gpu__time_duration.sum"
+    }
+  }
+  Metrics {
     Label: "DRAM_UTIL_PCT"
     Name: "dram__throughput.avg.pct_of_peak_sustained_elapsed"
   }
