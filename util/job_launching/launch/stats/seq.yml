@@ -99,6 +99,8 @@
     'stall_mem_cycles\[1\]\s*=\s*(.*)'
   'not_selected_cycles':
     'not_selected_cycles\[1\]\s*=\s*(.*)'
+  'cycles_per_issue':
+    'cycles_per_issue\[1\]\s*=\s*(.*)'
 'vector':
   'dram_eff': 'dram_eff=(.*)$'
   'dram_bw': 'bw_util=(.*)$'
