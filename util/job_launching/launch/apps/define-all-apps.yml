@@ -27,7 +27,7 @@ parboil:
   execs:
     - parb_sad:  
       - -i DATA/sad/default/input/reference.bin,DATA/sad/default/input/frame.bin -o out.bin
-      - -i DATA/sad/large/input/reference.bin,DATA/sad/default/input/frame.bin -o out.bin
+      - -i DATA/sad/large/input/reference.bin,DATA/sad/large/input/frame.bin -o out.bin
     - parb_sgemm:
       - -i DATA/sgemm/medium/input/matrix1.txt,DATA/sgemm/medium/input/matrix2t.txt,DATA/sgemm/medium/input/matrix2t.txt -o matrix3.txt
 
