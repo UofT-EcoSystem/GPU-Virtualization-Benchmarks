@@ -97,6 +97,9 @@ nvidia:
       - -n=1
     - nvd_sobol:
       - -device=0
+    - nvd_conv:
+        - -device=0
+
 
         ################## END TESTED portion #################
 
