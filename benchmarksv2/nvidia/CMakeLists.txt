@@ -31,4 +31,8 @@ if (nvd_interval)
   add_subdirectory(interval)
 endif()
 
+if (nvd_conv)
+  add_subdirectory(convolutionSeparable)
+endif()
+
 

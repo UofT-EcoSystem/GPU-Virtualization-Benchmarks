@@ -8,5 +8,6 @@ int main_binomial(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_sobol(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_stereo(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_interval(int argc, char** argv, int uid, cudaStream_t & stream);
+int main_conv(int argc, char** argv, int uid, cudaStream_t & stream);
 
 #endif

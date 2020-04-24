@@ -44,13 +44,12 @@ extern "C" void convolutionColumnCPU(
     int kernelR
 );
 
-
-
+extern bool set_and_check(int uid, bool start);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main program
 ////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char **argv)
+int main_conv(int argc, char **argv, int uid, cudaStream_t & stream)
 {
     // start logs
     printf("[%s] - Starting...\n", argv[0]);
@@ -103,34 +102,45 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMalloc((void **)&d_Output,  imageW * imageH * sizeof(float)));
     checkCudaErrors(cudaMalloc((void **)&d_Buffer , imageW * imageH * sizeof(float)));
 
-    setConvolutionKernel(h_Kernel);
-    checkCudaErrors(cudaMemcpy(d_Input, h_Input, imageW * imageH * sizeof(float), cudaMemcpyHostToDevice));
+    setConvolutionKernel(h_Kernel, stream);
+    checkCudaErrors(cudaMemcpyAsync(d_Input, h_Input, imageW * imageH * sizeof(float), cudaMemcpyHostToDevice, stream));
 
     printf("Running GPU convolution (%u identical iterations)...\n\n", iterations);
 
-    for (int i = -1; i < iterations; i++)
+    cudaStreamSynchronize(stream);
+    while(!set_and_check(uid, true));
+
+    bool can_exit = false;
+
+    //for (int i = -1; i < iterations; i++)
+    while(!can_exit)
     {
         //i == -1 -- warmup iteration
-        if (i == 0)
-        {
-            checkCudaErrors(cudaDeviceSynchronize());
-            sdkResetTimer(&hTimer);
-            sdkStartTimer(&hTimer);
-        }
+//        if (i == 0)
+//        {
+//            checkCudaErrors(cudaDeviceSynchronize());
+//            sdkResetTimer(&hTimer);
+//            sdkStartTimer(&hTimer);
+//        }
 
         convolutionRowsGPU(
             d_Buffer,
             d_Input,
             imageW,
-            imageH
+            imageH,
+            stream
         );
 
         convolutionColumnsGPU(
             d_Output,
             d_Buffer,
             imageW,
-            imageH
+            imageH,
+            stream
         );
+
+        cudaStreamSynchronize(stream);
+        can_exit = set_and_check(uid, false);
     }
 
     checkCudaErrors(cudaDeviceSynchronize());
@@ -140,42 +150,43 @@ int main(int argc, char **argv)
            (1.0e-6 * (double)(imageW * imageH)/ gpuTime), gpuTime, (imageW * imageH), 1, 0);
 
     printf("\nReading back GPU results...\n\n");
-    checkCudaErrors(cudaMemcpy(h_OutputGPU, d_Output, imageW * imageH * sizeof(float), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpyAsync(h_OutputGPU, d_Output, imageW * imageH * sizeof(float), cudaMemcpyDeviceToHost, stream));
 
-    printf("Checking the results...\n");
-    printf(" ...running convolutionRowCPU()\n");
-    convolutionRowCPU(
-        h_Buffer,
-        h_Input,
-        h_Kernel,
-        imageW,
-        imageH,
-        KERNEL_RADIUS
-    );
+//    printf("Checking the results...\n");
+//    printf(" ...running convolutionRowCPU()\n");
+//    convolutionRowCPU(
+//        h_Buffer,
+//        h_Input,
+//        h_Kernel,
+//        imageW,
+//        imageH,
+//        KERNEL_RADIUS
+//    );
+//
+//    printf(" ...running convolutionColumnCPU()\n");
+//    convolutionColumnCPU(
+//        h_OutputCPU,
+//        h_Buffer,
+//        h_Kernel,
+//        imageW,
+//        imageH,
+//        KERNEL_RADIUS
+//    );
+//
+//    printf(" ...comparing the results\n");
+//    double sum = 0, delta = 0;
+//
+//    for (unsigned i = 0; i < imageW * imageH; i++)
+//    {
+//        delta += (h_OutputGPU[i] - h_OutputCPU[i]) * (h_OutputGPU[i] - h_OutputCPU[i]);
+//        sum   += h_OutputCPU[i] * h_OutputCPU[i];
+//    }
+//
+//    double L2norm = sqrt(delta / sum);
+//    printf(" ...Relative L2 norm: %E\n\n", L2norm);
+//    printf("Shutting down...\n");
 
-    printf(" ...running convolutionColumnCPU()\n");
-    convolutionColumnCPU(
-        h_OutputCPU,
-        h_Buffer,
-        h_Kernel,
-        imageW,
-        imageH,
-        KERNEL_RADIUS
-    );
-
-    printf(" ...comparing the results\n");
-    double sum = 0, delta = 0;
-
-    for (unsigned i = 0; i < imageW * imageH; i++)
-    {
-        delta += (h_OutputGPU[i] - h_OutputCPU[i]) * (h_OutputGPU[i] - h_OutputCPU[i]);
-        sum   += h_OutputCPU[i] * h_OutputCPU[i];
-    }
-
-    double L2norm = sqrt(delta / sum);
-    printf(" ...Relative L2 norm: %E\n\n", L2norm);
-    printf("Shutting down...\n");
-
+    cudaStreamSynchronize(stream);
 
     checkCudaErrors(cudaFree(d_Buffer));
     checkCudaErrors(cudaFree(d_Output));
@@ -188,12 +199,12 @@ int main(int argc, char **argv)
 
     sdkDeleteTimer(&hTimer);
 
-    if (L2norm > 1e-6)
-    {
-        printf("Test failed!\n");
-        exit(EXIT_FAILURE);
-    }
+//    if (L2norm > 1e-6)
+//    {
+//        printf("Test failed!\n");
+//        exit(EXIT_FAILURE);
+//    }
 
     printf("Test passed\n");
-    exit(EXIT_SUCCESS);
+    return EXIT_SUCCESS;
 }

@@ -25,6 +25,7 @@ option(nvd_binomial "compiling nvidia binomial kernels" OFF)
 option(nvd_sobol "compiling nvidia sobol kernels" OFF)
 option(nvd_stereo "compiling nvidia stereo kernels" OFF)
 option(nvd_interval "compiling nvidia interval kernels" OFF)
+option(nvd_conv "compiling nvidia conv kernels" OFF)
 
 
 find_package(OpenMP)
@@ -190,6 +191,11 @@ endif()
 if(nvd_interval)
   MESSAGE ("cmake: nvidia interval.")
   target_compile_definitions(driver PRIVATE NVD_INTERVAL)
+endif()
+
+if(nvd_conv)
+  MESSAGE ("cmake: nvidia conv.")
+  target_compile_definitions(driver PRIVATE NVD_CONV)
 endif()
 
 

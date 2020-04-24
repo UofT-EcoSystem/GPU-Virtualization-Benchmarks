@@ -229,6 +229,13 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_interval;
 #endif
   }
+  else if (strcmp(argv[0], "nvd_conv") == 0) {
+    std::cout << "main: nvidia conv" << std::endl;
+#ifdef NVD_CONV
+    func = main_conv;
+#endif
+  }
+
 
   else {
     std::cout << "Warning: No matching kernels for " << argv[0] << std::endl;

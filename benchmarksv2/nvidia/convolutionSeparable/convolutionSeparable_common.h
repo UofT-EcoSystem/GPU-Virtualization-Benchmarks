@@ -20,6 +20,7 @@
 #define KERNEL_LENGTH (2 * KERNEL_RADIUS + 1)
 
 
+#include "cuda_runtime_api.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Reference CPU convolution
@@ -47,20 +48,22 @@ extern "C" void convolutionColumnCPU(
 ////////////////////////////////////////////////////////////////////////////////
 // GPU convolution
 ////////////////////////////////////////////////////////////////////////////////
-extern "C" void setConvolutionKernel(float *h_Kernel);
+extern "C" void setConvolutionKernel(float *h_Kernel, cudaStream_t & stream);
 
 extern "C" void convolutionRowsGPU(
     float *d_Dst,
     float *d_Src,
     int imageW,
-    int imageH
+    int imageH,
+    cudaStream_t & stream
 );
 
 extern "C" void convolutionColumnsGPU(
     float *d_Dst,
     float *d_Src,
     int imageW,
-    int imageH
+    int imageH,
+    cudaStream_t & stream
 );
 
 

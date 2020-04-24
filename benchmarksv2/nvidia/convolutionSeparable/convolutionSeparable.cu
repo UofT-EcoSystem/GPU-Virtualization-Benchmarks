@@ -13,9 +13,9 @@
 
 #include <assert.h>
 #include <helper_cuda.h>
-#include <cooperative_groups.h>
+//#include <cooperative_groups.h>
 
-namespace cg = cooperative_groups;
+//namespace cg = cooperative_groups;
 #include "convolutionSeparable_common.h"
 
 
@@ -25,9 +25,10 @@ namespace cg = cooperative_groups;
 ////////////////////////////////////////////////////////////////////////////////
 __constant__ float c_Kernel[KERNEL_LENGTH];
 
-extern "C" void setConvolutionKernel(float *h_Kernel)
+extern "C" void setConvolutionKernel(float *h_Kernel, cudaStream_t & stream)
 {
-    cudaMemcpyToSymbol(c_Kernel, h_Kernel, KERNEL_LENGTH * sizeof(float));
+    cudaMemcpyToSymbolAsync(c_Kernel, h_Kernel, KERNEL_LENGTH * sizeof(float), 
+        0, cudaMemcpyHostToDevice, stream);
 }
 
 
@@ -48,7 +49,7 @@ __global__ void convolutionRowsKernel(
 )
 {
     // Handle to thread block group
-    cg::thread_block cta = cg::this_thread_block();
+    // cg::thread_block cta = cg::this_thread_block();
     __shared__ float s_Data[ROWS_BLOCKDIM_Y][(ROWS_RESULT_STEPS + 2 * ROWS_HALO_STEPS) * ROWS_BLOCKDIM_X];
 
     //Offset to the left halo edge
@@ -83,7 +84,8 @@ __global__ void convolutionRowsKernel(
     }
 
     //Compute and store results
-    cg::sync(cta);
+    // cg::sync(cta);
+    __syncthreads();
 #pragma unroll
 
     for (int i = ROWS_HALO_STEPS; i < ROWS_HALO_STEPS + ROWS_RESULT_STEPS; i++)
@@ -105,7 +107,8 @@ extern "C" void convolutionRowsGPU(
     float *d_Dst,
     float *d_Src,
     int imageW,
-    int imageH
+    int imageH,
+    cudaStream_t & stream
 )
 {
     assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= KERNEL_RADIUS);
@@ -115,7 +118,7 @@ extern "C" void convolutionRowsGPU(
     dim3 blocks(imageW / (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X), imageH / ROWS_BLOCKDIM_Y);
     dim3 threads(ROWS_BLOCKDIM_X, ROWS_BLOCKDIM_Y);
 
-    convolutionRowsKernel<<<blocks, threads>>>(
+    convolutionRowsKernel<<<blocks, threads, 0, stream>>>(
         d_Dst,
         d_Src,
         imageW,
@@ -144,7 +147,7 @@ __global__ void convolutionColumnsKernel(
 )
 {
     // Handle to thread block group
-    cg::thread_block cta = cg::this_thread_block();
+    // cg::thread_block cta = cg::this_thread_block();
     __shared__ float s_Data[COLUMNS_BLOCKDIM_X][(COLUMNS_RESULT_STEPS + 2 * COLUMNS_HALO_STEPS) * COLUMNS_BLOCKDIM_Y + 1];
 
     //Offset to the upper halo edge
@@ -178,7 +181,8 @@ __global__ void convolutionColumnsKernel(
     }
 
     //Compute and store results
-    cg::sync(cta);
+    // cg::sync(cta);
+    __syncthreads();
 #pragma unroll
 
     for (int i = COLUMNS_HALO_STEPS; i < COLUMNS_HALO_STEPS + COLUMNS_RESULT_STEPS; i++)
@@ -199,7 +203,8 @@ extern "C" void convolutionColumnsGPU(
     float *d_Dst,
     float *d_Src,
     int imageW,
-    int imageH
+    int imageH,
+    cudaStream_t & stream
 )
 {
     assert(COLUMNS_BLOCKDIM_Y * COLUMNS_HALO_STEPS >= KERNEL_RADIUS);
@@ -209,7 +214,7 @@ extern "C" void convolutionColumnsGPU(
     dim3 blocks(imageW / COLUMNS_BLOCKDIM_X, imageH / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
     dim3 threads(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
 
-    convolutionColumnsKernel<<<blocks, threads>>>(
+    convolutionColumnsKernel<<<blocks, threads, 0, stream>>>(
         d_Dst,
         d_Src,
         imageW,
