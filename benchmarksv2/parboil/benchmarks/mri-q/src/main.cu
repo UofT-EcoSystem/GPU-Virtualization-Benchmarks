@@ -57,8 +57,7 @@ cleanupMemoryGPU(int num, int size, float *& dev_ptr, float * host_ptr, cudaStre
   CUDA_ERRCK;
 }
 
-int
-main_mriq (int argc, char *argv[], int uid, cudaStream_t & stream) {
+int main_mriq (int argc, char *argv[], int uid, cudaStream_t & stream) {
   int numX, numK;		/* Number of X and K values */
   int original_numK;		/* Number of K values in input file */
   float *kx, *ky, *kz;		/* K trajectory (3D vectors) */
@@ -166,7 +165,6 @@ main_mriq (int argc, char *argv[], int uid, cudaStream_t & stream) {
     setupMemoryGPU(numX, sizeof(float), z_d, z, stream);
     cudaMalloc((void **)&Qr_d, numX * sizeof(float));
     CUDA_ERRCK;
-    // TODO: do we need to take care of cudaMemsets?
     cudaMemset((void *)Qr_d, 0, numX * sizeof(float));
     cudaMalloc((void **)&Qi_d, numX * sizeof(float));
     CUDA_ERRCK;

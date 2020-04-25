@@ -6,6 +6,8 @@
  *cr
  ***************************************************************************/
 
+#include <stdlib.h>
+#include <malloc.h>
 
 extern bool set_and_check(int uid, bool start);
 
@@ -145,8 +147,7 @@ void computeQ_GPU(int numK, int numX,
     kValues* kValsTile = kVals + QGridBase;
     int numElems = MIN(KERNEL_Q_K_ELEMS_PER_GRID, numK - QGridBase);
 
-    //TODO: resolve question about copy kind (parameter 5 to this function
-    cudaMemcpyToSymbol(ck, kValsTile, numElems * sizeof(kValues), 0, ???, stream);
+    cudaMemcpyToSymbolAsync(ck, kValsTile, numElems * sizeof(kValues), 0, cudaMemcpyDeviceToHost, stream);
 
     cudaStreamSynchronize(stream);
     while (!set_and_check(uid, true));
@@ -168,7 +169,7 @@ void computeQ_GPU(int numK, int numX,
 void createDataStructsCPU(int numK, int numX, float** phiMag,
 	 float** Qr, float** Qi)
 {
-  *phiMag = (float* ) memalign(16, numK * sizeof(float));
+  *phiMag = (float*) memalign(16, numK * sizeof(float));
   *Qr = (float*) memalign(16, numX * sizeof (float));
   *Qi = (float*) memalign(16, numX * sizeof (float));
 }
