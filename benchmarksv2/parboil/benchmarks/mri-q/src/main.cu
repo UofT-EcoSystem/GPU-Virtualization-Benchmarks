@@ -57,7 +57,7 @@ cleanupMemoryGPU(int num, int size, float *& dev_ptr, float * host_ptr, cudaStre
   CUDA_ERRCK;
 }
 
-int main_mriq (int argc, char *argv[], int uid, cudaStream_t & stream) {
+int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
   int numX, numK;		/* Number of X and K values */
   int original_numK;		/* Number of K values in input file */
   float *kx, *ky, *kz;		/* K trajectory (3D vectors) */
