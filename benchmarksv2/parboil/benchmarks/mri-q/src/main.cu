@@ -41,10 +41,10 @@ static void
 setupMemoryGPU(int num, int size, float*& dev_ptr, float*& host_ptr, cudaStream_t & stream)
 {
   cudaMalloc ((void **) &dev_ptr, num * size);
-  CUDA_ERRCK;
+ // CUDA_ERRCK;
   cudaMemcpyAsync (dev_ptr, host_ptr, num * size, cudaMemcpyHostToDevice, stream);
   cudaStreamSynchronize(stream);
-  CUDA_ERRCK;
+  //CUDA_ERRCK;
 }
 
 static void
@@ -52,9 +52,9 @@ cleanupMemoryGPU(int num, int size, float *& dev_ptr, float * host_ptr, cudaStre
 {
   cudaMemcpyAsync (host_ptr, dev_ptr, num * size, cudaMemcpyDeviceToHost, stream);
   cudaStreamSynchronize(stream);
-  CUDA_ERRCK;
+//  CUDA_ERRCK;
   cudaFree(dev_ptr);
-  CUDA_ERRCK;
+//  CUDA_ERRCK;
 }
 
 int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
