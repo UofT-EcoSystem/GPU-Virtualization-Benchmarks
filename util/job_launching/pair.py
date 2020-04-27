@@ -1,8 +1,10 @@
 import argparse
 import subprocess
 import pandas as pd
+import sys
 from job_launching.constant import *
 import data.scripts.common.constants as const
+import data.scripts.common.help_iso as help_iso
 import data.scripts.gen_tables.gen_pair_configs as dynamic
 import data.scripts.gen_tables.search_best_inter as inter
 
@@ -17,6 +19,8 @@ bench_opt_config = {
     'parb_spmv-0': (6, 0.25, False),
     'parb_stencil-0': (3, 0.5, False),
 }
+
+args = None
 
 
 def parse_args():
@@ -37,8 +41,12 @@ def parse_args():
                         help='Select all pairs that do not include this app. '
                              'Only checked when all is passed to --pair.')
 
-    parser.add_argument('--how', choices=['smk', 'static', 'dynamic', 'inter'],
+    parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
+                                          'inter', 'ctx'],
                         help='How to partition resources between benchmarks.')
+    parser.add_argument('--ratio', default=0.5, type=float,
+                        help='If how is ctx, ratio specifies the '
+                             'execution context proportion of first app.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -60,109 +68,11 @@ def parse_args():
     parser.add_argument("--overwrite", action="store_true",
                         help="Overwrite existing sim run dir completely.")
 
-    results = parser.parse_args()
+    global args
+    args = parser.parse_args()
 
-    return results
 
-
-app_df = pd.DataFrame.from_dict(bench_opt_config, orient='index',
-                                columns=['intra', 'l2', 'bypassl2'])
-
-args = parse_args()
-
-# Determine what app pairs to launch
-if args.pair[0] == 'all':
-    pairs = []
-    for bench0 in const.app_for_pair:
-        for bench1 in const.app_for_pair:
-            if bench0 < bench1:
-                pairs.append('+'.join([bench0, bench1]))
-
-    if not args.id_start < len(pairs):
-        print('Length of all pairs is {0} but id_start is {1}'
-              .format(len(pairs), args.id_start))
-        exit(1)
-    id_end = args.id_start + args.count
-
-    if id_end > len(pairs):
-        id_end = len(pairs)
-
-    args.pair = pairs[args.id_start:id_end]
-
-    # Drop pairs that do not include app match
-    if args.app_match != '':
-        args.pair = [p for p in args.pair if args.app_match in p]
-
-    if len(args.app_exclude) > 0:
-        for excl in args.app_exclude:
-            args.pair = [p for p in args.pair if excl not in p]
-
-# Keep track of total jobs launched
-job_count = 0
-pair_count = 0
-
-for pair in args.pair:
-    apps = pair.split('+')
-
-    base_config = "TITANV-PAE-SEP_RW-CONCURRENT"
-
-    if args.how == 'smk':
-        configs = [base_config]
-    elif args.how == 'static':
-        # Check if our table has the right info for apps
-        all_apps_valid = True
-        for app in apps:
-            if app not in app_df.index.values:
-                print("{0} is not in application map. Skip.".format(pair))
-                all_apps_valid = False
-                break
-        if not all_apps_valid:
-            continue
-
-        # intra SM config
-        intra_values = [str(app_df.loc[app, 'intra']) for app in apps]
-        intra_sm = 'INTRA_0:' + ':'.join(intra_values) + '_CTA'
-
-        # L2 partition config
-        # l2_values = [str(app_df.loc[app, 'l2']) for app in apps]
-        # FIXME: temp set all L2 partition to 0.5
-        l2_values = ['0.5' for app in apps]
-
-        l2 = 'PARTITION_L2_0:' + ':'.join(l2_values)
-
-        config = '-'.join([base_config, intra_sm, l2])
-
-        # L2 bypass config
-        if app_df.loc[apps[0], 'bypassl2']:
-            config += "-BYPASS_L2D_S1"
-
-        configs = [config]
-    elif args.how == 'dynamic':
-        pair_config_args = ['--apps'] + apps
-
-        pair_config_args.append('--print')
-
-        pair_config_args += ['--cap', str(args.cap)]
-
-        # dynamic.main returns an array of candidate configs
-        configs = dynamic.main(pair_config_args)
-
-        if len(configs) == 0:
-            # gen_pair_configs did not generate feasible config candidates
-            continue
-
-    else:
-        # inter-SM sharing
-        pair_config_args = ['--apps'] + apps
-        pair_config_args.append('--print')
-        pair_config_args += ['--cap', str(args.cap)]
-        pair_config_args += ['--how', 'local']
-
-        configs = inter.main(pair_config_args)
-
-        if len(configs) == 0:
-            continue
-
+def launch_job(*configs, pair):
     for config in configs:
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
@@ -187,10 +97,180 @@ for pair in args.pair:
         if not args.no_launch:
             print(p.stdout.decode("utf-8"))
 
-    pair_count += 1
-    job_count += len(configs)
 
-print('\n')
-print('>'*10, 'Summary', '<'*10)
-print('Total app pairs considered:', pair_count)
-print('Total jobs attempted to launch:', job_count)
+def process_smk(pair, config):
+    launch_job(config, pair=pair)
+    return 1
+
+
+def process_static(pair, base_config):
+    apps = pair.split('+')
+    app_df = pd.DataFrame.from_dict(bench_opt_config, orient='index',
+                                    columns=['intra', 'l2', 'bypassl2'])
+
+    # Check if our table has the right info for apps
+    all_apps_valid = True
+    for app in apps:
+        if app not in app_df.index.values:
+            print("{0} is not in application map. Skip.".format(apps))
+            all_apps_valid = False
+            break
+    if not all_apps_valid:
+        return []
+
+    # intra SM config
+    intra_values = [str(app_df.loc[app, 'intra']) for app in apps]
+    intra_sm = 'INTRA_0:' + ':'.join(intra_values) + '_CTA'
+
+    # L2 partition config
+    # l2_values = [str(app_df.loc[app, 'l2']) for app in apps]
+    # FIXME: temp set all L2 partition to 0.5
+    l2_values = ['0.5' for app in apps]
+
+    l2 = 'PARTITION_L2_0:' + ':'.join(l2_values)
+
+    config = '-'.join([base_config, intra_sm, l2])
+
+    # L2 bypass config
+    if app_df.loc[apps[0], 'bypassl2']:
+        config += "-BYPASS_L2D_S1"
+
+    configs = [config]
+
+    launch_job(*configs, pair=pair)
+
+    return len(configs)
+
+
+def process_dynamic(pair):
+    apps = pair.split('+')
+    pair_config_args = ['--apps'] + apps
+
+    pair_config_args.append('--print')
+
+    pair_config_args += ['--cap', str(args.cap)]
+
+    # dynamic.main returns an array of candidate configs
+    configs = dynamic.main(pair_config_args)
+
+    launch_job(*configs, pair=pair)
+
+    return len(configs)
+
+
+def process_inter(pair):
+    apps = pair.split('+')
+    # inter-SM sharing
+    pair_config_args = ['--apps'] + apps
+    pair_config_args.append('--print')
+    pair_config_args += ['--cap', str(args.cap)]
+    pair_config_args += ['--how', 'local']
+
+    configs = inter.main(pair_config_args)
+
+    launch_job(*configs, pair=pair)
+
+    return len(configs)
+
+
+def process_ctx(pair, base_config, df_seq_multi):
+    print(df_seq_multi.index)
+    apps = pair.split('+')
+
+    config = base_config + '-INTRA_0:{0}:{1}_RATIO'.format(args.ratio,
+                                                           1.0 - args.ratio)
+
+    max_cycles = 0
+
+    for app in apps:
+        # check how many kernels there are in the app
+        num_kernels = const.multi_kernel_app[app]
+        sum_cycles = 0
+        for kidx in range(1, num_kernels + 1, 1):
+            sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
+
+        if sum_cycles > max_cycles:
+            max_cycles = sum_cycles
+
+    cap_cycles = args.cap * max_cycles
+
+    config += '-CAP_{0}_CYCLE'.format(int(cap_cycles))
+
+    launch_job(config, pair=pair)
+
+    return 1
+
+
+def main():
+    parse_args()
+
+    # Determine what app pairs to launch
+    if args.pair[0] == 'all':
+        pairs = []
+        for bench0 in const.app_for_pair:
+            for bench1 in const.app_for_pair:
+                if bench0 < bench1:
+                    pairs.append('+'.join([bench0, bench1]))
+
+        if not args.id_start < len(pairs):
+            print('Length of all pairs is {0} but id_start is {1}'
+                  .format(len(pairs), args.id_start))
+            exit(1)
+        id_end = args.id_start + args.count
+
+        if id_end > len(pairs):
+            id_end = len(pairs)
+
+        args.pair = pairs[args.id_start:id_end]
+
+        # Drop pairs that do not include app match
+        if args.app_match != '':
+            args.pair = [p for p in args.pair if args.app_match in p]
+
+        if len(args.app_exclude) > 0:
+            for excl in args.app_exclude:
+                args.pair = [p for p in args.pair if excl not in p]
+
+    # Keep track of total jobs launched
+    job_count = 0
+    pair_count = 0
+
+    base_config = "TITANV-PAE-SEP_RW-CONCURRENT"
+
+    if args.how == 'smk':
+        len_configs = [process_smk(pair, base_config) for pair in args.pair]
+    elif args.how == 'static':
+        len_configs = [process_static(pair, base_config) for pair in args.pair]
+    elif args.how == 'dynamic':
+        len_configs = [process_dynamic(pair) for pair in args.pair]
+    elif args.how == 'inter':
+        len_configs = [process_inter(pair) for pair in args.pair]
+    elif args.how == 'ctx':
+        if args.ratio < 0.0 or args.ratio > 1.0:
+            print('Context ratio option: ratio is out of range. '
+                  'Must be between 0 and 1')
+            sys.exit(2)
+
+        # cap cycles are calculated from seq-multi.csv
+        df_seq_multi = pd.read_csv(os.path.join(const.DATA_HOME,
+                                                'csv/seq-multi.csv'))
+        help_iso.process_config_column('kidx', df=df_seq_multi)
+        df_seq_multi.set_index(['pair_str', 'kidx'], inplace=True)
+
+        len_configs = \
+            [process_ctx(pair, base_config, df_seq_multi) for pair in args.pair]
+    else:
+        print('Invalid sharing config how.')
+        sys.exit(1)
+
+    pair_count += sum(map(lambda x: x > 0, len_configs))
+    job_count += sum(len_configs)
+
+    print('\n')
+    print('>' * 10, 'Summary', '<' * 10)
+    print('Total app pairs considered:', pair_count)
+    print('Total jobs attempted to launch:', job_count)
+
+
+if __name__ == "__main__":
+    main()
