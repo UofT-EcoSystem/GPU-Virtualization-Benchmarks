@@ -33,6 +33,7 @@ type_table = {'intra': int,
               'l2': float,
               'norm_ipc': float,
               'avg_dram_bw': float,
+              'kidx': int,
               }
 
 metric_label = {'intra': 'Concurrent CTAs/SM',

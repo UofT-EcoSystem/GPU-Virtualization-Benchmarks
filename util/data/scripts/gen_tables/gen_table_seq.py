@@ -7,12 +7,16 @@ import pandas as pd
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('Generate dataframe pickle for sequential run from csv.')
+    parser = argparse.ArgumentParser('Generate dataframe pickle '
+                                     'for sequential run from csv.')
     parser.add_argument('--csv',
                         default=os.path.join(const.DATA_HOME, 'csv/seq.csv'),
                         help='CSV file to parse')
+    parser.add_argument('--multi', action='store_true',
+                        help='Whether this seq file is for multi-kernel run.')
     parser.add_argument('--output',
-                        default=os.path.join(const.DATA_HOME, 'pickles/seq.pkl'),
+                        default=os.path.join(const.DATA_HOME,
+                                             'pickles/seq.pkl'),
                         help='Output path for the dataframe pickle')
 
     results = parser.parse_args()
@@ -38,18 +42,38 @@ df['std_dram_bw'] = df['dram_bw'].transform(hi.std_array)
 df['ratio_dram_bw'] = df['std_dram_bw'] / df['avg_dram_bw']
 
 # MPKI
-df['MPKI'] = df['l2_total_accesses'] * df['l2_miss_rate'] / (df['instructions'] / 1000)
-
-# waves
-df['waves'] = df.apply(lambda row:
-                       row['grid_x'] * row['grid_y'] * row['grid_z']
-                       / const.num_sm_volta / const.kernel_dict[row['pair_str']][0], axis=1)
+df['MPKI'] = df['l2_total_accesses'] * df['l2_miss_rate'] \
+             / (df['instructions'] / 1000)
 
 # l2_accesses
 df['l2_access_density'] = df['l2_total_accesses'] / (df['instructions'] / 1000)
 
-# sort table based on benchmark name
-df.sort_values('pair_str', inplace=True)
+# parse config for multi-kernel benchmarks
+if args.multi:
+    hi.process_config_column('kidx', df=df)
+
+
+    def calc_waves(row):
+        kernel_key = "{0}:{1}".format(row['pair_str'], row['kidx'])
+        max_cta = const.kernel_dict[kernel_key][0]
+        grid_size = const.kernel_dict[kernel_key][1]
+
+        return grid_size / max_cta / const.num_sm_volta
+
+
+    df['waves'] = df.apply(calc_waves, axis=1)
+
+    # sort table based on benchmark name and kidx
+    df.sort_values(['pair_str', 'kidx'], inplace=True)
+
+else:
+    df['waves'] = df.apply(lambda row:
+                           const.kernel_dict[row['pair_str']][1]
+                           / const.num_sm_volta
+                           / const.kernel_dict[row['pair_str']][0], axis=1)
+
+    # sort table based on benchmark name
+    df.sort_values('pair_str', inplace=True)
 
 # Output pickle
 df.to_pickle(args.output)
