@@ -43,7 +43,7 @@ df['MPKI'] = df['l2_total_accesses'] * df['l2_miss_rate'] / (df['instructions'] 
 # waves
 df['waves'] = df.apply(lambda row:
                        row['grid_x'] * row['grid_y'] * row['grid_z']
-                       / const.num_sm_volta / const.app_dict[row['pair_str']][0], axis=1)
+                       / const.num_sm_volta / const.kernel_dict[row['pair_str']][0], axis=1)
 
 # l2_accesses
 df['l2_access_density'] = df['l2_total_accesses'] / (df['instructions'] / 1000)

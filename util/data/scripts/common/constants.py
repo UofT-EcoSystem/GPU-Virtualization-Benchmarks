@@ -13,7 +13,7 @@ num_sm_volta = 80
 # 1. max ctas according to resource constraints,
 # 2. grid size,
 # 3. is compute intensive?
-app_dict = OrderedDict([
+kernel_dict = OrderedDict([
     # ('cut_sgemm-0', [2, 128, 1]),
     ('cut_sgemm-1', [2, 512, 1]),
     ('cut_wmma-0', [4, 128, 1]),
@@ -50,15 +50,15 @@ app_dict = OrderedDict([
 
 
 def get_max_cta_per_sm(kernel):
-    return app_dict[kernel][0]
+    return kernel_dict[kernel][0]
 
 
 def get_grid_size(kernel):
-    return app_dict[kernel][1]
+    return kernel_dict[kernel][1]
 
 
 pair_ignore = ['cut_sgemm-0', 'cut_wmma-1', 'parb_sgemm-0', 'rod_mummer-0']
-app_for_pair = [app for app in app_dict if app not in pair_ignore]
+app_for_pair = [app for app in kernel_dict if app not in pair_ignore]
 
 # benchmark -> number of unique kernels
 multi_kernel_app = OrderedDict([('parb_sad-0', 3),

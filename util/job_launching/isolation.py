@@ -1,9 +1,7 @@
 import argparse
 import subprocess
-import os
 import pandas as pd
 import numpy as np
-import sys
 from job_launching.constant import *
 import data.scripts.common.constants as const
 
@@ -22,9 +20,9 @@ def parse_args():
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
                         help='Benchmark home folder.')
     parser.add_argument('--intra', action='store_true',
-                        help='Run intra experiments or not. Default to yes.')
+                        help='Run intra experiments or not.')
     parser.add_argument('--inter', action='store_true',
-                        help='Run inter experiments or not. Default to no.')
+                        help='Run inter experiments or not.')
 
     parser.add_argument('--cta_configs', default=4, type=int,
                         help='Sweeping step of CTAs/SM for intra-SM sharing.')
@@ -42,38 +40,48 @@ def parse_args():
     return results
 
 
-app_df = pd.DataFrame.from_dict(const.app_dict, orient='index',
-                                columns=['max_cta', 'grid'])
-app_df['achieved_cta'] = pd.DataFrame([np.ceil(app_df['grid'] / 80),
-                                       app_df['max_cta']]).min().astype('int32')
-# app_df['achieved_sm'] = np.minimum(const.num_sm_volta, app_df['grid'])
-app_df['achieved_sm'] = const.num_sm_volta
+df_kernel = pd.DataFrame.from_dict(const.kernel_dict, orient='index',
+                                   columns=['max_cta', 'grid', 'comp'])
+df_kernel['achieved_cta'] = np.minimum(np.ceil(df_kernel['grid'] / 80),
+                                       df_kernel['max_cta']).astype('int32')
+df_kernel['achieved_sm'] = const.num_sm_volta
 
 args = parse_args()
 
 if args.apps[0] == 'all':
-    all_apps = list(const.app_dict.keys())
+    all_apps = list(const.kernel_dict.keys())
 
     last_index = min(len(all_apps), args.count + args.id_start)
     args.apps = all_apps[args.id_start:last_index]
 
 for app in args.apps:
-    if app not in app_df.index.values:
+    if app in const.multi_kernel_app:
+        kernels = ["{0}:{1}".format(app, kidx)
+                   for kidx in range(1, const.multi_kernel_app[app]+1)]
+    elif app in df_kernel.index.values:
+        kernels = [app]
+    else:
         print("{0} is not in application map. Skip.".format(app))
+        continue
 
 
-    def launch_job(sm_config, jobname):
+    def launch_job(sm_config, jobname, kernel):
         #        configs = ["-".join([base_config, sm, l2])
         #                   for sm in sm_config for l2 in l2_partition]
         configs = ["-".join([base_config, sm]) for sm in sm_config]
 
-        # if app in mem_intense:
-        #     configs = configs + [c + '-' + bypass_l2d for c in configs \
-        #                          if ('L2_0:0.125' in c) or ('L2_0:0.25' in c)]
+        split_kernel = kernel.split(':')
+        if len(split_kernel) > 1:
+            # This is a kernel part of a multi-kernel benchmark
+            # append skip kidx config to do performance simulation only on
+            # this kernel
+            kidx = split_kernel[1]
+            configs = ["-".join([cfg, "MIX_{}_KIDX".format(kidx)])
+                       for cfg in configs]
 
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
-               '--app', app,
+               '--app', split_kernel[0],
                '--bench_home', args.bench_home,
                '--launch_name', jobname,
                '--env', args.env
@@ -90,29 +98,27 @@ for app in args.apps:
 
 
     base_config = "TITANV-SEP_RW-PAE-CONCURRENT"
-    bypass_l2d = "BYPASS_L2D_S1"
-
-    l2_fract = [0.25, 0.5, 0.75, 1.0]
-    l2_partition = ["PARTITION_L2_0:{0}:{1}".format(f, 1 - f) for f in l2_fract]
 
     if args.intra:
-        _abs_max = app_df.loc[app, 'achieved_cta']
-        _step = max(1, _abs_max // args.cta_configs)
+        for k in kernels:
+            _abs_max = df_kernel.loc[k, 'achieved_cta']
+            _step = max(1, _abs_max // args.cta_configs)
 
-        intra_sm = ["INTRA_0:{0}:0_CTA".format(i)
-                    for i in range(_step, _abs_max, _step)]
-        intra_sm.append("INTRA_0:{0}:0_CTA".format(_abs_max))
+            intra_sm = ["INTRA_0:{0}:0_CTA".format(i)
+                        for i in range(_step, _abs_max, _step)]
+            intra_sm.append("INTRA_0:{0}:0_CTA".format(_abs_max))
 
-        launch_job(intra_sm, 'isolation-intra')
+            launch_job(intra_sm, 'isolation-intra', k)
 
     if args.inter:
-        _abs_max = app_df.loc[app, 'achieved_sm']
-        _step = max(1, _abs_max // args.sm_configs)
+        for k in kernels:
+            _abs_max = df_kernel.loc[k, 'achieved_sm']
+            _step = max(1, _abs_max // args.sm_configs)
 
-        inter_sm = ["INTER_0:{0}:0_SM".format(i)
-                    for i in range(_step, _abs_max, _step)]
-        inter_sm.append("INTER_0:{0}:0_SM".format(_abs_max))
+            inter_sm = ["INTER_0:{0}:0_SM".format(i)
+                        for i in range(_step, _abs_max, _step)]
+            inter_sm.append("INTER_0:{0}:0_SM".format(_abs_max))
 
-        print(app, inter_sm)
+            print(app, inter_sm)
 
-        launch_job(inter_sm, 'isolation-inter')
+            launch_job(inter_sm, 'isolation-inter', k)
