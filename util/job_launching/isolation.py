@@ -58,8 +58,10 @@ for app in args.apps:
     if app in const.multi_kernel_app:
         kernels = ["{0}:{1}".format(app, kidx)
                    for kidx in range(1, const.multi_kernel_app[app]+1)]
+        launch_name = 'isolation-multi'
     elif app in df_kernel.index.values:
         kernels = [app]
+        launch_name = 'isolation'
     else:
         print("{0} is not in application map. Skip.".format(app))
         continue
@@ -108,7 +110,7 @@ for app in args.apps:
                         for i in range(_step, _abs_max, _step)]
             intra_sm.append("INTRA_0:{0}:0_CTA".format(_abs_max))
 
-            launch_job(intra_sm, 'isolation-intra', k)
+            launch_job(intra_sm, launch_name + '-intra', k)
 
     if args.inter:
         for k in kernels:
@@ -121,4 +123,4 @@ for app in args.apps:
 
             print(app, inter_sm)
 
-            launch_job(inter_sm, 'isolation-inter', k)
+            launch_job(inter_sm, launch_name + '-inter', k)
