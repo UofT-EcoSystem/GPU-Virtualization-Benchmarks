@@ -48,7 +48,7 @@ CONCURRENT:
 
 # sweeping ctas
 INTRA_?_CTA:
-  extra_params: "-gpgpu_sharing_intra_sm 1 -intra_sm_option 0 -max_cta_in_stream ?"
+  extra_params: "-gpgpu_sharing_intra_sm 1 -intra_sm_option 2 -max_cta_in_stream ?"
 
 INTRA_?_RATIO:
   extra_params: "-gpgpu_sharing_intra_sm 1 -intra_sm_option 1 -ctx_ratio_in_stream ?"
