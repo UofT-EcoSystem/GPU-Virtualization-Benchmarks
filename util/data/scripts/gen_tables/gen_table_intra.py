@@ -35,7 +35,11 @@ def parse_args():
 def process_df_intra(df_intra, df_seq):
     df_intra = df_intra.copy()
 
-    df_seq.set_index('pair_str', inplace=True)
+    # gpusim config
+    # hi.process_config_column('intra', 'l2', df=df_intra)
+    hi.process_config_column('intra', 'kidx', df=df_intra)
+
+    df_seq.set_index(['pair_str', 'kidx'], inplace=True)
 
     # Process df_intra
     def norm_over_seq(index, metric, value, inverse=True):
@@ -43,15 +47,12 @@ def process_df_intra(df_intra, df_seq):
 
     # normalized IPC
     df_intra['norm_ipc'] = df_intra.apply(lambda row:
-                                          norm_over_seq(row['pair_str'],
+                                          norm_over_seq((row['pair_str'],
+                                                         row['kidx']),
                                                         'ipc',
                                                         row['ipc'],
                                                         False),
                                           axis=1)
-
-    # gpusim config
-    # hi.process_config_column('intra', 'l2', df=df_intra)
-    hi.process_config_column('intra', df=df_intra)
 
     # concurrent thread count per SM
     df_intra['thread_count'] = df_intra['intra'] * df_intra['block_x'] * \
@@ -119,7 +120,7 @@ def process_df_intra(df_intra, df_seq):
 
 
 def get_best_intra(df_intra):
-    df_intra = df_intra.copy()
+    df_intra = df_intra.reset_index(drop=True)
 
     df_intra['perfdollar'] = df_intra['norm_ipc'] / df_intra['usage']
 

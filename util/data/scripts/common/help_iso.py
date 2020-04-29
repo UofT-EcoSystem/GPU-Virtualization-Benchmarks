@@ -77,7 +77,7 @@ def process_config_column(*configs, df):
                 if match:
                     return match.group(1)
 
-            return ''
+            return 0
 
         df[c] = df['config'].apply(parse_cfg).astype(type_table.get(c, float))
 
