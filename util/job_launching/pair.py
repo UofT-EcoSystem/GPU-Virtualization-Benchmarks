@@ -87,6 +87,8 @@ def launch_job(*configs, pair):
     configs = ["-".join([cfg, "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1])])
                for cfg in configs]
 
+    pair = '+'.join([split_kernels[0][0], split_kernels[1][0]])
+
     launch_name = 'pair-' + args.how
     if any(len(sk) > 1 for sk in split_kernels):
         launch_name += '-multi'
