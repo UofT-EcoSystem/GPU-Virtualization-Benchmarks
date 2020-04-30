@@ -58,7 +58,7 @@ for benchmark in args.app:
         ext_jobname = jobname + "-multi"
         # launch independent simulation for each unique kernel
         for kidx in range(1, const.multi_kernel_app[benchmark] + 1, 1):
-            ext_config_str = config_str + "-MIX_{}_KIDX".format(kidx)
+            ext_config_str = config_str + "-MIX_0:{}:0_KIDX".format(kidx)
             run_seq_sim(ext_config_str, ext_jobname)
     else:
         run_seq_sim(config_str, jobname)

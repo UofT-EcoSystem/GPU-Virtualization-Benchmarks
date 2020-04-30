@@ -47,6 +47,10 @@ def parse_args():
     parser.add_argument('--ratio', default=0.5, type=float,
                         help='If how is ctx, ratio specifies the '
                              'execution context proportion of first app.')
+    parser.add_argument('--intra_pkl',
+                        default=os.path.join(const.DATA_HOME, 'pkl/intra.pkl'),
+                        help='If how is dynamic, path to the intra pickle '
+                             'file.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -73,13 +77,24 @@ def parse_args():
 
 
 def launch_job(*configs, pair):
+    kernels = pair.split('+')
+    split_kernels = [k.split(':') for k in kernels]
+    kidx = [sk[1] if len(sk) > 1 else 1 for sk in split_kernels]
+
+    configs = ["-".join([cfg, "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1])])
+               for cfg in configs]
+
+    launch_name = 'pair-' + args.how
+    if any(len(sk) > 1 for sk in split_kernels):
+        launch_name += '-multi'
+
     for config in configs:
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
                '--app', pair,
                '--config', config,
                '--bench_home', args.bench_home,
-               '--launch_name', 'pair-' + args.how,
+               '--launch_name', launch_name,
                '--env', args.env,
                ]
 
@@ -96,6 +111,9 @@ def launch_job(*configs, pair):
 
         if not args.no_launch:
             print(p.stdout.decode("utf-8"))
+
+    print('Launching pair: ', pair)
+    [print(cfg) for cfg in configs]
 
 
 def process_smk(pair, config):
@@ -146,9 +164,8 @@ def process_dynamic(pair):
     apps = pair.split('+')
     pair_config_args = ['--apps'] + apps
 
-    pair_config_args.append('--print')
-
     pair_config_args += ['--cap', str(args.cap)]
+    pair_config_args += ['--intra_pkl', args.intra_pkl]
 
     # dynamic.main returns an array of candidate configs
     configs = dynamic.main(pair_config_args)
@@ -201,9 +218,8 @@ def process_ctx(pair, base_config, df_seq_multi):
     return 1
 
 
-def main():
-    parse_args()
-
+def process_pairs():
+    global args
     # Determine what app pairs to launch
     if args.pair[0] == 'all':
         pairs = []
@@ -230,6 +246,36 @@ def main():
         if len(args.app_exclude) > 0:
             for excl in args.app_exclude:
                 args.pair = [p for p in args.pair if excl not in p]
+
+    elif args.how == 'dynamic':
+        # expand all the multi-kernel benchmarks into individual kernels
+        updated_pairs = []
+        for pair in args.pair:
+            apps = pair.split('+')
+
+            def expand_bench(app):
+                expanded = []
+                if app in const.multi_kernel_app:
+                    [expanded.append("{0}:{1}".format(app, kidx)) for kidx in
+                     range(1, const.multi_kernel_app[app] + 1)]
+                else:
+                    expanded.append(app)
+                return expanded
+
+            list_1 = expand_bench(apps[0])
+            list_2 = expand_bench(apps[1])
+            cross_list = ["{0}+{1}".format(k1, k2) for k2 in list_2 for k1 in
+                          list_1]
+            updated_pairs += cross_list
+
+        args.pair = updated_pairs
+
+
+def main():
+    parse_args()
+
+    # handle all pairs and multi-kernel pairs in case of dynamic sharing
+    process_pairs()
 
     # Keep track of total jobs launched
     job_count = 0
