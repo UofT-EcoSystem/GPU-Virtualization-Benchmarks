@@ -51,6 +51,9 @@ def parse_args():
                         default=os.path.join(const.DATA_HOME, 'pkl/intra.pkl'),
                         help='If how is dynamic, path to the intra pickle '
                              'file.')
+    parser.add_argument('--top',
+                        action='store_true',
+                        help='If how is dynamic, only select top candidates.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -166,6 +169,9 @@ def process_dynamic(pair):
 
     pair_config_args += ['--cap', str(args.cap)]
     pair_config_args += ['--intra_pkl', args.intra_pkl]
+
+    if args.top:
+        pair_config_args += ['--top']
 
     # dynamic.main returns an array of candidate configs
     configs = dynamic.main(pair_config_args)

@@ -62,10 +62,16 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
         print('Number of apps is not equal to 2. Abort.')
         exit(1)
 
+    # Make apps into tuples
+    split_kernel = [a.split(':') for a in apps]
+    apps = [(sk[0], int(sk[1])) if len(sk) > 1 else (sk[0], 0) for sk in
+            split_kernel]
+    kernel_keys = df_intra[['pair_str', 'kidx']].apply(tuple, axis=1)
+
     df_app = []
 
     for app in apps:
-        _df = df_intra[df_intra['pair_str'] == app].copy()
+        _df = df_intra[kernel_keys == app].copy()
         _df['key'] = 0
 
         # Shrink down number of jobs to be launched:
