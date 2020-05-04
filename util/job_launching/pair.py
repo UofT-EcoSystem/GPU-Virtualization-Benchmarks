@@ -209,7 +209,7 @@ def process_ctx(pair, base_config, df_seq_multi):
 
     step = 1.0 / args.num_slice
     configs = [base_config + '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r) for r in
-               np.arange(step, 1.0 + step, step)]
+               np.arange(step, 1.0, step)]
 
     max_cycles = 0
 
