@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import pandas as pd
+import numpy as np
 import sys
 from job_launching.constant import *
 import data.scripts.common.constants as const
@@ -44,9 +45,9 @@ def parse_args():
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
                                           'inter', 'ctx'],
                         help='How to partition resources between benchmarks.')
-    parser.add_argument('--ratio', default=0.5, type=float,
-                        help='If how is ctx, ratio specifies the '
-                             'execution context proportion of first app.')
+    parser.add_argument('--num_slice', default=4, type=int,
+                        help='If how is ctx, num_slice specifies how many '
+                             'slice configs to sweep.')
     parser.add_argument('--intra_pkl',
                         default=os.path.join(const.DATA_HOME, 'pkl/intra.pkl'),
                         help='If how is dynamic, path to the intra pickle '
@@ -206,8 +207,9 @@ def process_ctx(pair, base_config, df_seq_multi):
     print(df_seq_multi.index)
     apps = pair.split('+')
 
-    config = base_config + '-INTRA_0:{0}:{1}_RATIO'.format(args.ratio,
-                                                           1.0 - args.ratio)
+    step = 1.0 / args.num_slice
+    configs = [base_config + '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r) for r in
+               np.arange(step, 1.0 + step, step)]
 
     max_cycles = 0
 
@@ -222,12 +224,13 @@ def process_ctx(pair, base_config, df_seq_multi):
             max_cycles = sum_cycles
 
     cap_cycles = args.cap * max_cycles
+    cap_config = '-CAP_{0}_CYCLE'.format(int(cap_cycles))
 
-    config += '-CAP_{0}_CYCLE'.format(int(cap_cycles))
+    configs = [c + cap_config for c in configs]
 
-    launch_job(config, pair=pair)
+    launch_job(*configs, pair=pair)
 
-    return 1
+    return len(configs)
 
 
 def process_pairs():
@@ -304,9 +307,9 @@ def main():
     elif args.how == 'inter':
         len_configs = [process_inter(pair) for pair in args.pair]
     elif args.how == 'ctx':
-        if args.ratio < 0.0 or args.ratio > 1.0:
-            print('Context ratio option: ratio is out of range. '
-                  'Must be between 0 and 1')
+        if args.num_slice <= 1:
+            print('Context ratio option: num_slice is out of range. '
+                  'Must be greater than 1.')
             sys.exit(2)
 
         # cap cycles are calculated from seq-multi.csv
