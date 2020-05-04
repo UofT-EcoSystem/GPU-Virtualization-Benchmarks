@@ -79,18 +79,9 @@ def parse_args():
     args = parser.parse_args()
 
 
-def launch_job(*configs, pair):
-    kernels = pair.split('+')
-    split_kernels = [k.split(':') for k in kernels]
-    kidx = [sk[1] if len(sk) > 1 else 1 for sk in split_kernels]
-
-    configs = ["-".join([cfg, "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1])])
-               for cfg in configs]
-
-    pair = '+'.join([split_kernels[0][0], split_kernels[1][0]])
-
+def launch_job(*configs, pair, multi=False):
     launch_name = 'pair-' + args.how
-    if any(len(sk) > 1 for sk in split_kernels):
+    if multi:
         launch_name += '-multi'
 
     for config in configs:
@@ -166,6 +157,7 @@ def process_static(pair, base_config):
 
 
 def process_dynamic(pair):
+    # This simulation simulates pairs of single kernels
     apps = pair.split('+')
     pair_config_args = ['--apps'] + apps
 
@@ -178,7 +170,19 @@ def process_dynamic(pair):
     # dynamic.main returns an array of candidate configs
     configs = dynamic.main(pair_config_args)
 
-    launch_job(*configs, pair=pair)
+    split_kernels = [k.split(':') for k in apps]
+    kidx = [sk[1] if len(sk) > 1 else 1 for sk in split_kernels]
+
+    configs = ["-".join([cfg, "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1])])
+               for cfg in configs]
+
+    # Each app in pair should indicate which kernel is run for multi-kernel
+    # benchmark
+    pair = '+'.join([split_kernels[0][0], split_kernels[1][0]])
+
+    multi = any(len(sk) > 1 for sk in split_kernels)
+
+    launch_job(*configs, pair=pair, multi=multi)
 
     return len(configs)
 
