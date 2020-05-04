@@ -1,6 +1,6 @@
 #PBS -S /bin/bash
 #PBS -N REPLACE_NAME
-#PBS -l nodes=1:ppn=2
+#PBS -l nodes=1:ppn=REPLACE_CPU
 #PBS -l walltime=200:00:00
 #PBS -q REPLACE_QUEUE_NAME
 #PBS -m ea

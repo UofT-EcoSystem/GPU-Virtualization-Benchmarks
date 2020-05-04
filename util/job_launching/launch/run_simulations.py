@@ -175,14 +175,17 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
         _app_2 = bench[1]
         _input_2 = common.get_inputs_from_app(bench[1])
         _app_2_cmake = _input_2.split(' ')[0]
+        _cpu = 4
     else:
         _valid_app_2 = 'false'
         _app_2 = 'dont_care'
         _input_2 = 'dont_care'
         _app_2_cmake = 'dont_care'
+        _cpu = 3
 
     replacement_dict = {
         "NAME": bench_str + '-' + config_name + '-' + gpusim_version,
+        "CPU": _cpu,
         "QUEUE_NAME": queue_name,
         "GPGPUSIM_ROOT": os.getenv("GPGPUSIM_ROOT"),
         "BENCH_HOME": args.bench_home,
