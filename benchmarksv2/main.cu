@@ -26,8 +26,11 @@
 #include "rodinia/benchmarks/interface.h"
 #include "nvidia/interface.h"
 
+std::vector<cudaStream_t> streams;
+
 std::vector<bool> done_flags;
 std::vector<bool> start_flags;
+std::vector<bool> exit_flags;
 std::mutex lock_flag;
 std::mutex lock_flag2;
 
@@ -61,11 +64,22 @@ bool set_and_check(int uid, bool start) {
   }
 }
 
+void set_exit(int uid) {
+    std::lock_guard<std::mutex> guard(lock_flag2);
+    exit_flags[uid] = true;
+}
+
+bool get_exit(int uid) {
+    std::lock_guard<std::mutex> guard(lock_flag2);
+    return exit_flags[uid];
+}
+
 void shared_push() {
   // this function is guarded by the mutex
   std::lock_guard<std::mutex> guard(lock_flag);
   done_flags.push_back(false);
   start_flags.push_back(false);
+  exit_flags.push_back(false);
 }
 
 
@@ -254,6 +268,21 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     delete carray;
   }
 
+  cudaDeviceSynchronize();
+
+  set_exit(uid);
+
+  if (uid == 0) {
+      // sketchy join thread
+      for (unsigned tid = 1; tid < exit_flags.size(); tid++) {
+          while (!get_exit(tid)) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(5));
+          }
+      }
+
+      // Explicitly exit program
+      exit(0);
+  }
 }
 
 
@@ -282,26 +311,28 @@ int main(int argc, char** argv) {
   }
 
   // spawn threads to invoke separate kernels
-  std::thread ts[args.size()];
-  cudaStream_t streams[args.size()];
+  streams.resize(args.size());
+
   for (int i = 0; i < args.size(); i++) {
     shared_push();
     cudaStreamCreate(&(streams[i]));
 
-    ts[i] = std::thread(invoke, i, args[i], &(streams[i]));
+    std::thread(invoke, i, args[i], &(streams[i])).detach();
   }
 
-  // join threads
-  for (auto & t : ts) {
-    t.join();
-  }
+  // Get rid of main thread to save some CPU cycles
+//  // join threads
+//  for (auto & t : ts) {
+//    t.join();
+//  }
+//
+//  // sanity check: all flags should now be true
+//  for (auto f : done_flags) {
+//    if (!f) std::cout << "Some thread did not set flag to true!!!!" << std::endl;
+//  }
+//
+//  cudaDeviceSynchronize();
 
-  // sanity check: all flags should now be true
-  for (auto f : done_flags) {
-    if (!f) std::cout << "Some thread did not set flag to true!!!!" << std::endl;
-  }
-
-  cudaDeviceSynchronize();
-
-  return 0;
+//  return 0;
+  pthread_exit(0);
 }
