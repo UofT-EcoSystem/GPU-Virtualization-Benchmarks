@@ -57,8 +57,10 @@ for benchmark in args.app:
     if benchmark in const.multi_kernel_app.keys():
         ext_jobname = jobname + "-multi"
         # launch independent simulation for each unique kernel
-        for kidx in range(1, const.multi_kernel_app[benchmark] + 1, 1):
+        num_kernel = const.multi_kernel_app[benchmark]
+        for kidx in range(1, num_kernel + 1, 1):
             ext_config_str = config_str + "-MIX_0:{}:0_KIDX".format(kidx)
+            ext_config_str += "-NUM_0:{}:0_KERNEL".format(num_kernel)
             run_seq_sim(ext_config_str, ext_jobname)
     else:
         run_seq_sim(config_str, jobname)

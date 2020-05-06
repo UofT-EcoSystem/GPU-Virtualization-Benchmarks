@@ -173,8 +173,14 @@ def process_dynamic(pair):
 
     split_kernels = [k.split(':') for k in apps]
     kidx = [sk[1] if len(sk) > 1 else 1 for sk in split_kernels]
+    num_kernel = [const.multi_kernel_app[sk[0]] if len(sk) > 1 else 1 for sk in
+                  split_kernels]
 
-    configs = ["-".join([cfg, "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1])])
+    configs = ["-".join([cfg,
+                         "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1]),
+                         "-NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
+                                                        num_kernel[1])]
+                        )
                for cfg in configs]
 
     # Each app in pair should indicate which kernel is run for multi-kernel

@@ -99,6 +99,9 @@ LSRR:
 MIX_?_KIDX:
   extra_params: "-gpgpu_ptx_mix_sim_mode 1 -gpgpu_ptx_perf_kernel_idx ?"
 
+NUM_?_KERNEL:
+  extra_params: "-gpgpu_ptx_num_kernel ?"
+
 # Experimental - for SM 60 PTXplus support
 PTXPLUS_SM6:
     extra_params: "-gpgpu_ptx_convert_to_ptxplus 1 -gpgpu_ptx_force_max_capability 62 -gpgpu_ptx_force_min_capability 60"

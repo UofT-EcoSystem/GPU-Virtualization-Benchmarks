@@ -78,7 +78,11 @@ for app in args.apps:
             # append skip kidx config to do performance simulation only on
             # this kernel
             kidx = split_kernel[1]
-            configs = ["-".join([cfg, "MIX_0:{}:0_KIDX".format(kidx)])
+            num_kernel = const.multi_kernel_app[split_kernel[0]]
+            configs = ["-".join([cfg,
+                                 "MIX_0:{}:0_KIDX".format(kidx),
+                                 "NUM_0:{}:0_KERNEL".format(num_kernel)]
+                                )
                        for cfg in configs]
 
         cmd = ['python3',
