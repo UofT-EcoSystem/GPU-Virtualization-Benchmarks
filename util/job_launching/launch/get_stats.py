@@ -1,13 +1,13 @@
 import re
 import argparse
 import os
-import job_launching.launch.common as common
 import oyaml as yaml
+import numpy as np
 import glob
-import threading
 import multiprocessing
 from joblib import Parallel, delayed
-from time import sleep
+
+import job_launching.launch.common as common
 
 
 def load_stats_yamls(filename):
@@ -135,7 +135,7 @@ def collect_stats(outputfile, stats_to_pull):
     f = open(outputfile, errors='ignore')
     lines = f.readlines()
 
-    for line in reversed(lines):
+    for line in lines:
         # If we ended simulation due to too many insn -
         # ignore the last kernel launch, as it is no complete.
         # Note: This only appies if we are doing kernel-by-kernel stats
@@ -150,21 +150,30 @@ def collect_stats(outputfile, stats_to_pull):
         for stat_name, token in stats_to_pull.items():
             existance_test = token[0].search(line.rstrip())
             if existance_test:
-                number = existance_test.group(1).strip()
+                num_groups = len(existance_test.groups())
+
+                number = existance_test.groups()[-1].strip()
                 # avoid conflicts with csv commas
                 number = number.replace(',', 'x')
 
                 if token[1] == 'scalar':
                     stat_map[stat_name] = number
                 else:
-                    if stat_name not in stat_map:
-                        stat_map[stat_name] = [number]
-                    else:
-                        stat_map[stat_name].append(number)
+                    if num_groups == 1:
+                        if stat_name not in stat_map:
+                            stat_map[stat_name] = []
 
-        if len(stat_map) == len(stats_to_pull):
-            # we collected all the info, exit!
-            break
+                        stat_map[stat_name].append(number)
+                    else:
+                        if stat_name not in stat_map:
+                            # Hard-code three different streams
+                            stat_map[stat_name] = [[], [], []]
+
+                        stream_id = int(existance_test.group(1))
+                        kidx = int(existance_test.group(2))
+                        stat_map[stat_name][stream_id].append(number)
+                        assert (kidx + 1 ==
+                                len(stat_map[stat_name][stream_id]))
 
     f.close()
 
@@ -234,16 +243,26 @@ def parse_app_files(app, args, stats_to_pull):
         hit_max, stat_map = collect_stats(valid_log, stats_to_pull)
 
         for stat in stats_list:
+            csv_str += ','
             if stat in stat_map:
                 if stats_to_pull[stat][1] == 'scalar':
-                    csv_str += ',' + stat_map[stat]
+                    csv_str += stat_map[stat]
                 else:
-                    csv_str += ',[' + ' '.join(stat_map[stat]) + ']'
+                    if isinstance(stat_map[stat][0], list):
+                        # multi-dimensional array
+                        csv_str += '['
+
+                        for stream in stat_map[stat]:
+                            csv_str += '[' + ' '.join(stream) + '] '
+
+                        csv_str += ']'
+                    else:
+                        csv_str += '[' + ' '.join(stat_map[stat]) + ']'
             else:
                 if stats_to_pull[stat][1] == 'scalar':
-                    csv_str += ',' + '0'
+                    csv_str += '0'
                 else:
-                    csv_str += ',[0]'
+                    csv_str += '[0]'
 
         csv_list.append(csv_str)
 

@@ -1,0 +1,16 @@
+'scalar':
+  'stall_icnt_to_l2': 'gpu_stall_dramfull\s*=\s*(.*)'
+  'stall_l2_to_icnt': 'gpu_stall_icnt2sh\s*=\s*(.*)'
+  'stall_core_ldst': 'gpgpu_n_stall_shd_mem\s*=\s*(.*)'
+  'l1D_miss_rate': 'L1D_total_cache_miss_rate\s*=\s*(.*)'
+  'l2_miss_rate': 'L2_total_cache_miss_rate\s*=\s*(.*)'
+  'l2_rshr_entry_fail': 'L2_cache_stats_fail_breakdown\[GLOBAL_ACC_R\]\[MSHR_ENRTY_FAIL\]\s*=*\s(.*)'
+  'l2_rshr_merge_fail': 'L2_cache_stats_fail_breakdown\[GLOBAL_ACC_R\]\[MSHR_MERGE_ENRTY_FAIL\]\s*=\s*(.*)'
+'vector':
+  'runtime': 'gpu_tot_sim_cycle\[(.*)\]\[(.*)\]\s*:\s*(.*)'
+  'instructions': 'gpu_tot_sim_insn\[(.*)\]\[(.*)\]\s*:\s*(.*)'
+  'l2_bw': 'L2_BW_total\[(.*)\]\[(.*)\]\s*=\s*(.*)\s*GB/Sec'
+  'avg_mem_lat': 'averagemflatency\[(.*)\]\[(.*)\]\s*=\s*(.*)'
+  'avg_core_to_l2': 'avg_icnt2mem_latency\[(.*)\]\[(.*)\]\s*=\s*(.*)'
+  'avg_l2_to_core': 'avg_icnt2sh_latency\[(.*)\]\[(.*)\]\s*=\s*(.*)'
+  'avg_mrq_latency': 'avg_mrq_latency\[(.*)\]\[(.*)\]\s*=\s*(.*)'
