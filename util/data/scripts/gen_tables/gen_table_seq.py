@@ -29,6 +29,12 @@ args = parse_args()
 # Read CSV file
 df = pd.read_csv(args.csv)
 
+if args.multi:
+    hi.multi_array_col_seq(df)
+
+    # calculate ipc for multi seq
+    df['ipc'] = df['instructions'] / df['runtime']
+
 # drop any benchmarks that have zero runtime
 df = df[df['runtime'] > 0]
 
@@ -50,13 +56,13 @@ df['l2_access_density'] = df['l2_total_accesses'] / (df['instructions'] / 1000)
 
 # parse config for multi-kernel benchmarks
 if args.multi:
-    hi.process_config_column('kidx', df=df)
+    hi.process_config_column('1_kidx', df=df)
 
 
     def calc_waves(row):
-        kernel_key = "{0}:{1}".format(row['pair_str'], row['kidx'])
-        max_cta = const.kernel_dict[kernel_key][0]
-        grid_size = const.kernel_dict[kernel_key][1]
+        kernel_key = "{0}:{1}".format(row['pair_str'], row['1_kidx'])
+        max_cta = const.get_max_cta_per_sm(kernel_key)
+        grid_size = const.get_grid_size(kernel_key)
 
         return grid_size / max_cta / const.num_sm_volta
 
@@ -64,13 +70,13 @@ if args.multi:
     df['waves'] = df.apply(calc_waves, axis=1)
 
     # sort table based on benchmark name and kidx
-    df.sort_values(['pair_str', 'kidx'], inplace=True)
+    df.sort_values(['pair_str', '1_kidx'], inplace=True)
 
 else:
     df['waves'] = df.apply(lambda row:
-                           const.kernel_dict[row['pair_str']][1]
+                           const.get_grid_size(row['pair_str'])
                            / const.num_sm_volta
-                           / const.kernel_dict[row['pair_str']][0], axis=1)
+                           / const.get_max_cta_per_sm(row['pair_str']), axis=1)
 
     # sort table based on benchmark name
     df.sort_values('pair_str', inplace=True)

@@ -1,5 +1,7 @@
 import numpy as np
+import pandas as pd
 import re
+import ast
 
 # bench -> C(0)/M(1)
 bench_dict = {'cut_sgemm-0':0, 'cut_sgemm-1':0, 'cut_wmma-0': 0, 'cut_wmma-1': 0,
@@ -9,14 +11,18 @@ bench_dict = {'cut_sgemm-0':0, 'cut_sgemm-1':0, 'cut_wmma-0': 0, 'cut_wmma-1': 0
 # each tuple contains: regex, dtype
 regex_table = {'intra': r'INTRA_0:(.*):[0-9]+_CTA',
                'inter': r'INTER_0:(.*):[0-9]+_SM',
+               'kidx': r'MIX_(.*)_KIDX',
                'l2': r'PARTITION_L2_0:(.*):[0-9|\.]+',
                '1_intra': r'INTRA_0:(.*):[0-9]+_CTA',
                '1_inter': r'INTER_0:(.*):[0-9]+_SM',
                '1_l2': r'PARTITION_L2_0:(.*):[0-9|\.]+',
+               '1_kidx': r'MIX_0:(.*):[0-9]+_KIDX',
+               '1_ctx': r'INTRA_0:(.*):[0-9]+_RATIO',
                '2_intra': r'INTRA_0:[0-9]+:(.*)_CTA',
                '2_inter': r'INTER_0:[0-9]+:(.*)_SM',
                '2_l2': r'PARTITION_L2_0:[0-9|\.]+:([0-9|\.]+)',
-               'kidx': r'MIX_(.*)_KIDX',
+               '2_kidx': r'MIX_0:[0-9]+:(.*)_KIDX',
+               '2_ctx': r'INTRA_0:[0-9]+:(.*)_RATIO',
                }
 
 type_table = {'intra': int,
@@ -25,6 +31,9 @@ type_table = {'intra': int,
               'norm_ipc': float,
               'avg_dram_bw': float,
               'kidx': int,
+              '1_kidx': int,
+              '2_kidx': int,
+              'ctx': float,
               }
 
 metric_label = {'intra': 'Concurrent CTAs/SM',
@@ -77,6 +86,19 @@ def normalize(df, index, metric, value, inverse):
         return value / df.loc[index, metric]
 
 
+def parse_multi_array(text):
+    text = text.replace(' ', ',')
+    return ast.literal_eval(text)
 
+
+def multi_array_col_seq(df):
+    def singular(*metrics):
+        for m in metrics:
+            if df[m].dtype != np.int64:
+                df[m] = df[m].transform(parse_multi_array)
+                df[m] = df[m].transform(lambda x: x[1][0])
+
+    singular('runtime', 'instructions', 'l2_bw', 'avg_mem_lat',
+             'avg_core_to_l2', 'avg_l2_to_core', 'avg_mrq_latency')
 
 

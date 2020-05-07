@@ -28,49 +28,43 @@ def parse_args():
                                              'pickles/seq.pkl'),
                         help='Pickle file for seq run')
 
+    parser.add_argument('--multi',
+                        action='store_true',
+                        default='Whether simulation file is in multi-kernel '
+                                'format.')
+
     results = parser.parse_args()
     return results
 
 
-def process_df_intra(df_intra, df_seq):
-    df_intra = df_intra.copy()
-
-    # gpusim config
-    # hi.process_config_column('intra', 'l2', df=df_intra)
-    hi.process_config_column('intra', 'kidx', df=df_intra)
-
-    df_seq.set_index(['pair_str', 'kidx'], inplace=True)
-
-    # Process df_intra
-    def norm_over_seq(index, metric, value, inverse=True):
-        return hi.normalize(df_seq, index, metric, value, inverse)
-
-    # normalized IPC
-    df_intra['norm_ipc'] = df_intra.apply(lambda row:
-                                          norm_over_seq((row['pair_str'],
-                                                         row['kidx']),
-                                                        'ipc',
-                                                        row['ipc'],
-                                                        False),
-                                          axis=1)
-
+def process_metrics(df_intra, multi):
     # concurrent thread count per SM
-    df_intra['thread_count'] = df_intra['intra'] * df_intra['block_x'] * \
-        df_intra['block_y'] * df_intra['block_z']
+    if multi:
+        df_intra['thread_count'] = df_intra.apply(
+            lambda row: row['intra'] * const.get_block_size(row['pair_str'],
+                                                            row['1_kidx']),
+            axis=1
+        )
+    else:
+        df_intra['thread_count'] = df_intra.apply(
+            lambda row: row['intra'] * const.get_block_size(row['pair_str']),
+            axis=1
+        )
 
     # avg dram bandwidth
     df_intra['avg_dram_bw'] = df_intra['dram_bw'].transform(hi.avg_array)
 
     # avg row buffer locality
-    df_intra['avg_rbh'] = df_intra['row_buffer_locality']\
+    df_intra['avg_rbh'] = df_intra['row_buffer_locality'] \
         .transform(hi.avg_array)
 
     # avg dram efficiency
     df_intra['avg_dram_eff'] = df_intra['dram_eff'].transform(hi.avg_array)
 
     # MPKI
-    df_intra['MPKI'] = df_intra['l2_total_accesses'] * df_intra['l2_miss_rate']\
-                       /(df_intra['instructions'] / 1000)
+    df_intra['MPKI'] = df_intra['l2_total_accesses'] * \
+                       df_intra['l2_miss_rate'] \
+                       / (df_intra['instructions'] / 1000)
 
     # memory requests per cycle
     df_intra['mpc'] = df_intra['mem_count'] / df_intra['runtime']
@@ -82,39 +76,75 @@ def process_df_intra(df_intra, df_seq):
                                           .transform(hi.avg_array))
 
     # compute busy
-    idle_sum = df_intra[['empty_warp', 'idle_warp', 'scoreboard_warp']]\
+    idle_sum = df_intra[['empty_warp', 'idle_warp', 'scoreboard_warp']] \
         .sum(axis=1)
     df_intra['comp_busy'] = df_intra['tot_warp_insn'] / \
                             (df_intra['tot_warp_insn'] + idle_sum)
 
-    # scaled warp cycles
-    df_intra['scaled_inst_empty'] = df_intra['thread_count'] / 32 * df_intra[
-        'inst_empty_cycles']
-
     # resource usage ratio
     df_intra['cta_ratio'] = df_intra['intra'] / const.max_cta_volta
-    threads = df_intra['intra'] * \
-              df_intra['block_x'] * df_intra['block_y'] * df_intra['block_z']
+    threads = df_intra['thread_count']
     df_intra['thread_ratio'] = threads / const.max_thread_volta
+
+    if multi:
+        df_intra['smem'] = df_intra.apply(
+            lambda row: const.get_smem(row['pair_str'], row['1_kidx']),
+            axis=1
+        )
+        df_intra['regs'] = df_intra.apply(
+            lambda row: const.get_regs(row['pair_str'], row['1_kidx']),
+            axis=1
+        )
+
     df_intra['smem_ratio'] = df_intra['intra'] * df_intra['smem'] \
                              / const.max_smem
+
     df_intra['reg_ratio'] = threads * df_intra['regs'] / const.max_register
 
-    def pow_2(*resc_list):
-        done_first = False
-        for r in resc_list:
-            if done_first:
-                usage = usage + df_intra[r] ** 2
-            else:
-                done_first = True
-                usage = df_intra[r] ** 2
-        return usage
 
-    # df_intra['usage'] = pow_2('cta_ratio', 'thread_ratio', 'smem_ratio',
-    #                           'reg_ratio', 'l2', 'dram_busy', 'comp_busy')
+def normalize_over_seq(df_intra, df_seq, multi):
+    df_intra = df_intra.copy()
 
-    df_intra['usage'] = pow_2('cta_ratio', 'thread_ratio', 'smem_ratio',
-                              'reg_ratio', 'dram_busy', 'comp_busy')
+    if multi:
+        hi.multi_array_col_seq(df_intra)
+
+        # calculate ipc
+        df_intra['ipc'] = df_intra['instructions'] / df_intra['runtime']
+
+        # gpusim config
+        hi.process_config_column('intra', '1_kidx', df=df_intra)
+
+        df_seq.set_index(['pair_str', '1_kidx'], inplace=True)
+
+        # Process df_intra
+        def norm_over_seq(index, metric, value, inverse=True):
+            return hi.normalize(df_seq, index, metric, value, inverse)
+
+        # normalized IPC
+        df_intra['norm_ipc'] = df_intra.apply(lambda row:
+                                              norm_over_seq((row['pair_str'],
+                                                             row['1_kidx']),
+                                                            'ipc',
+                                                            row['ipc'],
+                                                            False),
+                                              axis=1)
+    else:
+        # gpusim config
+        hi.process_config_column('intra', df=df_intra)
+
+        df_seq.set_index('pair_str', inplace=True)
+
+        # Process df_intra
+        def norm_over_seq(index, metric, value, inverse=True):
+            return hi.normalize(df_seq, index, metric, value, inverse)
+
+        # normalized IPC
+        df_intra['norm_ipc'] = df_intra.apply(lambda row:
+                                              norm_over_seq(row['pair_str'],
+                                                            'ipc',
+                                                            row['ipc'],
+                                                            False),
+                                              axis=1)
 
     return df_intra
 
@@ -149,13 +179,17 @@ def main():
     df_intra = pd.read_csv(args.csv)
 
     df_seq = pd.read_pickle(args.seq)
+    df_intra = normalize_over_seq(df_intra, df_seq, args.multi)
 
-    df_intra = process_df_intra(df_intra, df_seq)
-    df_best = get_best_intra(df_intra)
+    process_metrics(df_intra, args.multi)
 
     # Output pickle
     df_intra.to_pickle(args.out_intra)
-    df_best.to_pickle(args.out_best)
+
+    # best intra
+    if not args.multi:
+        df_best = get_best_intra(df_intra)
+        df_best.to_pickle(args.out_best)
 
 
 if __name__ == "__main__":
