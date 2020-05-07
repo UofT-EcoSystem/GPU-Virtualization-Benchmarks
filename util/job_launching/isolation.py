@@ -40,16 +40,18 @@ def parse_args():
     return results
 
 
-df_kernel = pd.DataFrame.from_dict(const.kernel_dict, orient='index',
-                                   columns=['max_cta', 'grid', 'comp'])
-df_kernel['achieved_cta'] = np.minimum(np.ceil(df_kernel['grid'] / 80),
-                                       df_kernel['max_cta']).astype('int32')
-df_kernel['achieved_sm'] = const.num_sm_volta
+achieved_cta = {}
+for k in const.kernel_yaml:
+    achieved_cta[k] = np.minimum(
+        np.ceil(const.get_grid_size(k) / 80),
+        const.get_max_cta_per_sm(k)).astype('int32')
+
+achieved_sm = const.num_sm_volta
 
 args = parse_args()
 
 if args.apps[0] == 'all':
-    all_apps = list(const.kernel_dict.keys())
+    all_apps = list(const.kernel_yaml.keys())
 
     last_index = min(len(all_apps), args.count + args.id_start)
     args.apps = all_apps[args.id_start:last_index]
@@ -57,9 +59,9 @@ if args.apps[0] == 'all':
 for app in args.apps:
     if app in const.multi_kernel_app:
         kernels = ["{0}:{1}".format(app, kidx)
-                   for kidx in range(1, const.multi_kernel_app[app]+1)]
+                   for kidx in range(1, const.multi_kernel_app[app] + 1)]
         launch_name = 'isolation-multi'
-    elif app in df_kernel.index.values:
+    elif app in const.kernel_yaml.keys():
         kernels = [app]
         launch_name = 'isolation'
     else:
@@ -107,7 +109,7 @@ for app in args.apps:
 
     if args.intra:
         for k in kernels:
-            _abs_max = df_kernel.loc[k, 'achieved_cta']
+            _abs_max = achieved_cta[k]
             _step = max(1, _abs_max // args.cta_configs)
 
             intra_sm = ["INTRA_0:{0}:0_CTA".format(i)
@@ -118,7 +120,7 @@ for app in args.apps:
 
     if args.inter:
         for k in kernels:
-            _abs_max = df_kernel.loc[k, 'achieved_sm']
+            _abs_max = achieved_sm
             _step = max(1, _abs_max // args.sm_configs)
 
             inter_sm = ["INTER_0:{0}:0_SM".format(i)

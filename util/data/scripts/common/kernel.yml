@@ -1,0 +1,164 @@
+cut_sgemm-1:
+  max_cta:    2
+  grid:       512
+  block:      256
+  comp:       1
+
+cut_wmma-0:
+  max_cta:    4
+  grid:       128
+  block:      64
+  comp:       1
+
+parb_cutcp-0:
+  max_cta:    16
+  grid:       121
+  block:      128
+  comp:       0
+
+parb_stencil-0:
+  max_cta:    16
+  grid:       1024
+  block:      128
+  comp:       0
+
+parb_lbm-0:
+  max_cta:    12
+  grid:       18000
+  block:      120
+  comp:       0
+
+parb_spmv-0:
+  max_cta:    16
+  grid:       1147
+  block:      128
+  comp:       0
+
+rod_heartwall-0:
+  max_cta:    5
+  grid:       51
+  block:      256
+  comp:       0
+
+rod_hotspot-0:
+  max_cta:    8
+  grid:       1849
+  block:      256
+  comp:       1
+
+rod_hotspot3d-0:
+  max_cta:    8
+  grid:       1024
+  block:      256
+  comp:       0
+
+rod_streamcluster-0:
+  max_cta:    3
+  grid:       128
+  block:      512
+  comp:       0
+
+rod_pathfinder-0:
+  max_cta:    8
+  grid:       463
+  block:      256
+  comp:       1
+
+rod_lavamd-0:
+  max_cta:    9
+  grid:       1000
+  block:      128
+  comp:       1
+
+nvd_binomial-0:
+  max_cta:    16
+  grid:       1024
+  block:      128
+  comp:       1
+
+nvd_blackscholes-0:
+  max_cta:    16
+  grid:       15625
+  block:      128
+  comp:       0
+
+nvd_fdtd3d-0:
+  max_cta:    1
+  grid:       288
+  block:      512
+  comp:       0
+
+nvd_interval-0:
+  max_cta:    12
+  grid:       1024
+  block:      64
+  comp:       1
+
+nvd_sobol-0:
+  max_cta:    32
+  grid:       51200
+  block:      64
+  comp:       1
+
+nvd_conv-0:
+  1:
+      max_cta:    32
+      grid:       18432
+      block:      64
+      comp:       None
+      regs:       31
+      smem:       2560
+  2:
+      max_cta:    16
+      grid:       18432
+      block:      128
+      comp:       None
+      regs:       32
+      smem:       5184
+
+parb_sad-0:
+  1:
+    max_cta:    17
+    grid:       1584
+    block:      61
+    comp:       None
+    regs:       58
+    smem:       32
+  2:
+    max_cta:    16
+    grid:       99
+    block:      128
+    comp:       None
+    regs:       32
+    smem:       0
+  3:
+    max_cta:    32
+    grid:       99
+    block:      32
+    comp:       None
+    regs:       31
+    smem:       0
+
+parb_sad-1:
+  1:
+      max_cta:    17
+      grid:       128640
+      block:      61
+      comp:       None
+      regs:       58
+      smem:       32
+  2:
+      max_cta:    16
+      grid:       8040
+      block:      128
+      comp:       None
+      regs:       32
+      smem:       0
+  3:
+      max_cta:    32
+      grid:       8040
+      block:      32
+      comp:       None
+      regs:       31
+      smem:       0
+

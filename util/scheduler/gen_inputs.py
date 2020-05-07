@@ -45,7 +45,7 @@ def main():
     with open(os.path.join(args.outdir, 'kernel_idx.csv'), 'w+') as f:
         f.write("idx, name, runtime(cycles)\n")
 
-        for idx, name in enumerate(const.kernel_dict):
+        for idx, name in enumerate(const.kernel_yaml.keys()):
             dict_seq[name] = idx
             runtime = df_seq.loc[name, 'runtime']
             f.write("{0}, {1}, {2}\n".format(idx, name, runtime))

@@ -244,8 +244,8 @@ def process_pairs():
     # Determine what app pairs to launch
     if args.pair[0] == 'all':
         pairs = []
-        for bench0 in const.app_for_pair:
-            for bench1 in const.app_for_pair:
+        for bench0 in const.kernel_yaml:
+            for bench1 in const.kernel_yaml:
                 if bench0 < bench1:
                     pairs.append('+'.join([bench0, bench1]))
 
