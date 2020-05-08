@@ -10,7 +10,7 @@ def prepare_data(pair_series):
     s1_runtime = runtime[1]
     s2_runtime = runtime[2]
 
-    norm_runtime = pair_series['norm_runtime']
+    norm_runtime = pair_series['norm_ipc']
     s1_norm = norm_runtime[1]
     s2_norm = norm_runtime[2]
 
@@ -25,13 +25,13 @@ def prepare_data(pair_series):
         return time_series[0:-1], time_series[1:]
 
     s1_from, s1_to = get_from_to(s1_runtime)
-    s1 = np.repeat(pair_series['1_bench'], s1_from.shape[0])
+    s1 = np.repeat('1: ' + pair_series['1_bench'], s1_from.shape[0])
     k1 = np.arange(1, const.multi_kernel_app[pair_series['1_bench']] + 1)
     k1 = np.resize(k1, s1_from.shape[0])
     k1 = ['{}:{}'.format('1', k) for k in k1]
 
     s2_from, s2_to = get_from_to(s2_runtime)
-    s2 = np.repeat(pair_series['2_bench'], s2_from.shape[0])
+    s2 = np.repeat('2: ' + pair_series['2_bench'], s2_from.shape[0])
     k2 = np.arange(1, const.multi_kernel_app[pair_series['2_bench']] + 1)
     k2 = np.resize(k2, s2_from.shape[0]).astype(str)
     k2 = ['{}:{}'.format('2', k) for k in k2]
@@ -54,16 +54,18 @@ def prepare_data(pair_series):
     return data
 
 
-def draw_altair_timeline(pair_series):
+def draw_altair_timeline(pair_series, col_title):
     # 1. Prepare data
     data = prepare_data(pair_series)
+    chart_title = "{0} = {1}".format(col_title, pair_series[col_title])
 
     # 2. Draw altair objects
-    bars = alt.Chart(data).mark_bar().encode(
+    bars = alt.Chart(data, title=chart_title).mark_bar().encode(
         x=alt.X("start", title='Cycles'),
         x2="end",
         y=alt.Y("stream", sort=None),
-        color=alt.Color('kernel', scale=alt.Scale(scheme='pastel1'), legend=None)
+        color=alt.Color('kernel', scale=alt.Scale(scheme='pastel1'),
+                        legend=None)
     ).properties(
         width=900,
         height=100
@@ -81,5 +83,9 @@ def draw_altair_timeline(pair_series):
         text='norm'
     )
 
-    return alt.layer(bars, text, data=data)
-
+    return alt.layer(bars, text).configure_axis(
+        grid=False
+    ).configure_header(
+        titleColor='black',
+        titleFontSize=14,
+    )

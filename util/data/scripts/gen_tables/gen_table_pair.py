@@ -102,6 +102,7 @@ def preprocess_df_pair(df_pair):
         inter_conc_cta('2')
     elif args.how == 'ctx':
         hi.process_config_column('1_ctx', '2_ctx', df=df_pair)
+        # TODO: calculate number of CTAs/SM for each kernel
 
     # Parse per stream per kernel information
     if args.multi:
@@ -198,13 +199,13 @@ def evaluate_multi_kernel(df_pair, df_baseline):
                 for kidx, time in enumerate(stream):
                     kidx = kidx % const.multi_kernel_app[bench]
                     base_time = df_baseline.loc[(bench, kidx+1), 'runtime']
-                    norm_stream.append(time / base_time)
+                    norm_stream.append(base_time / time)
 
             norm_runtime.append(norm_stream)
 
         return norm_runtime
 
-    df_pair['norm_runtime'] = df_pair.apply(calc_norm_runtime, axis=1)
+    df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
 
     return df_pair
 
