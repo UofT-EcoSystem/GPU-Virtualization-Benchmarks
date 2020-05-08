@@ -9,6 +9,8 @@ import pandas as pd
 import re
 import numpy as np
 
+args = None
+
 
 def parse_args():
     parser = argparse.ArgumentParser('Generate application pair pickle for '
@@ -32,12 +34,14 @@ def parse_args():
                                              'pickles/intra.pkl'),
                         help='Pickle file for isolated intra/inter run')
 
-    parser.add_argument('--how', choices=['smk', 'dynamic', 'inter'],
+    parser.add_argument('--how', choices=['smk', 'dynamic', 'inter', 'ctx'],
                         default='dynamic',
                         help='How to partition resources between benchmarks.')
 
-    parser.add_argument('--random', action='store_true',
-                        help='Is baseline using random address mapping.')
+    parser.add_argument('--multi',
+                        action='store_true',
+                        help='Whether we are dealing with the new '
+                             'multi-kernel simulation file format.')
 
     parser.add_argument('--cap',
                         type=float,
@@ -46,22 +50,23 @@ def parse_args():
                              'the longer kernel. Default is 2.5x.')
 
     parser.add_argument('--qos',
-                        default=0.75,
+                        default=0.5,
                         type=float,
                         help='Quality of Service for each benchmark '
                              'in terms of normalized IPC.')
 
-    results = parser.parse_args()
-    return results
+    global args
+    args = parser.parse_args()
 
 
-def preprocess_df_pair(df_pair, how):
+def preprocess_df_pair(df_pair):
     df_pair = df_pair.copy()
+    print(df_pair.columns)
 
-    # filter out any entries that have zero instructions (failed one way the
-    # other)
-    df_pair = df_pair[df_pair['1_instructions'] > 0]
     df_pair.reset_index(inplace=True, drop=True)
+
+    # Extract multi-kernel information, if any
+    hi.process_config_column('1_kidx', '2_kidx', df=df_pair)
 
     # avg mem bandwidth
     df_pair['avg_dram_bw'] = df_pair['dram_bw'].transform(hi.avg_array)
@@ -72,7 +77,7 @@ def preprocess_df_pair(df_pair, how):
     df_pair = pd.concat([df_bench, df_pair], axis=1)
 
     # extract resource allocation size
-    if how == 'dynamic':
+    if args.how == 'dynamic':
         hi.process_config_column('1_intra', '2_intra', df=df_pair)
 
         def intra_conc_cta(idx):
@@ -83,7 +88,7 @@ def preprocess_df_pair(df_pair, how):
 
         intra_conc_cta('1')
         intra_conc_cta('2')
-    elif how == 'inter':
+    elif args.how == 'inter':
         hi.process_config_column('1_inter', '2_inter', df=df_pair)
 
         def inter_conc_cta(idx):
@@ -95,11 +100,22 @@ def preprocess_df_pair(df_pair, how):
 
         inter_conc_cta('1')
         inter_conc_cta('2')
+    elif args.how == 'ctx':
+        hi.process_config_column('1_ctx', '2_ctx', df=df_pair)
+
+    # Parse per stream per kernel information
+    if args.multi:
+        df_pair['runtime'] = df_pair['runtime'].apply(hi.parse_multi_array)
+        df_pair['instructions'] = df_pair['instructions'].apply(
+            hi.parse_multi_array)
+        df_pair['l2_bw'] = df_pair['l2_bw'].apply(hi.parse_multi_array)
+        df_pair['avg_mem_lat'] = df_pair['avg_mem_lat'].apply(
+            hi.parse_multi_array)
 
     return df_pair
 
 
-def evaluate_df_pair(df_pair, df_baseline):
+def evaluate_single_kernel(df_pair, df_baseline):
     df_baseline.set_index('pair_str', inplace=True)
     df_pair = df_pair.copy()
 
@@ -146,21 +162,72 @@ def evaluate_df_pair(df_pair, df_baseline):
     return df_pair
 
 
+def evaluate_multi_kernel(df_pair, df_baseline):
+    df_baseline.set_index(['pair_str', '1_kidx'], inplace=True)
+
+    # def handle_incomplete(row):
+    #     runtime_adj = row['runtime']
+    #     tot_runtime = row['tot_runtime']
+    #     # list_time is in the format of [[], [k1, k2, ...], [k1, k2, ...]]
+    #     # First, we search if the last value in stream is zero
+    #     # Then we replace it with (tot_runtime - sum of previous)
+    #     for idx, stream in enumerate(row['runtime']):
+    #         if len(stream) == 0:
+    #             continue
+    #
+    #         if stream[-1] == 0:
+    #             infer_runtime = tot_runtime - sum(stream)
+    #             done_inst = row['instructions'][idx][-1]
+    #             tot_inst = df_baseline.loc[(row['{}_bench'.format(idx)],
+    #                                         len(stream)-1), 'instructions']
+    #             runtime_adj[idx][-1] = tot_runtime - sum(stream)
+    #
+    #     assert(all(row['runtime'] > 0))
+    #     return row['runtime']
+
+    # df_pair['runtime_adj'] = df_pair.apply(handle_incomplete, axis=1)
+
+    # calculate normalized runtime
+    def calc_norm_runtime(row):
+        runtime = row['runtime']
+        norm_runtime = []
+        for stream_id, stream in enumerate(runtime):
+            norm_stream = []
+            if len(stream) > 0:
+                bench = row['{}_bench'.format(stream_id)]
+                for kidx, time in enumerate(stream):
+                    kidx = kidx % const.multi_kernel_app[bench]
+                    base_time = df_baseline.loc[(bench, kidx+1), 'runtime']
+                    norm_stream.append(time / base_time)
+
+            norm_runtime.append(norm_stream)
+
+        return norm_runtime
+
+    df_pair['norm_runtime'] = df_pair.apply(calc_norm_runtime, axis=1)
+
+    return df_pair
+
+
 def main():
     # Parse arguments
-    args = parse_args()
+    parse_args()
 
     # Read CSV file
     df_pair = pd.read_csv(args.csv)
     df_pair.dropna(how="any", inplace=True)
 
-    df_pair = preprocess_df_pair(df_pair, args.how)
+    df_pair = preprocess_df_pair(df_pair)
 
     # Calculate weighted speedup and fairness w.r.t seq
     df_seq = pd.read_pickle(args.seq_pkl)
-    df_pair = evaluate_df_pair(df_pair, df_seq)
 
-    if args.how == 'smk':
+    if args.multi:
+        df_pair = evaluate_multi_kernel(df_pair, df_seq)
+    else:
+        df_pair = evaluate_single_kernel(df_pair, df_seq)
+
+    if args.how == 'smk' or args.how == 'ctx':
         df_pair.to_pickle(args.output)
     else:
         # Get profiled info from intra pkl
