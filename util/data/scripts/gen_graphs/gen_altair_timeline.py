@@ -5,7 +5,7 @@ import numpy as np
 import data.scripts.common.constants as const
 
 
-def prepare_data(pair_series):
+def _prepare_data(pair_series):
     runtime = pair_series['runtime']
     s1_runtime = runtime[1]
     s2_runtime = runtime[2]
@@ -56,7 +56,7 @@ def prepare_data(pair_series):
 
 def draw_altair_timeline(pair_series, col_title):
     # 1. Prepare data
-    data = prepare_data(pair_series)
+    data = _prepare_data(pair_series)
     chart_title = "{0} = {1}".format(col_title, pair_series[col_title])
 
     # 2. Draw altair objects
@@ -78,7 +78,7 @@ def draw_altair_timeline(pair_series, col_title):
         fontSize=12,
         angle=90,
     ).encode(
-        y=alt.Y('stream', title=None),
+        y=alt.Y('stream', title=None, sort=None),
         x='position',
         text='norm'
     )

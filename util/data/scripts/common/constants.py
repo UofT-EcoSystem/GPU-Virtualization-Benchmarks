@@ -1,5 +1,6 @@
 import os
 import oyaml as yaml
+import math
 from collections import OrderedDict
 
 DATA_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../')
@@ -27,24 +28,45 @@ def get_kernel_stat(kernel, stat, kidx):
         return kernel_yaml[kernel][stat]
 
 
-def get_max_cta_per_sm(kernel, kidx=0):
-    return get_kernel_stat(kernel, 'max_cta', kidx)
+def get_max_cta_per_sm(bench, kidx=0):
+    return get_kernel_stat(bench, 'max_cta', kidx)
 
 
-def get_grid_size(kernel, kidx=0):
-    return get_kernel_stat(kernel, 'grid', kidx)
+def calc_cta_quota(bench, ctx):
+    k_quota = []
+    if bench in multi_kernel_app:
+        for k in kernel_yaml[bench]:
+            q = math.floor(get_max_cta_per_sm(bench, k) * ctx)
+            q_grid = math.ceil(get_grid_size(bench, k) / num_sm_volta)
+            k_quota.append(min(q, q_grid))
+            assert (k == len(k_quota))
+    return k_quota
 
 
-def get_block_size(kernel, kidx=0):
-    return get_kernel_stat(kernel, 'block', kidx)
+def get_grid_size(bench, kidx=0):
+    return get_kernel_stat(bench, 'grid', kidx)
 
 
-def get_regs(kernel, kidx):
-    return get_kernel_stat(kernel, 'regs', kidx)
+def get_block_size(bench, kidx=0, padded=True):
+    block_size = get_kernel_stat(bench, 'block', kidx)
+    if padded:
+        block_size = math.ceil(block_size / 32) * 32
+
+    return block_size
 
 
-def get_smem(kernel, kidx):
-    return get_kernel_stat(kernel, 'smem', kidx)
+def get_block_ratio(bench, kidx=0):
+    block_size = get_block_size(bench, kidx)
+
+    return block_size / max_thread_volta
+
+
+def get_regs(bench, kidx):
+    return get_kernel_stat(bench, 'regs', kidx)
+
+
+def get_smem(bench, kidx):
+    return get_kernel_stat(bench, 'smem', kidx)
 
 
 # benchmark -> number of unique kernels

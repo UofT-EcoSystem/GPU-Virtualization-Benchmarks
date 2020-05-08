@@ -8,6 +8,7 @@ import os
 import pandas as pd
 import re
 import numpy as np
+import math
 
 args = None
 
@@ -102,7 +103,14 @@ def preprocess_df_pair(df_pair):
         inter_conc_cta('2')
     elif args.how == 'ctx':
         hi.process_config_column('1_ctx', '2_ctx', df=df_pair)
-        # TODO: calculate number of CTAs/SM for each kernel
+
+        def cta_quota(row):
+            cta_quota = [[], [], []]
+            cta_quota[1] = const.calc_cta_quota(row['1_bench'], row['1_ctx'])
+            cta_quota[2] = const.calc_cta_quota(row['2_bench'], row['2_ctx'])
+            return cta_quota
+
+        df_pair['cta_quota'] = df_pair.apply(cta_quota, axis=1)
 
     # Parse per stream per kernel information
     if args.multi:
