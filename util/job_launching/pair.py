@@ -178,7 +178,7 @@ def process_dynamic(pair):
 
     configs = ["-".join([cfg,
                          "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1]),
-                         "-NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
+                         "NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
                                                         num_kernel[1])]
                         )
                for cfg in configs]
