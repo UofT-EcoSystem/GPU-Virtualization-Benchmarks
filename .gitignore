@@ -117,6 +117,7 @@ benchmarks/cuda-sdk/cudaTensorCoreGemm/profile\.nsight-cuprof-report
 .cproject
 .project
 .idea
+.clion.source.upload.marker
 
 # Jupyter notebooks
 .ipynb_checkpoints/
