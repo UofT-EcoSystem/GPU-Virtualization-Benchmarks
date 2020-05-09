@@ -174,6 +174,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_hotspot;
 #endif
   }
+  else if (strcmp(argv[0], "rod_cfd") == 0) {
+      std::cout << "main: rodinia cfd" << std::endl;
+#ifdef RODINIA_CFD
+      func = main_cfd;
+#endif
+  }
   else if (strcmp(argv[0], "rod_streamcluster") == 0) {
     std::cout << "main: rodinia streamcluster" << std::endl;
 #ifdef RODINIA_STREAMCLUSTER
