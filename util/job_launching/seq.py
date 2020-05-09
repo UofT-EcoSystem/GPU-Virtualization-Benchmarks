@@ -9,7 +9,7 @@ import data.scripts.common.constants as const
 def parse_args():
     parser = argparse.ArgumentParser("Run app in isolation mode (vanilla)")
 
-    parser.add_argument('--app', nargs='+', default=const.app_dict.keys(),
+    parser.add_argument('--app', nargs='+', default=const.kernel_dict.keys(),
                         help='Apps to run')
     parser.add_argument('--bench_home', default=DEFAULT_BENCH_HOME,
                         help='Benchmark home folder.')

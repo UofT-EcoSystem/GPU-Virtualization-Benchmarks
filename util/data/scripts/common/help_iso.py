@@ -25,6 +25,7 @@ regex_table = {'intra': r'INTRA_0:(.*):[0-9]+_CTA',
                '2_intra': r'INTRA_0:[0-9]+:(.*)_CTA',
                '2_inter': r'INTER_0:[0-9]+:(.*)_SM',
                '2_l2': r'PARTITION_L2_0:[0-9|\.]+:([0-9|\.]+)',
+               'kidx': r'MIX_(.*)_KIDX',
                }
 
 type_table = {'intra': int,
@@ -32,6 +33,7 @@ type_table = {'intra': int,
               'l2': float,
               'norm_ipc': float,
               'avg_dram_bw': float,
+              'kidx': int,
               }
 
 metric_label = {'intra': 'Concurrent CTAs/SM',
