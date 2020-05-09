@@ -73,4 +73,6 @@ multi_kernel_app = OrderedDict([('parb_sad-0', 3),
                                 ('parb_sad-1', 3),
                                 ('parb_histo-0', 4),
                                 ('parb_histo-1', 4),
+                                ('parb_mriq-0', 2),
+                                ('rod_cfd-0', 3),
                                 ])
