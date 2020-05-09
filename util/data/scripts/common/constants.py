@@ -69,10 +69,8 @@ def get_smem(bench, kidx):
     return get_kernel_stat(bench, 'smem', kidx)
 
 
-# benchmark -> number of unique kernels
 multi_kernel_app = OrderedDict([('parb_sad-0', 3),
                                 ('parb_sad-1', 3),
                                 ('parb_histo-0', 4),
                                 ('parb_histo-1', 4),
-                                ('nvd_conv-0', 2),
                                 ])

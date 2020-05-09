@@ -13,6 +13,10 @@ int main_heartwall(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_hotspot(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef RODINIA_CFD
+int main_cfd(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
 #ifdef RODINIA_STREAMCLUSTER
 int main_streamcluster(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif

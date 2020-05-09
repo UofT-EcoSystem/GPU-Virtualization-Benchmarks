@@ -29,5 +29,8 @@ int main_sad(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_histo(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef PARBOIL_MRIQ
+int main_mriq(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
 
 #endif
