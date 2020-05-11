@@ -34,3 +34,7 @@ endif()
 if (rod_hotspot3d)
   add_subdirectory(hotspot3D)
 endif()
+
+if (rod_cfd)
+  add_subdirectory(cfd)
+endif()

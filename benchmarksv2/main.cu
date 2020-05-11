@@ -152,6 +152,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     func = main_histo;
 #endif
   }
+  else if (strcmp(argv[0], "parb_mriq") == 0) {
+      std::cout << "main: parboil mriq" << std::endl;
+#ifdef PARBOIL_MRIQ
+      func = main_mriq;
+#endif
+  }
   else if (strcmp(argv[0], "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
 #ifdef CUT_SGEMM
@@ -180,6 +186,12 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
     std::cout << "main: rodinia hotspot" << std::endl;
 #ifdef RODINIA_HOTSPOT
     func = main_hotspot;
+#endif
+  }
+  else if (strcmp(argv[0], "rod_cfd") == 0) {
+      std::cout << "main: rodinia cfd" << std::endl;
+#ifdef RODINIA_CFD
+      func = main_cfd;
 #endif
   }
   else if (strcmp(argv[0], "rod_streamcluster") == 0) {
