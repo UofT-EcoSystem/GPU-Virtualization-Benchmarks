@@ -8,7 +8,7 @@ import os
 import pandas as pd
 import re
 import numpy as np
-import math
+import sys
 
 args = None
 
@@ -82,9 +82,13 @@ def preprocess_df_pair(df_pair):
         hi.process_config_column('1_intra', '2_intra', df=df_pair)
 
         def intra_conc_cta(idx):
-            df_pair[idx+'_conc_cta'] = np.minimum(
-                const.num_sm_volta * df_pair[idx+'_intra'],
-                df_pair[idx+'_bench'].apply(const.get_grid_size)
+            def grid_size(row):
+                return const.get_grid_size(row[idx + '_bench'],
+                                           row[idx + '_kidx'])
+
+            df_pair[idx + '_conc_cta'] = np.minimum(
+                const.num_sm_volta * df_pair[idx + '_intra'],
+                df_pair.apply(grid_size, axis=1)
             )
 
         intra_conc_cta('1')
@@ -93,9 +97,9 @@ def preprocess_df_pair(df_pair):
         hi.process_config_column('1_inter', '2_inter', df=df_pair)
 
         def inter_conc_cta(idx):
-            df_pair[idx+'_conc_cta'] = np.minimum(
-                df_pair[idx+'_inter'] *
-                df_pair[idx+'_bench'].apply(const.get_max_cta_per_sm),
+            df_pair[idx + '_conc_cta'] = np.minimum(
+                df_pair[idx + '_inter'] *
+                df_pair[idx + '_bench'].apply(const.get_max_cta_per_sm),
                 df_pair[idx + '_bench'].apply(const.get_grid_size)
             )
 
@@ -197,23 +201,43 @@ def evaluate_multi_kernel(df_pair, df_baseline):
     # df_pair['runtime_adj'] = df_pair.apply(handle_incomplete, axis=1)
 
     # calculate normalized runtime
-    def calc_norm_runtime(row):
-        runtime = row['runtime']
-        norm_runtime = []
-        for stream_id, stream in enumerate(runtime):
-            norm_stream = []
-            if len(stream) > 0:
-                bench = row['{}_bench'.format(stream_id)]
-                for kidx, time in enumerate(stream):
-                    kidx = kidx % const.multi_kernel_app[bench]
-                    base_time = df_baseline.loc[(bench, kidx+1), 'runtime']
-                    norm_stream.append(base_time / time)
+    if args.how == 'ctx':
+        def calc_norm_runtime(row):
+            runtime = row['runtime']
+            norm_runtime = []
+            for stream_id, stream in enumerate(runtime):
+                norm_stream = []
+                if len(stream) > 0:
+                    bench = row['{}_bench'.format(stream_id)]
+                    for kidx, time in enumerate(stream):
+                        kidx = kidx % const.multi_kernel_app[bench]
+                        base_time = df_baseline.loc[
+                            (bench, kidx + 1), 'runtime']
+                        norm_stream.append(base_time / time)
 
-            norm_runtime.append(norm_stream)
+                norm_runtime.append(norm_stream)
 
-        return norm_runtime
+            return norm_runtime
 
-    df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
+        df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
+
+    elif args.how == 'dynamic':
+        # calculate 1_sld and 2_sld
+        def calc_sld(row):
+            runtime_1 = row['runtime'][1][0]
+            runtime_2 = row['runtime'][2][0]
+            assert (runtime_1 > 0)
+            assert (runtime_2 > 0)
+            base_1 = df_baseline.loc[(row['1_bench'], row['1_kidx']), 'runtime']
+            base_2 = df_baseline.loc[(row['2_bench'], row['2_kidx']), 'runtime']
+
+            norm_1 = base_1 / runtime_1
+            norm_2 = base_2 / runtime_2
+
+            return [0, norm_1, norm_2]
+
+        df_pair['sld'] = df_pair.apply(calc_sld, axis=1)
+        df_pair['ws'] = df_pair['sld'].transform(lambda sld: sld[1] + sld[2])
 
     return df_pair
 
@@ -240,7 +264,16 @@ def main():
         df_pair.to_pickle(args.output)
     else:
         # Get profiled info from intra pkl
-        app_pairs = df_pair[['1_bench', '2_bench']].drop_duplicates().values
+        if args.multi:
+            app_pairs = df_pair[
+                ['1_bench', '1_kidx', '2_bench', '2_kidx']
+            ].drop_duplicates().values
+            app_pairs = [['{0}:{1}'.format(pair[0], pair[1]),
+                          '{0}:{1}'.format(pair[2], pair[3])
+                          ]
+                         for pair in app_pairs]
+        else:
+            app_pairs = df_pair[['1_bench', '2_bench']].drop_duplicates().values
 
         if args.how == 'dynamic':
             df_profiled = [
@@ -248,11 +281,13 @@ def main():
                     args.isolated_pkl, args.qos, app, args.cap)
                 for app in app_pairs]
 
-        else:
+        elif args.how == 'inter':
             df_profiled = [
                 inter_pair_config.build_df_prod(
                     args.isolated_pkl, app, args.cap)
                 for app in app_pairs]
+        else:
+            sys.exit(1)
 
         df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
 
