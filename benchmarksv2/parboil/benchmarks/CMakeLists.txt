@@ -28,3 +28,6 @@ if (parb_histo)
   add_subdirectory(histo)
 endif()
 
+if (parb_mriq)
+  add_subdirectory(mri-q)
+endif()
