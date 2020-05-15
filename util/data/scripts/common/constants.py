@@ -19,6 +19,7 @@ multi_kernel_app = ['parb_sad-0',
                     'parb_histo-0',
                     'parb_histo-1',
                     'parb_mriq-0',
+                    'nvd_conv-0',
                     'rod_cfd-0',
                     ]
 
