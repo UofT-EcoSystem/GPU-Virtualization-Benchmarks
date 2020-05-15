@@ -82,6 +82,8 @@ rodinia:
       - -boxes1d 10
     - rod_myocyte:
       - 100 1 0
+    - rod_cfd:
+      - DATA/cfd/fvcorr.domn.097K
 
 
 nvidia:
