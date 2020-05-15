@@ -59,7 +59,7 @@ if args.apps[0] == 'all':
 for app in args.apps:
     if app in const.multi_kernel_app:
         kernels = ["{0}:{1}".format(app, kidx)
-                   for kidx in range(1, const.multi_kernel_app[app] + 1)]
+                   for kidx in const.kernel_yaml[app].keys()]
         launch_name = 'isolation-multi'
     elif app in const.kernel_yaml.keys():
         kernels = [app]

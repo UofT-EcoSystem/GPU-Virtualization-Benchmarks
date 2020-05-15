@@ -209,8 +209,9 @@ def evaluate_multi_kernel(df_pair, df_baseline):
                 norm_stream = []
                 if len(stream) > 0:
                     bench = row['{}_bench'.format(stream_id)]
+                    num_kernels = const.get_num_kernels(bench)
                     for kidx, time in enumerate(stream):
-                        kidx = kidx % const.multi_kernel_app[bench]
+                        kidx = kidx % num_kernels
                         base_time = df_baseline.loc[
                             (bench, kidx + 1), 'runtime']
                         norm_stream.append(base_time / time)

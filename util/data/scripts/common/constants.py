@@ -1,7 +1,6 @@
 import os
 import oyaml as yaml
 import math
-from collections import OrderedDict
 
 DATA_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../')
 
@@ -14,6 +13,14 @@ num_sm_volta = 80
 kernel_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'kernel.yml')),
     Loader=yaml.FullLoader)
+
+multi_kernel_app = ['parb_sad-0',
+                    'parb_sad-1',
+                    'parb_histo-0',
+                    'parb_histo-1',
+                    'parb_mriq-0',
+                    'rod_cfd-0',
+                    ]
 
 
 def get_kernel_stat(kernel, stat, kidx):
@@ -69,10 +76,8 @@ def get_smem(bench, kidx):
     return get_kernel_stat(bench, 'smem', kidx)
 
 
-multi_kernel_app = OrderedDict([('parb_sad-0', 3),
-                                ('parb_sad-1', 3),
-                                ('parb_histo-0', 4),
-                                ('parb_histo-1', 4),
-                                ('parb_mriq-0', 2),
-                                ('rod_cfd-0', 3),
-                                ])
+def get_num_kernels(bench):
+    if bench in multi_kernel_app:
+        return len(kernel_yaml[bench].keys())
+    else:
+        return 1

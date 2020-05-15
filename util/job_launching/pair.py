@@ -173,13 +173,12 @@ def process_dynamic(pair):
 
     split_kernels = [k.split(':') for k in apps]
     kidx = [sk[1] if len(sk) > 1 else 1 for sk in split_kernels]
-    num_kernel = [const.multi_kernel_app[sk[0]] if len(sk) > 1 else 1 for sk in
-                  split_kernels]
+    num_kernel = [const.get_num_kernels(sk[0]) for sk in split_kernels]
 
     configs = ["-".join([cfg,
                          "MIX_0:{0}:{1}_KIDX".format(kidx[0], kidx[1]),
                          "NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
-                                                        num_kernel[1])]
+                                                       num_kernel[1])]
                         )
                for cfg in configs]
 
@@ -221,9 +220,8 @@ def process_ctx(pair, base_config, df_seq_multi):
 
     for app in apps:
         # check how many kernels there are in the app
-        num_kernels = const.multi_kernel_app[app]
         sum_cycles = 0
-        for kidx in range(1, num_kernels + 1, 1):
+        for kidx in const.kernel_yaml[app].keys():
             sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
 
         if sum_cycles > max_cycles:
@@ -278,7 +276,7 @@ def process_pairs():
                 expanded = []
                 if app in const.multi_kernel_app:
                     [expanded.append("{0}:{1}".format(app, kidx)) for kidx in
-                     range(1, const.multi_kernel_app[app] + 1)]
+                     const.kernel_yaml[app].keys()]
                 else:
                     expanded.append(app)
                 return expanded

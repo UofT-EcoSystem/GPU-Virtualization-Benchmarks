@@ -26,13 +26,13 @@ def _prepare_data(pair_series):
 
     s1_from, s1_to = get_from_to(s1_runtime)
     s1 = np.repeat('1: ' + pair_series['1_bench'], s1_from.shape[0])
-    k1 = np.arange(1, const.multi_kernel_app[pair_series['1_bench']] + 1)
+    k1 = const.kernel_yaml[pair_series['1_bench']].keys()
     k1 = np.resize(k1, s1_from.shape[0])
     k1 = ['{}:{}'.format('1', k) for k in k1]
 
     s2_from, s2_to = get_from_to(s2_runtime)
     s2 = np.repeat('2: ' + pair_series['2_bench'], s2_from.shape[0])
-    k2 = np.arange(1, const.multi_kernel_app[pair_series['2_bench']] + 1)
+    k2 = const.kernel_yaml[pair_series['2_bench']].keys()
     k2 = np.resize(k2, s2_from.shape[0]).astype(str)
     k2 = ['{}:{}'.format('2', k) for k in k2]
 

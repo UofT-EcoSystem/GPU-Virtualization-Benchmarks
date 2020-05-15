@@ -54,11 +54,11 @@ for benchmark in args.app:
 
         print(p.stdout.decode("utf-8"))
 
-    if benchmark in const.multi_kernel_app.keys():
+    if benchmark in const.multi_kernel_app:
         ext_jobname = jobname + "-multi"
         # launch independent simulation for each unique kernel
-        num_kernel = const.multi_kernel_app[benchmark]
-        for kidx in range(1, num_kernel + 1, 1):
+        num_kernel = const.get_num_kernels(benchmark)
+        for kidx in const.kernel_yaml[benchmark].keys():
             ext_config_str = config_str + "-MIX_0:{}:0_KIDX".format(kidx)
             ext_config_str += "-NUM_0:{}:0_KERNEL".format(num_kernel)
             run_seq_sim(ext_config_str, ext_jobname)
