@@ -180,7 +180,7 @@ __global__ void cuda_initialize_variables(int nelr, float* variables)
 }
 void initialize_variables(int nelr, float* variables, cudaStream_t & stream)
 {
-	dim3 Dg(nelr / BLOCK_SIZE_1), Db(BLOCK_SIZE_1);
+	dim3 Dg(nelr / 128), Db(128);
 	cuda_initialize_variables<<<Dg, Db, 0, stream>>>(nelr, variables);
 	getLastCudaError("initialize_variables failed");
 }
@@ -250,7 +250,7 @@ __global__ void cuda_compute_step_factor(int nelr, float* variables, float* area
 }
 void compute_step_factor(int nelr, float* variables, float* areas, float* step_factors, cudaStream_t & stream)
 {
-	dim3 Dg(nelr / BLOCK_SIZE_2), Db(BLOCK_SIZE_2);
+	dim3 Dg(nelr / 192), Db(192);
 	cuda_compute_step_factor<<<Dg, Db, 0, stream>>>(nelr, variables, areas, step_factors);
 	getLastCudaError("compute_step_factor failed");
 }
@@ -392,7 +392,7 @@ __global__ void cuda_compute_flux(int nelr, int* elements_surrounding_elements, 
 void compute_flux(int nelr, int* elements_surrounding_elements, float* normals, float* variables, float* fluxes,
         cudaStream_t & stream)
 {
-	dim3 Dg(nelr / BLOCK_SIZE_3), Db(BLOCK_SIZE_3);
+	dim3 Dg(nelr / 128), Db(128);
 	cuda_compute_flux<<<Dg,Db, 0, stream>>>(nelr, elements_surrounding_elements, normals, variables, fluxes);
 	getLastCudaError("compute_flux failed");
 }
@@ -412,7 +412,7 @@ __global__ void cuda_time_step(int j, int nelr, float* old_variables, float* var
 void time_step(int j, int nelr, float* old_variables, float* variables, float* step_factors, float* fluxes,
         cudaStream_t & stream)
 {
-	dim3 Dg(nelr / BLOCK_SIZE_4), Db(BLOCK_SIZE_4);
+	dim3 Dg(nelr / 256), Db(256);
 	cuda_time_step<<<Dg,Db, 0, stream>>>(j, nelr, old_variables, variables, step_factors, fluxes);
 	getLastCudaError("update failed");
 }
@@ -422,7 +422,8 @@ void time_step(int j, int nelr, float* old_variables, float* variables, float* s
  */
 int main_cfd(int argc, char** argv, int uid, cudaStream_t & stream)
 {
-  printf("WG size of kernel:initialize = %d, WG size of kernel:compute_step_factor = %d, WG size of kernel:compute_flux = %d, WG size of kernel:time_step = %d\n", BLOCK_SIZE_1, BLOCK_SIZE_2, BLOCK_SIZE_3, BLOCK_SIZE_4);
+  printf("WG size of kernel:initialize = %d, WG size of kernel:compute_step_factor = %d, WG size of "
+         "kernel:compute_flux = %d, WG size of kernel:time_step = %d\n", 128, 192, 128, 256);
 
 	if (argc < 2)
 	{
