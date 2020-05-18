@@ -53,6 +53,9 @@ INTRA_?_CTA:
 INTRA_?_RATIO:
   extra_params: "-gpgpu_sharing_intra_sm 1 -intra_sm_option 1 -ctx_ratio_in_stream ?"
 
+# Double ? indicates a long config string that should be omitted in file name
+INTRA_?_LUT:
+  extra_params: "-gpgpu_sharing_intra_sm 1 -intra_sm_option 3 -cta_lut ?"
 
 INTER_?_SM:
   extra_params: "-gpgpu_sharing_intra_sm 0 -max_sm_in_stream ?"

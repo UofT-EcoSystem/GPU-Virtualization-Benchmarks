@@ -43,7 +43,7 @@ def parse_args():
                              'Only checked when all is passed to --pair.')
 
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
-                                          'inter', 'ctx'],
+                                          'inter', 'ctx', 'lut'],
                         help='How to partition resources between benchmarks.')
     parser.add_argument('--num_slice', default=4, type=int,
                         help='If how is ctx, num_slice specifies how many '
@@ -78,6 +78,17 @@ def parse_args():
 
     global args
     args = parser.parse_args()
+
+
+def get_pickle(pickle_name):
+    path_pickle = os.path.join(const.DATA_HOME, 'pickles', pickle_name)
+
+    if not os.path.exists(path_pickle):
+        print("Pair {0} launch cannot find {1}.".format(args.how, pickle_name))
+        sys.exit(3)
+
+    df = pd.read_pickle(path_pickle)
+    return df
 
 
 def launch_job(*configs, pair, multi=False):
@@ -193,6 +204,69 @@ def process_dynamic(pair):
     return len(configs)
 
 
+def cap_cycles_multi_kernel(apps):
+    # Cap cycles are calculated based on seq run
+    df_seq_multi = get_pickle('seq-multi.pkl')
+    df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True)
+
+    max_cycles = 0
+
+    for app in apps:
+        sum_cycles = 0
+        for kidx in const.kernel_yaml[app].keys():
+            sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
+
+        if sum_cycles > max_cycles:
+            max_cycles = sum_cycles
+
+    cap_cycles = args.cap * max_cycles
+    cap_config = '-CAP_{0}_CYCLE'.format(int(cap_cycles))
+
+    return cap_config
+
+
+# LUT selects resource configs based on the best pair dynamic results
+def process_lut(pair, base_config):
+    df_pair_dynamic = get_pickle('pair_dynamic_multi.pkl')
+    df_best = df_pair_dynamic.sort_values('ws').drop_duplicates(['1_bench',
+                                                                 '1_kidx',
+                                                                 '2_bench',
+                                                                 '2_kidx'])
+    df_best = df_best.set_index(['1_bench', '1_kidx', '2_bench', '2_kidx'])
+
+    apps = pair.split('+')
+
+    # LUT is for multi-kernel benchmarks only
+    multi_check = [app in const.multi_kernel_app for app in apps]
+    if not all(multi_check):
+        print("Pair lut launch requires all benchmarks to be multi-kernel "
+              "applications.")
+        sys.exit(4)
+
+    # Build the CTA lookup table
+    lut = []
+    for kidx_1 in const.kernel_yaml[apps[0]]:
+        for kidx_2 in const.kernel_yaml[apps[1]]:
+            cta_1 = df_best.loc[(apps[0], kidx_1, apps[1], kidx_2), '1_intra']
+            cta_2 = df_best.loc[(apps[0], kidx_1, apps[1], kidx_2), '2_intra']
+            entry = "0:{}:{}=0:{}:{}".format(kidx_1, kidx_2,
+                                             int(cta_1), int(cta_2))
+            lut.append(entry)
+
+    lut_config = ",".join(lut)
+    lut_config = "INTRA_{}_LUT".format(lut_config)
+
+    config = base_config + "-" + lut_config
+
+    # Calculate max cycle bound
+    cap_config = cap_cycles_multi_kernel(apps)
+    config += cap_config
+
+    launch_job(config, pair=pair)
+
+    return 1
+
+
 def process_inter(pair):
     apps = pair.split('+')
     # inter-SM sharing
@@ -208,28 +282,14 @@ def process_inter(pair):
     return len(configs)
 
 
-def process_ctx(pair, base_config, df_seq_multi):
-    print(df_seq_multi.index)
+def process_ctx(pair, base_config):
     apps = pair.split('+')
 
     step = 1.0 / args.num_slice
     configs = [base_config + '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r) for r in
                np.arange(step, 1.0, step)]
 
-    max_cycles = 0
-
-    for app in apps:
-        # check how many kernels there are in the app
-        sum_cycles = 0
-        for kidx in const.kernel_yaml[app].keys():
-            sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
-
-        if sum_cycles > max_cycles:
-            max_cycles = sum_cycles
-
-    cap_cycles = args.cap * max_cycles
-    cap_config = '-CAP_{0}_CYCLE'.format(int(cap_cycles))
-
+    cap_config = cap_cycles_multi_kernel(apps)
     configs = [c + cap_config for c in configs]
 
     launch_job(*configs, pair=pair)
@@ -316,14 +376,9 @@ def main():
                   'Must be greater than 1.')
             sys.exit(2)
 
-        # cap cycles are calculated from seq-multi.csv
-        df_seq_multi = pd.read_csv(os.path.join(const.DATA_HOME,
-                                                'csv/seq-multi.csv'))
-        help_iso.process_config_column('kidx', df=df_seq_multi)
-        df_seq_multi.set_index(['pair_str', 'kidx'], inplace=True)
-
-        len_configs = \
-            [process_ctx(pair, base_config, df_seq_multi) for pair in args.pair]
+        len_configs = [process_ctx(pair, base_config) for pair in args.pair]
+    elif args.how == 'lut':
+        len_configs = [process_lut(pair, base_config) for pair in args.pair]
     else:
         print('Invalid sharing config how.')
         sys.exit(1)
