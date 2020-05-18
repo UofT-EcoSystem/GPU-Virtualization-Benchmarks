@@ -228,10 +228,8 @@ def cap_cycles_multi_kernel(apps):
 # LUT selects resource configs based on the best pair dynamic results
 def process_lut(pair, base_config):
     df_pair_dynamic = get_pickle('pair_dynamic_multi.pkl')
-    df_best = df_pair_dynamic.sort_values('ws').drop_duplicates(['1_bench',
-                                                                 '1_kidx',
-                                                                 '2_bench',
-                                                                 '2_kidx'])
+    df_best = df_pair_dynamic.sort_values('ws', ascending=False)\
+        .drop_duplicates(['1_bench', '1_kidx', '2_bench', '2_kidx'])
     df_best = df_best.set_index(['1_bench', '1_kidx', '2_bench', '2_kidx'])
 
     apps = pair.split('+')
