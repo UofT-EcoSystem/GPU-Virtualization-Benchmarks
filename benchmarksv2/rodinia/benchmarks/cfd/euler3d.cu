@@ -442,50 +442,48 @@ int main_cfd(int argc, char** argv, int uid, cudaStream_t & stream)
 	printf("Name:                     %s\n", prop.name);
 
 	// set far field conditions and load them into constant memory on the gpu
-	{
-		float h_ff_variable[NVAR];
-		const float angle_of_attack = float(3.1415926535897931 / 180.0f) * float(deg_angle_of_attack);
-		
-		h_ff_variable[VAR_DENSITY] = float(1.4);
-		
-		float ff_pressure = float(1.0f);
-		float ff_speed_of_sound = sqrt(GAMMA*ff_pressure / h_ff_variable[VAR_DENSITY]);
-		float ff_speed = float(ff_mach)*ff_speed_of_sound;
-		
-		float3 ff_velocity;
-		ff_velocity.x = ff_speed*float(cos((float)angle_of_attack));
-		ff_velocity.y = ff_speed*float(sin((float)angle_of_attack));
-		ff_velocity.z = 0.0f;
-		
-		h_ff_variable[VAR_MOMENTUM+0] = h_ff_variable[VAR_DENSITY] * ff_velocity.x;
-		h_ff_variable[VAR_MOMENTUM+1] = h_ff_variable[VAR_DENSITY] * ff_velocity.y;
-		h_ff_variable[VAR_MOMENTUM+2] = h_ff_variable[VAR_DENSITY] * ff_velocity.z;
-				
-		h_ff_variable[VAR_DENSITY_ENERGY] = h_ff_variable[VAR_DENSITY]*(float(0.5f)*(ff_speed*ff_speed)) + (ff_pressure / float(GAMMA-1.0f));
+    float h_ff_variable[NVAR];
+    const float angle_of_attack = float(3.1415926535897931 / 180.0f) * float(deg_angle_of_attack);
 
-		float3 h_ff_momentum;
-		h_ff_momentum.x = *(h_ff_variable+VAR_MOMENTUM+0);
-		h_ff_momentum.y = *(h_ff_variable+VAR_MOMENTUM+1);
-		h_ff_momentum.z = *(h_ff_variable+VAR_MOMENTUM+2);
-		float3 h_ff_flux_contribution_momentum_x;
-		float3 h_ff_flux_contribution_momentum_y;
-		float3 h_ff_flux_contribution_momentum_z;
-		float3 h_ff_flux_contribution_density_energy;
-		compute_flux_contribution(h_ff_variable[VAR_DENSITY], h_ff_momentum, h_ff_variable[VAR_DENSITY_ENERGY], ff_pressure, ff_velocity, h_ff_flux_contribution_momentum_x, h_ff_flux_contribution_momentum_y, h_ff_flux_contribution_momentum_z, h_ff_flux_contribution_density_energy);
+    h_ff_variable[VAR_DENSITY] = float(1.4);
 
-		// copy far field conditions to the gpu
-		checkCudaErrors( cudaMemcpyToSymbolAsync(ff_variable,          h_ff_variable,          NVAR*sizeof(float), 0,
-		        cudaMemcpyHostToDevice, stream) );
-		checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_momentum_x, &h_ff_flux_contribution_momentum_x,
-		        sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
-		checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_momentum_y, &h_ff_flux_contribution_momentum_y,
-		        sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
-		checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_momentum_z, &h_ff_flux_contribution_momentum_z,
-		        sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
-		
-		checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_density_energy,
-		        &h_ff_flux_contribution_density_energy, sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
-	}
+    float ff_pressure = float(1.0f);
+    float ff_speed_of_sound = sqrt(GAMMA*ff_pressure / h_ff_variable[VAR_DENSITY]);
+    float ff_speed = float(ff_mach)*ff_speed_of_sound;
+
+    float3 ff_velocity;
+    ff_velocity.x = ff_speed*float(cos((float)angle_of_attack));
+    ff_velocity.y = ff_speed*float(sin((float)angle_of_attack));
+    ff_velocity.z = 0.0f;
+
+    h_ff_variable[VAR_MOMENTUM+0] = h_ff_variable[VAR_DENSITY] * ff_velocity.x;
+    h_ff_variable[VAR_MOMENTUM+1] = h_ff_variable[VAR_DENSITY] * ff_velocity.y;
+    h_ff_variable[VAR_MOMENTUM+2] = h_ff_variable[VAR_DENSITY] * ff_velocity.z;
+
+    h_ff_variable[VAR_DENSITY_ENERGY] = h_ff_variable[VAR_DENSITY]*(float(0.5f)*(ff_speed*ff_speed)) + (ff_pressure / float(GAMMA-1.0f));
+
+    float3 h_ff_momentum;
+    h_ff_momentum.x = *(h_ff_variable+VAR_MOMENTUM+0);
+    h_ff_momentum.y = *(h_ff_variable+VAR_MOMENTUM+1);
+    h_ff_momentum.z = *(h_ff_variable+VAR_MOMENTUM+2);
+    float3 h_ff_flux_contribution_momentum_x;
+    float3 h_ff_flux_contribution_momentum_y;
+    float3 h_ff_flux_contribution_momentum_z;
+    float3 h_ff_flux_contribution_density_energy;
+    compute_flux_contribution(h_ff_variable[VAR_DENSITY], h_ff_momentum, h_ff_variable[VAR_DENSITY_ENERGY], ff_pressure, ff_velocity, h_ff_flux_contribution_momentum_x, h_ff_flux_contribution_momentum_y, h_ff_flux_contribution_momentum_z, h_ff_flux_contribution_density_energy);
+
+    // copy far field conditions to the gpu
+    checkCudaErrors( cudaMemcpyToSymbolAsync(ff_variable,          h_ff_variable,          NVAR*sizeof(float), 0,
+            cudaMemcpyHostToDevice, stream) );
+    checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_momentum_x, &h_ff_flux_contribution_momentum_x,
+            sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
+    checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_momentum_y, &h_ff_flux_contribution_momentum_y,
+            sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
+    checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_momentum_z, &h_ff_flux_contribution_momentum_z,
+            sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
+
+    checkCudaErrors( cudaMemcpyToSymbolAsync(ff_flux_contribution_density_energy,
+            &h_ff_flux_contribution_density_energy, sizeof(float3), 0, cudaMemcpyHostToDevice, stream) );
 	int nel;
 	int nelr;
 	
@@ -493,61 +491,56 @@ int main_cfd(int argc, char** argv, int uid, cudaStream_t & stream)
 	float* areas;
 	int* elements_surrounding_elements;
 	float* normals;
-	{
-		std::ifstream file(data_file_name);
-	
-		file >> nel;
-		nelr = BLOCK_SIZE_0*((nel / BLOCK_SIZE_0 )+ std::min(1, nel % BLOCK_SIZE_0));
+    std::ifstream file(data_file_name);
 
-		float* h_areas = new float[nelr];
-		int* h_elements_surrounding_elements = new int[nelr*NNB];
-		float* h_normals = new float[nelr*NDIM*NNB];
+    file >> nel;
+    nelr = BLOCK_SIZE_0*((nel / BLOCK_SIZE_0 )+ std::min(1, nel % BLOCK_SIZE_0));
 
-				
-		// read in data
-		for(int i = 0; i < nel; i++)
-		{
-			file >> h_areas[i];
-			for(int j = 0; j < NNB; j++)
-			{
-				file >> h_elements_surrounding_elements[i + j*nelr];
-				if(h_elements_surrounding_elements[i+j*nelr] < 0) h_elements_surrounding_elements[i+j*nelr] = -1;
-				h_elements_surrounding_elements[i + j*nelr]--; //it's coming in with Fortran numbering				
-				
-				for(int k = 0; k < NDIM; k++)
-				{
-					file >> h_normals[i + (j + k*NNB)*nelr];
-					h_normals[i + (j + k*NNB)*nelr] = -h_normals[i + (j + k*NNB)*nelr];
-				}
-			}
-		}
-		
-		// fill in remaining data
-		int last = nel-1;
-		for(int i = nel; i < nelr; i++)
-		{
-			h_areas[i] = h_areas[last];
-			for(int j = 0; j < NNB; j++)
-			{
-				// duplicate the last element
-				h_elements_surrounding_elements[i + j*nelr] = h_elements_surrounding_elements[last + j*nelr];	
-				for(int k = 0; k < NDIM; k++) h_normals[last + (j + k*NNB)*nelr] = h_normals[last + (j + k*NNB)*nelr];
-			}
-		}
-		
-		areas = alloc<float>(nelr);
-		upload<float>(areas, h_areas, nelr, stream);
+    float* h_areas = new float[nelr];
+    int* h_elements_surrounding_elements = new int[nelr*NNB];
+    float* h_normals = new float[nelr*NDIM*NNB];
 
-		elements_surrounding_elements = alloc<int>(nelr*NNB);
-		upload<int>(elements_surrounding_elements, h_elements_surrounding_elements, nelr*NNB, stream);
 
-		normals = alloc<float>(nelr*NDIM*NNB);
-		upload<float>(normals, h_normals, nelr*NDIM*NNB, stream);
-				
-		delete[] h_areas;
-		delete[] h_elements_surrounding_elements;
-		delete[] h_normals;
-	}
+    // read in data
+    for(int i = 0; i < nel; i++)
+    {
+        file >> h_areas[i];
+        for(int j = 0; j < NNB; j++)
+        {
+            file >> h_elements_surrounding_elements[i + j*nelr];
+            if(h_elements_surrounding_elements[i+j*nelr] < 0) h_elements_surrounding_elements[i+j*nelr] = -1;
+            h_elements_surrounding_elements[i + j*nelr]--; //it's coming in with Fortran numbering
+
+            for(int k = 0; k < NDIM; k++)
+            {
+                file >> h_normals[i + (j + k*NNB)*nelr];
+                h_normals[i + (j + k*NNB)*nelr] = -h_normals[i + (j + k*NNB)*nelr];
+            }
+        }
+    }
+
+    // fill in remaining data
+    int last = nel-1;
+    for(int i = nel; i < nelr; i++)
+    {
+        h_areas[i] = h_areas[last];
+        for(int j = 0; j < NNB; j++)
+        {
+            // duplicate the last element
+            h_elements_surrounding_elements[i + j*nelr] = h_elements_surrounding_elements[last + j*nelr];
+            for(int k = 0; k < NDIM; k++) h_normals[last + (j + k*NNB)*nelr] = h_normals[last + (j + k*NNB)*nelr];
+        }
+    }
+
+    areas = alloc<float>(nelr);
+    upload<float>(areas, h_areas, nelr, stream);
+
+    elements_surrounding_elements = alloc<int>(nelr*NNB);
+    upload<int>(elements_surrounding_elements, h_elements_surrounding_elements, nelr*NNB, stream);
+
+    normals = alloc<float>(nelr*NDIM*NNB);
+    upload<float>(normals, h_normals, nelr*NDIM*NNB, stream);
+
 
 
 
@@ -594,7 +587,7 @@ int main_cfd(int argc, char** argv, int uid, cudaStream_t & stream)
             compute_step_factor(nelr, variables, areas, step_factors, stream);
             getLastCudaError("compute_step_factor failed");
 
-            for(int j = 0; j < RK; j++)
+            for(int j = 0; j < 1; j++)
             {
                 compute_flux(nelr, elements_surrounding_elements, normals, variables, fluxes, stream);
                 getLastCudaError("compute_flux failed");
@@ -628,6 +621,10 @@ int main_cfd(int argc, char** argv, int uid, cudaStream_t & stream)
 	dealloc<float>(old_variables);
 	dealloc<float>(fluxes);
 	dealloc<float>(step_factors);
+
+    delete[] h_areas;
+    delete[] h_elements_surrounding_elements;
+    delete[] h_normals;
 
 	std::cout << "Done..." << std::endl;
 
