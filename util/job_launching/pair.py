@@ -235,7 +235,7 @@ def process_lut(pair, base_config):
     apps = pair.split('+')
 
     # LUT is for multi-kernel benchmarks only
-    multi_check = [app in const.multi_kernel_app for app in apps]
+    multi_check = [app in const.multi_kernel_app.keys() for app in apps]
     if not all(multi_check):
         print("Pair lut launch requires all benchmarks to be multi-kernel "
               "applications.")
@@ -332,7 +332,7 @@ def process_pairs():
 
             def expand_bench(app):
                 expanded = []
-                if app in const.multi_kernel_app:
+                if app in const.multi_kernel_app.keys():
                     [expanded.append("{0}:{1}".format(app, kidx)) for kidx in
                      const.kernel_yaml[app].keys()]
                 else:

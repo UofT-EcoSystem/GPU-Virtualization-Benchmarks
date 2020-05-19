@@ -42,7 +42,7 @@ def parse_args():
 
 achieved_cta = {}
 for benchmark in const.kernel_yaml:
-    if benchmark in const.multi_kernel_app:
+    if benchmark in const.multi_kernel_app.keys():
         for kidx in const.kernel_yaml[benchmark]:
             kernel = "{}:{}".format(benchmark, kidx)
 
@@ -66,7 +66,7 @@ if args.apps[0] == 'all':
     args.apps = all_apps[args.id_start:last_index]
 
 for app in args.apps:
-    if app in const.multi_kernel_app:
+    if app in const.multi_kernel_app.keys():
         kernels = ["{0}:{1}".format(app, kidx)
                    for kidx in const.kernel_yaml[app].keys()]
         launch_name = 'isolation-multi'
@@ -89,7 +89,7 @@ for app in args.apps:
             # append skip kidx config to do performance simulation only on
             # this kernel
             kidx = split_kernel[1]
-            num_kernel = const.multi_kernel_app[split_kernel[0]]
+            num_kernel = const.multi_kernel_app[split_kernel[1]]
             configs = ["-".join([cfg,
                                  "MIX_0:{}:0_KIDX".format(kidx),
                                  "NUM_0:{}:0_KERNEL".format(num_kernel)]
