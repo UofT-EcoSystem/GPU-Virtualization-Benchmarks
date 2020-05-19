@@ -35,7 +35,8 @@ def parse_args():
                                              'pickles/intra.pkl'),
                         help='Pickle file for isolated intra/inter run')
 
-    parser.add_argument('--how', choices=['smk', 'dynamic', 'inter', 'ctx'],
+    parser.add_argument('--how', choices=['smk', 'dynamic', 'inter', 'ctx',
+                                          'lut'],
                         default='dynamic',
                         help='How to partition resources between benchmarks.')
 
@@ -201,7 +202,7 @@ def evaluate_multi_kernel(df_pair, df_baseline):
     # df_pair['runtime_adj'] = df_pair.apply(handle_incomplete, axis=1)
 
     # calculate normalized runtime
-    if args.how == 'ctx':
+    if args.how == 'ctx' or args.how == 'lut':
         def calc_norm_runtime(row):
             runtime = row['runtime']
             norm_runtime = []
@@ -310,7 +311,7 @@ def main():
     else:
         df_pair = evaluate_single_kernel(df_pair, df_seq)
 
-    if args.how == 'smk' or args.how == 'ctx':
+    if args.how == 'smk' or args.how == 'ctx' or args.how == 'lut':
         df_pair.to_pickle(args.output)
     else:
         # Get profiled info from intra pkl
