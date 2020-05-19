@@ -228,7 +228,7 @@ def cap_cycles_multi_kernel(apps):
 # LUT selects resource configs based on the best pair dynamic results
 def process_lut(pair, base_config):
     df_pair_dynamic = get_pickle('pair_dynamic_multi.pkl')
-    df_best = df_pair_dynamic.sort_values('ws', ascending=False)\
+    df_best = df_pair_dynamic.sort_values('ws', ascending=False) \
         .drop_duplicates(['1_bench', '1_kidx', '2_bench', '2_kidx'])
     df_best = df_best.set_index(['1_bench', '1_kidx', '2_bench', '2_kidx'])
 
@@ -254,7 +254,12 @@ def process_lut(pair, base_config):
     lut_config = ",".join(lut)
     lut_config = "INTRA_{}_LUT".format(lut_config)
 
-    config = base_config + "-" + lut_config
+    # Number of kernels config
+    num_kernel = [const.get_num_kernels(app) for app in apps]
+    num_kernel_config = "NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
+                                                      num_kernel[1])
+
+    config = base_config + "-" + lut_config + "-" + num_kernel_config
 
     # Calculate max cycle bound
     cap_config = cap_cycles_multi_kernel(apps)
