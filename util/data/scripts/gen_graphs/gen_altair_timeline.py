@@ -54,10 +54,16 @@ def _prepare_data(pair_series):
     return data
 
 
-def draw_altair_timeline(pair_series, col_title):
+def draw_altair_timeline(pair_series, col_title=None, title=None):
     # 1. Prepare data
     data = _prepare_data(pair_series)
-    chart_title = "{0} = {1}".format(col_title, pair_series[col_title])
+
+    if col_title:
+        chart_title = "{0} = {1}".format(col_title, pair_series[col_title])
+    elif title:
+        chart_title = "{0}".format(title)
+    else:
+        chart_title = ""
 
     # 2. Draw altair objects
     bars = alt.Chart(data, title=chart_title).mark_bar().encode(
