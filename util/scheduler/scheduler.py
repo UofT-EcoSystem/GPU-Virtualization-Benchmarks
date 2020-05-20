@@ -4,6 +4,8 @@ import scipy
 import logging
 from scipy.stats.mstats import gmean
 
+import data.scripts.common.help_iso as hi
+
 """Initializing the logger"""
 logger = logging.getLogger("scheduler logger")
 logger.propagate = False
@@ -190,18 +192,18 @@ def estimate_steady(apps, qos_loss, iter_lim):
     return final_pred
 
 
-def find_qos_loss(scaled_runtime, num_iter, isolated_total):
-    return sum(scaled_runtime) / (isolated_total * num_iter)
+def find_qos_loss(scaled_runtime, num_iter, isolated_runtime):
+    return sum(scaled_runtime) / (sum(isolated_runtime) * num_iter)
 
 
 def simulate(runtimes, interference, iter_lim,
-             finish_remaining=False,
-             print_info=print, print_debug=print,
+             finish_remaining=True,
              offset=0, offset_app=0):
     # to keep track of iterations completed by apps
     iter_ = [0, 0]
-    # scaled_runtimes array will be filled up as we compute
-    scaled_runtimes = [[0 for x in runtimes[0]], [0 for y in runtimes[1]]]
+    # scaled_runtimes array is in the form of
+    # [[k1 time, k2 time...], [k1 time, k2 time, ...]]
+    scaled_runtimes = [[0], [0]]
     # indeces of kernels for two apps - by default 0 and 0
     kidx = [0, 0]
     # by default the two kernels launch simultaneously
@@ -245,7 +247,7 @@ def simulate(runtimes, interference, iter_lim,
                 # compare qos to the past qos
                 qos_loss = find_qos_loss(scaled_runtimes[app_idx],
                                          iter_[app_idx],
-                                         sum(runtimes[app_idx]))
+                                         runtimes[app_idx])
 
                 if abs(past_qos_loss[app_idx] - qos_loss) < qos_loss_error \
                         and steady_state_qos[app_idx] == -1:
@@ -257,21 +259,24 @@ def simulate(runtimes, interference, iter_lim,
 
         remaining_runtimes[app_idx] = runtimes[app_idx][kidx[app_idx]]
 
+        if iter_[app_idx] < iter_lim[app_idx]:
+            scaled_runtimes[app_idx].append(0)
+
     # main loop of the simulation
     while iter_[0] < iter_lim[0] and iter_[1] < iter_lim[1]:
         # figure out who finishes first by scaling the runtimes by the slowdowns
         kidx_pair = (kidx[1], kidx[0])
-        app0_ker_scaled = remaining_runtimes[0] * interference[0][kidx_pair]
+        app0_ker_scaled = remaining_runtimes[0] / interference[0][kidx_pair]
         # logger.debug("app0 kernel scaled runtime is: {}".format(
         # app0_ker_scaled))
-        app1_ker_scaled = remaining_runtimes[1] * interference[1][kidx_pair]
+        app1_ker_scaled = remaining_runtimes[1] / interference[1][kidx_pair]
         # logger.debug("app1 kernel scaled runtime is: {}".format(
         # app1_ker_scaled))
 
         # Advance scaled runtime by the shorter scaled kernel
         short_scaled = min(app0_ker_scaled, app1_ker_scaled)
-        scaled_runtimes[0][kidx[0]] += short_scaled
-        scaled_runtimes[1][kidx[1]] += short_scaled
+        scaled_runtimes[0][-1] += short_scaled
+        scaled_runtimes[1][-1] += short_scaled
 
         diff_scaled = abs(app0_ker_scaled - app1_ker_scaled)
 
@@ -287,7 +292,7 @@ def simulate(runtimes, interference, iter_lim,
             # finished first
 
             # compute raw remaining runtime of app1
-            remaining_runtimes[1] = diff_scaled / interference[1][kidx_pair]
+            remaining_runtimes[1] = diff_scaled * interference[1][kidx_pair]
 
             handle_completed_kernel(0)
         else:
@@ -296,63 +301,76 @@ def simulate(runtimes, interference, iter_lim,
             # finished first
 
             # compute raw remaining runtime of app0
-            remaining_runtimes[0] = diff_scaled / interference[0][kidx_pair]
+            remaining_runtimes[0] = diff_scaled * interference[0][kidx_pair]
 
             handle_completed_kernel(1)
 
     # end of loop
 
     # finish off the last iteration of remaining app in isolation
-    scaled_runtimes[remaining_app][remaining_app_kidx] += \
+    scaled_runtimes[remaining_app][-1] += \
         remaining_runtimes[remaining_app]
     for idx in range(remaining_app_kidx + 1, len(runtimes[remaining_app])):
-        scaled_runtimes[remaining_app][idx] += runtimes[remaining_app][idx]
+        scaled_runtimes[remaining_app].append(runtimes[remaining_app][idx])
 
     iter_[remaining_app] += 1
-    print_info("Iterations are: {}".format(iter_))
-    print_debug("=" * 72)
-    print_debug(
-        "Completing the remaining iterations of app {} in isolation".format(
-            remaining_app))
-    print_debug("Scaled_runtimes of app 0 are {}".format(scaled_runtimes[0]))
-    print_debug("Scaled_runtimes of app 1 are {}".format(scaled_runtimes[1]))
 
     if finish_remaining:
         # complete the rest of the required iterations of
         # remaining app in isolation
         remaining_iter = iter_lim[remaining_app] - iter_[remaining_app]
-        iter_[remaining_app] += remaining_iter
-        print_info("remaining iterations are: ".format(remaining_iter))
+        isolated_runtime = np.resize(runtimes[remaining_app], remaining_iter)
+        scaled_runtimes[remaining_app] += list(isolated_runtime)
 
-        isolated_runtime = [x * remaining_iter for x in runtimes[remaining_app]]
-        scaled_runtimes[remaining_app] = \
-            [sum(x) for x in zip(isolated_runtime,
-                                 scaled_runtimes[remaining_app])
-             ]
+    return scaled_runtimes, steady_state_iter, steady_state_qos
 
-    print_info("=" * 35 + " Final Info " + "=" * 35)
-    print_debug("Total isolated runtimes of app 0 {}".format(
-        [x * iter_[0] for x in runtimes[0]]))
-    print_debug("Total isolated runtimes of app 1 {}".format(
-        [x * iter_[1] for x in runtimes[1]]))
-    qos_loss = [sum(scaled_runtimes[0]) / (sum(runtimes[0]) * iter_[0]),
-                sum(scaled_runtimes[1]) / (sum(runtimes[1]) * iter_[1])]
+
+def calculate_qos(runtimes, scaled_runtimes, short=False,
+                  revert=True, print_info=print):
+    print_info("=" * 35 + " Full Simulation QoS Info " + "=" * 35)
+
+    if short:
+        # Only fetch the first iteration of the longer app
+        qos_loss = hi.calculate_sld_short(scaled_runtimes, runtimes)
+    else:
+        iter_0 = len(scaled_runtimes[0]) / len(runtimes[0])
+        iter_1 = len(scaled_runtimes[1]) / len(runtimes[1])
+
+        qos_loss = [find_qos_loss(scaled_runtimes[0], iter_0, runtimes[0]),
+                    find_qos_loss(scaled_runtimes[1], iter_1, runtimes[1])]
+
     print_info(
         "App0 has {} kernels, App1 has {} kernels".format(len(runtimes[0]),
                                                           len(runtimes[1])))
     print_info("Actual calculated QOS losses are {}".format(qos_loss))
 
+    if revert:
+        final_pred = [1 / qos_loss[0], 1 / qos_loss[1]]
+    else:
+        final_pred = [qos_loss[0], qos_loss[1]]
+
+    return final_pred
+
+
+def calculate_norm_ipc(runtimes, scaled_runtimes):
+    circular_runtimes = \
+        [np.resize(runtimes[idx], len(app_time))
+         for idx, app_time in enumerate(scaled_runtimes)
+         ]
+
+    norm_ipc = np.divide(circular_runtimes, scaled_runtimes)
+
+    return norm_ipc
+
+
+def print_steady_state(runtimes, iter_lim, steady_state_iter, steady_state_qos):
     if steady_state_iter[0] > 0 and steady_state_iter[1] > 0:
-        print_info(("Steady predicted qos losses are {}".format(
+        logger.info(("Steady predicted qos losses are {}".format(
             estimate_qos_steady(runtimes, steady_state_qos, iter_lim))))
-        print_info(
+        logger.info(
             "Steady state for app0 and app1 reached at iterations "
             "{} and {} respectively".format(steady_state_iter[0],
                                             steady_state_iter[1]))
-
-    final_pred = [1 / qos_loss[0], 1 / qos_loss[1]]
-
-    return final_pred, steady_state_qos, steady_state_iter
 
 
 """Initializing data structures and parameters"""
@@ -407,9 +425,11 @@ def main():
         # predictions_harm_mean = estimate_weigh_harm_mean(app_lengths, interference_matrix, iter_limits)
 
         # simulate and obtain actual QOS for both kernels
-        qos, steady_state_qos, steady_state_iter = \
-            simulate(app_lengths, interference_matrix, iter_limits,
-                     print_debug=logger.debug, print_info=logger.info)
+        scaled_runtimes, steady_state_iter, steady_state_qos = \
+            simulate(app_lengths, interference_matrix, iter_limits)
+
+        qos = calculate_qos(app_lengths, scaled_runtimes,
+                            print_info=logger.info)
 
         predictions_steady = estimate_steady(app_lengths, steady_state_qos,
                                              iter_limits)

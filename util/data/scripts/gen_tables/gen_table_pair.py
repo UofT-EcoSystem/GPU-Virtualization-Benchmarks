@@ -237,35 +237,7 @@ def evaluate_multi_kernel(df_pair, df_baseline):
             return baseline
 
         def calculate_total_sld(row):
-            runtime = np.array(row['runtime'])
-            sld = []
-
-            # 1. Find out which stream has a shorter runtime (single iteration)
-            sum_runtime = np.array([sum(arr_run) for arr_run in runtime])
-            min_runtime = np.min(sum_runtime[sum_runtime > 0])
-
-            # 2. For every stream, find the max number of full iterations
-            # executed before the shortest stream ended
-            for stream_id, stream in enumerate(runtime):
-                sld_stream = 0
-                stream = np.array(stream)
-
-                if len(stream) > 0:
-                    bench = row['{}_bench'.format(stream_id)]
-                    num_kernels = len(const.kernel_yaml[bench])
-                    num_iters = int(len(stream) / num_kernels)
-                    tot_time = sum(stream)
-
-                    while tot_time > min_runtime:
-                        num_iters -= 1
-                        tot_time = sum(stream[0:num_iters*num_kernels])
-
-                    iter_time = sum(row['baseline'][stream_id])
-                    sld_stream = num_iters * iter_time / tot_time
-
-                sld.append(sld_stream)
-
-            return sld
+            return hi.calculate_sld_short(row['runtime'], row['baseline'])
 
         df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
         df_pair['baseline'] = df_pair.apply(collect_baseline, axis=1)

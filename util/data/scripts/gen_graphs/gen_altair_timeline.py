@@ -7,12 +7,12 @@ import data.scripts.common.constants as const
 
 def _prepare_data(pair_series):
     runtime = pair_series['runtime']
-    s1_runtime = runtime[1]
-    s2_runtime = runtime[2]
+    s1_runtime = runtime[-2]
+    s2_runtime = runtime[-1]
 
     norm_runtime = pair_series['norm_ipc']
-    s1_norm = norm_runtime[1]
-    s2_norm = norm_runtime[2]
+    s1_norm = norm_runtime[-2]
+    s2_norm = norm_runtime[-1]
 
     def get_from_to(duration):
         time_series = [0]
@@ -54,6 +54,7 @@ def _prepare_data(pair_series):
     return data
 
 
+# Required fields in pair_series: 1_bench, 2_bench, runtime, norm_ipc
 def draw_altair_timeline(pair_series, col_title=None, title=None):
     # 1. Prepare data
     data = _prepare_data(pair_series)
