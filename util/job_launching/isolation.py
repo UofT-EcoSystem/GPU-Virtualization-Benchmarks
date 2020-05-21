@@ -88,8 +88,9 @@ for app in args.apps:
             # This is a kernel part of a multi-kernel benchmark
             # append skip kidx config to do performance simulation only on
             # this kernel
+            bench = split_kernel[0]
             kidx = split_kernel[1]
-            num_kernel = const.multi_kernel_app[split_kernel[1]]
+            num_kernel = const.multi_kernel_app[bench]
             configs = ["-".join([cfg,
                                  "MIX_0:{}:0_KIDX".format(kidx),
                                  "NUM_0:{}:0_KERNEL".format(num_kernel)]
