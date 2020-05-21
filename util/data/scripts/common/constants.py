@@ -27,15 +27,6 @@ multi_kernel_app = OrderedDict([('parb_sad-0', 3),
                                 ('rod_cfd-0', 6),
                                 ])
 
-#multi_kernel_app = ['parb_sad-0',
-#                    'parb_sad-1',
-#                    'parb_histo-0',
-#                    'parb_histo-1',
-#                    'parb_mriq-0',
-#                    'nvd_conv-0',
-#                    'rod_cfd-0',
-#                    ]
-
 
 def get_kernel_stat(kernel, stat, kidx):
     sp_kernel = kernel.split(':')

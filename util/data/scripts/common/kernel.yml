@@ -184,3 +184,80 @@ rod_cfd-0:
     comp:       None
     regs:       21
     smem:       0
+
+parb_mriq-0:
+  1:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  2:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+
+parb_histo-0:
+  1:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  2:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  3:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  4:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+
+parb_histo-1:
+  1:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  2:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  3:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+  4:
+    max_cta:    None
+    grid:       None
+    block:      None
+    comp:       None
+    regs:       None
+    smem:       None
+
