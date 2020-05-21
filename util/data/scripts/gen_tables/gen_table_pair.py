@@ -247,10 +247,19 @@ def evaluate_multi_kernel(df_pair, df_baseline):
     elif args.how == 'dynamic':
         # calculate 1_sld and 2_sld
         def calc_sld(row):
-            runtime_1 = row['runtime'][1][0]
-            runtime_2 = row['runtime'][2][0]
+            # Take average all of kernel instances, but drop the last one if
+            # more than one instance
+            def average_runtime(list_runtime):
+                if len(list_runtime) > 1:
+                    return np.average(list_runtime[0:-1])
+                else:
+                    return list_runtime[0]
+
+            runtime_1 = average_runtime(row['runtime'][1])
+            runtime_2 = average_runtime(row['runtime'][2])
             assert (runtime_1 > 0)
             assert (runtime_2 > 0)
+
             base_1 = df_baseline.loc[(row['1_bench'], row['1_kidx']), 'runtime']
             base_2 = df_baseline.loc[(row['2_bench'], row['2_kidx']), 'runtime']
 
