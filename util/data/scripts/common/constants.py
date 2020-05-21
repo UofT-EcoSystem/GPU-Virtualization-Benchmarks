@@ -11,6 +11,8 @@ max_smem = 96 * 1024
 max_register = 64 * 1024
 num_sm_volta = 80
 
+base_config = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
+
 kernel_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'kernel.yml')),
     Loader=yaml.FullLoader)

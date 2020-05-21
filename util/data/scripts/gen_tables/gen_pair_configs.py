@@ -147,7 +147,7 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
 
     # Build GPGPU-Sim config string
     def build_config(row):
-        config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
+        config_base = const.base_config
 
         # fail fast config
         max_cycle = int(cap * max(row['runtime_x'] * row['norm_ipc_x'],

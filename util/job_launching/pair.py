@@ -363,7 +363,7 @@ def main():
     job_count = 0
     pair_count = 0
 
-    base_config = "TITANV-PAE-SEP_RW-CONCURRENT"
+    base_config = const.base_config
 
     if args.how == 'smk':
         len_configs = [process_smk(pair, base_config) for pair in args.pair]
