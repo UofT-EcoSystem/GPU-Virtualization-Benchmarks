@@ -164,23 +164,23 @@ parb_sad-1:
 
 rod_cfd-0:
   4:
-    max_cta:    None
+    max_cta:    7
     grid:       506
     block:      192
     comp:       None
-    regs:       20
+    regs:       21
     smem:       0
   5:
-    max_cta:    None
+    max_cta:    8
     grid:       759
     block:      128
     comp:       None
-    regs:       60
+    regs:       61
     smem:       0
   6:
-    max_cta:    None
+    max_cta:    5
     grid:       379
     block:      256
     comp:       None
-    regs:       22
+    regs:       21
     smem:       0
