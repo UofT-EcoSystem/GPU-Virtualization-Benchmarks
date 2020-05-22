@@ -17,12 +17,12 @@ kernel_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'kernel.yml')),
     Loader=yaml.FullLoader)
 
-# benchmark -> number of unique kernels
+# benchmark -> number of kernels
 multi_kernel_app = OrderedDict([('parb_sad-0', 3),
                                 ('parb_sad-1', 3),
                                 ('parb_histo-0', 4),
                                 ('parb_histo-1', 4),
-                                ('parb_mriq-0', 2),
+                                ('parb_mriq-0', 3),
                                 ('nvd_conv-0', 2),
                                 ('rod_cfd-0', 6),
                                 ])

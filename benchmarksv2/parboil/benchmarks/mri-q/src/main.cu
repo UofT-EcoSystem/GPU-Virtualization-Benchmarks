@@ -110,55 +110,45 @@ int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
   printf("%d pixels in output; %d samples in trajectory; using %d samples\n",
          numX, original_numK, numK);
 
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  cudaStreamSynchronize(stream);
+  while(!set_and_check(uid, true)) {};
 
-  /* Create CPU data structures */
-  createDataStructsCPU(numK, numX, &phiMag, &Qr, &Qi);
+  bool can_exit = false;
 
-  /* GPU section 1 (precompute PhiMag) */
-  {
+  while(!can_exit) {
+    /* Create CPU data structures */
+    createDataStructsCPU(numK, numX, &phiMag, &Qr, &Qi);
+
+    /* GPU section 1 (precompute PhiMag) */
     /* Mirror several data structures on the device */
     float *phiR_d, *phiI_d;
     float *phiMag_d;
 
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
     setupMemoryGPU(numK, sizeof(float), phiR_d, phiR, stream);
     setupMemoryGPU(numK, sizeof(float), phiI_d, phiI, stream);
     cudaMalloc((void **)&phiMag_d, numK * sizeof(float));
     CUDA_ERRCK;
 
-    cudaThreadSynchronize();
-    pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-
     // kernel launch wrapper
-    computePhiMag_GPU(numK, phiR_d, phiI_d, phiMag_d, uid, stream);
-
-    cudaThreadSynchronize();
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+    computePhiMag_GPU(numK, phiR_d, phiI_d, phiMag_d, stream);
 
     cleanupMemoryGPU(numK, sizeof(float), phiMag_d, phiMag, stream);
     cudaFree(phiR_d);
     cudaFree(phiI_d);
-  }
 
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+    kVals = (struct kValues*)calloc(numK, sizeof (struct kValues));
+    for (int k = 0; k < numK; k++) {
+      kVals[k].Kx = kx[k];
+      kVals[k].Ky = ky[k];
+      kVals[k].Kz = kz[k];
+      kVals[k].PhiMag = phiMag[k];
+    }
 
-  kVals = (struct kValues*)calloc(numK, sizeof (struct kValues));
-  for (int k = 0; k < numK; k++) {
-    kVals[k].Kx = kx[k];
-    kVals[k].Ky = ky[k];
-    kVals[k].Kz = kz[k];
-    kVals[k].PhiMag = phiMag[k];
-  }
+    free(phiMag);
 
-  free(phiMag);
-
-  /* GPU section 2 */
-  {
+    /* GPU section 2 */
     float *x_d, *y_d, *z_d;
     float *Qr_d, *Qi_d;
-
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 
     setupMemoryGPU(numX, sizeof(float), x_d, x, stream);
     setupMemoryGPU(numX, sizeof(float), y_d, y, stream);
@@ -170,31 +160,26 @@ int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
     CUDA_ERRCK;
     cudaMemset((void *)Qi_d, 0, numX * sizeof(float));
 
-    cudaThreadSynchronize();
-    pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-
     // kernel launch wrapper
-    computeQ_GPU(numK, numX, x_d, y_d, z_d, kVals, Qr_d, Qi_d, uid, stream);
-
-    cudaThreadSynchronize();
-    pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+    computeQ_GPU(numK, numX, x_d, y_d, z_d, kVals, Qr_d, Qi_d, stream);
 
     cudaFree(x_d);
     cudaFree(y_d);
     cudaFree(z_d);
     cleanupMemoryGPU(numX, sizeof(float), Qr_d, Qr, stream);
     cleanupMemoryGPU(numX, sizeof(float), Qi_d, Qi, stream);
+
+    cudaStreamSynchronize(stream);
+    can_exit = set_and_check(uid, false);
   }
 
-  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-
   if (params->outFile)
-    {
-      /* Write Q to file */
-      pb_SwitchToTimer(&timers, pb_TimerID_IO);
-      outputData(params->outFile, Qr, Qi, numX);
-      pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-    }
+  {
+    /* Write Q to file */
+    pb_SwitchToTimer(&timers, pb_TimerID_IO);
+    outputData(params->outFile, Qr, Qi, numX);
+    pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  }
 
   free (kx);
   free (ky);

@@ -101,7 +101,8 @@ ComputeQ_GPU(int numK, int kGlobalIndex,
   Qi[xIndex] = sQi;
 }
 
-void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d, int uid, cudaStream_t & stream)
+void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d,
+    cudaStream_t & stream)
 {
   int phiMagBlocks = numK / KERNEL_PHI_MAG_THREADS_PER_BLOCK;
   if (numK % KERNEL_PHI_MAG_THREADS_PER_BLOCK)
@@ -109,20 +110,9 @@ void computePhiMag_GPU(int numK, float* phiR_d, float* phiI_d, float* phiMag_d, 
   dim3 DimPhiMagBlock(KERNEL_PHI_MAG_THREADS_PER_BLOCK, 1);
   dim3 DimPhiMagGrid(phiMagBlocks, 1);
 
-  cudaStreamSynchronize(stream);
-  while (!set_and_check(uid, true));
-
-  bool can_exit = false;
-
-  while(!can_exit)
-  {
-      // kernel launched
-      ComputePhiMag_GPU <<< DimPhiMagGrid, DimPhiMagBlock , 0, stream >>>
-              (phiR_d, phiI_d, phiMag_d, numK);
-
-      cudaStreamSynchronize(stream);
-      can_exit = set_and_check(uid, false);
-  }
+  // kernel launched
+  ComputePhiMag_GPU <<< DimPhiMagGrid, DimPhiMagBlock , 0, stream >>>
+          (phiR_d, phiI_d, phiMag_d, numK);
 
 }
 
@@ -130,7 +120,7 @@ void computeQ_GPU(int numK, int numX,
                   float* x_d, float* y_d, float* z_d,
                   kValues* kVals,
                   float* Qr_d, float* Qi_d,
-                  int uid, cudaStream_t & stream)
+                  cudaStream_t & stream)
 {
   int QGrids = numK / KERNEL_Q_K_ELEMS_PER_GRID;
   if (numK % KERNEL_Q_K_ELEMS_PER_GRID)
@@ -144,25 +134,15 @@ void computeQ_GPU(int numK, int numX,
   for (int QGrid = 0; QGrid < QGrids; QGrid++) {
     // Put the tile of K values into constant mem
     int QGridBase = QGrid * KERNEL_Q_K_ELEMS_PER_GRID;
-    kValues* kValsTile = kVals + QGridBase;
+    kValues *kValsTile = kVals + QGridBase;
     int numElems = MIN(KERNEL_Q_K_ELEMS_PER_GRID, numK - QGridBase);
 
-    cudaMemcpyToSymbolAsync(ck, kValsTile, numElems * sizeof(kValues), 0, cudaMemcpyDeviceToHost, stream);
+    cudaMemcpyToSymbolAsync(ck, kValsTile, numElems * sizeof(kValues), 0,
+                            cudaMemcpyDeviceToHost, stream);
 
-    cudaStreamSynchronize(stream);
-    while (!set_and_check(uid, true));
-
-    bool can_exit = false;
-
-    while(!can_exit)
-    {
-        // kernel launched
-        ComputeQ_GPU <<< DimQGrid, DimQBlock, 0, stream >>>
-                (numK, QGridBase, x_d, y_d, z_d, Qr_d, Qi_d);
-
-        cudaStreamSynchronize(stream);
-        can_exit = set_and_check(uid, false);
-    }
+    // kernel launched
+    ComputeQ_GPU<<<DimQGrid, DimQBlock, 0, stream>>>(numK, QGridBase, x_d, y_d,
+                                                     z_d, Qr_d, Qi_d);
   }
 }
 

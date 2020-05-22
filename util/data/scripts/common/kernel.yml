@@ -188,18 +188,19 @@ rod_cfd-0:
 parb_mriq-0:
   1:
     max_cta:    None
-    grid:       None
-    block:      None
+    grid:       4
+    block:      512
     comp:       None
     regs:       None
-    smem:       None
+    smem:       0
   2:
     max_cta:    None
-    grid:       None
-    block:      None
+    grid:       1024
+    block:      256
     comp:       None
     regs:       None
-    smem:       None
+    smem:       0
+    repeat:     2
 
 parb_histo-0:
   1:
