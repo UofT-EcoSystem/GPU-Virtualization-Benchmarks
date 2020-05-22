@@ -29,7 +29,9 @@ def parse_args():
             and sweep resource sizes.")
 
     parser.add_argument('--pair', required=True, nargs='+',
-                        help="Apps to run.")
+                        help="Apps to run. Accept 1) benchmark name, "
+                             "2) `single` for all single-kernel benchmarks, "
+                             "or 3) `multi` for all multi-kernel benchmarks")
     parser.add_argument('--id_start', type=int, default=0,
                         help='For all pairs only. Starting pair id.')
     parser.add_argument('--count', type=int, default=20,
@@ -302,11 +304,11 @@ def process_ctx(pair, base_config):
 
 def process_pairs():
     global args
-    # Determine what app pairs to launch
-    if args.pair[0] == 'all':
+
+    def pair_up(candidates):
         pairs = []
-        for bench0 in const.kernel_yaml:
-            for bench1 in const.kernel_yaml:
+        for bench0 in candidates:
+            for bench1 in candidates:
                 if bench0 < bench1:
                     pairs.append('+'.join([bench0, bench1]))
 
@@ -329,28 +331,37 @@ def process_pairs():
             for excl in args.app_exclude:
                 args.pair = [p for p in args.pair if excl not in p]
 
-    elif args.how == 'dynamic':
-        # expand all the multi-kernel benchmarks into individual kernels
-        updated_pairs = []
-        for pair in args.pair:
-            apps = pair.split('+')
+    # Determine what app pairs to launch
+    if args.pair[0] == 'single':
+        benchmarks = list(set(const.kernel_yaml.keys()) -
+                          set(const.multi_kernel_app.keys()))
+        pair_up(benchmarks)
+    elif args.pair[0] == 'multi':
+        benchmarks = const.multi_kernel_app.keys()
+        pair_up(benchmarks)
 
-            def expand_bench(app):
-                expanded = []
-                if app in const.multi_kernel_app.keys():
-                    [expanded.append("{0}:{1}".format(app, kidx)) for kidx in
-                     const.kernel_yaml[app].keys()]
-                else:
-                    expanded.append(app)
-                return expanded
+        if args.how == 'dynamic':
+            # expand all the multi-kernel benchmarks into individual kernels
+            updated_pairs = []
+            for pair in args.pair:
+                apps = pair.split('+')
 
-            list_1 = expand_bench(apps[0])
-            list_2 = expand_bench(apps[1])
-            cross_list = ["{0}+{1}".format(k1, k2) for k2 in list_2 for k1 in
-                          list_1]
-            updated_pairs += cross_list
+                def expand_bench(app):
+                    expanded = []
+                    if app in const.multi_kernel_app.keys():
+                        [expanded.append("{0}:{1}".format(app, kidx)) for kidx
+                         in const.kernel_yaml[app].keys()]
+                    else:
+                        expanded.append(app)
+                    return expanded
 
-        args.pair = updated_pairs
+                list_1 = expand_bench(apps[0])
+                list_2 = expand_bench(apps[1])
+                cross_list = ["{0}+{1}".format(k1, k2) for k2 in list_2 for k1
+                              in list_1]
+                updated_pairs += cross_list
+
+            args.pair = updated_pairs
 
 
 def main():
