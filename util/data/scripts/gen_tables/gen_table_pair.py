@@ -245,6 +245,9 @@ def evaluate_multi_kernel(df_pair, df_baseline):
         df_pair['ws'] = df_pair['sld'].apply(np.sum)
 
     elif args.how == 'dynamic':
+        def get_base_runtime(bench, kidx):
+            return df_baseline.loc[(bench, kidx), 'runtime']
+
         # calculate 1_sld and 2_sld
         def calc_sld(row):
             # Take average all of kernel instances, but drop the last one if
@@ -260,8 +263,8 @@ def evaluate_multi_kernel(df_pair, df_baseline):
             assert (runtime_1 > 0)
             assert (runtime_2 > 0)
 
-            base_1 = df_baseline.loc[(row['1_bench'], row['1_kidx']), 'runtime']
-            base_2 = df_baseline.loc[(row['2_bench'], row['2_kidx']), 'runtime']
+            base_1 = get_base_runtime(row['1_bench'], row['1_kidx'])
+            base_2 = get_base_runtime(row['2_bench'], row['2_kidx'])
 
             norm_1 = base_1 / runtime_1
             norm_2 = base_2 / runtime_2
@@ -270,6 +273,33 @@ def evaluate_multi_kernel(df_pair, df_baseline):
 
         df_pair['sld'] = df_pair.apply(calc_sld, axis=1)
         df_pair['ws'] = df_pair['sld'].transform(lambda sld: sld[1] + sld[2])
+
+        def calc_row_importance(row):
+            def get_importance(bench, kidx):
+                total_time = df_baseline[
+                    df_baseline.index.get_level_values('pair_str') == bench
+                    ]['runtime'].sum()
+                importance = get_base_runtime(bench, kidx) / total_time
+                return importance
+
+            importance_1 = get_importance(row['1_bench'], row['1_kidx'])
+            importance_2 = get_importance(row['2_bench'], row['2_kidx'])
+
+            return [0, importance_1, importance_2]
+
+        def weighted_by(row):
+            result = [importance / sld if sld > 0 else 0
+                      for importance, sld in zip(row['importance'],
+                                                 row['sld'])]
+            return result
+
+        if args.multi:
+            # calculated runtime increase weighted by kernel runtime importance
+            df_pair['importance'] = df_pair.apply(calc_row_importance,
+                                                  axis=1)
+            df_pair['weighted_increase'] = df_pair.apply(weighted_by, axis=1)
+            df_pair['sum_increase'] = df_pair['weighted_increase'].transform(
+                lambda inc: inc[1] + inc[2])
 
     return df_pair
 
