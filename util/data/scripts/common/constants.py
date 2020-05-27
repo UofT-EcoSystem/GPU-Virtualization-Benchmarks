@@ -2,6 +2,7 @@ import os
 import oyaml as yaml
 import math
 from collections import OrderedDict
+import numpy as np
 
 DATA_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../')
 
@@ -30,6 +31,7 @@ multi_kernel_app = OrderedDict([('parb_sad-0', 3),
 
 def get_kernel_stat(kernel, stat, kidx):
     sp_kernel = kernel.split(':')
+    kidx = int(kidx)
     if len(sp_kernel) > 1:
         bench = sp_kernel[0]
         kidx = int(sp_kernel[1])
@@ -57,6 +59,17 @@ def calc_cta_quota(bench, ctx):
 
 def get_grid_size(bench, kidx=0):
     return get_kernel_stat(bench, 'grid', kidx)
+
+
+def get_achieved_cta(kernel):
+    split_kernel = kernel.split(':')
+    bench = split_kernel[0]
+    kidx = split_kernel[1] if len(split_kernel) > 1 else 0
+
+    result = np.minimum(np.ceil(get_grid_size(bench, kidx) / num_sm_volta),
+                        get_max_cta_per_sm(bench, kidx)).astype('int32')
+
+    return result
 
 
 def get_block_size(bench, kidx=0, padded=True):

@@ -40,21 +40,6 @@ def parse_args():
     return results
 
 
-achieved_cta = {}
-for benchmark in const.kernel_yaml:
-    if benchmark in const.multi_kernel_app.keys():
-        for kidx in const.kernel_yaml[benchmark]:
-            kernel = "{}:{}".format(benchmark, kidx)
-
-            achieved_cta[kernel] = np.minimum(
-                np.ceil(const.get_grid_size(benchmark, kidx) / 80),
-                const.get_max_cta_per_sm(benchmark, kidx)).astype('int32')
-    else:
-        achieved_cta[benchmark] = np.minimum(
-            np.ceil(const.get_grid_size(benchmark) / 80),
-            const.get_max_cta_per_sm(benchmark)).astype('int32')
-
-
 achieved_sm = const.num_sm_volta
 
 args = parse_args()
@@ -119,7 +104,7 @@ for app in args.apps:
 
     if args.intra:
         for k in kernels:
-            _abs_max = achieved_cta[k]
+            _abs_max = const.get_achieved_cta(k)
             _step = max(1, _abs_max // args.cta_configs)
 
             intra_sm = ["INTRA_0:{0}:0_CTA".format(i)
