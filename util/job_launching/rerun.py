@@ -84,12 +84,12 @@ def main():
                     all_failed = False
 
             if found_failed and all_failed:
-                split_app = [re.split(r'-(?=\D)', p) for p in app]
+                split_app = re.split(r'-(?=\D)', app)
                 run_cmd = ['python3',
                            os.path.join(RUN_HOME, 'run_simulations.py'),
                            '--app', '+'.join(split_app),
-                           'config', config,
-                           'bench_home', args.bench_home,
+                           '--config', config,
+                           '--bench_home', args.bench_home,
                            '--launch_name', re.sub('run-', '', args.run_dir),
                            '--env', args.env,
                            '--overwrite',
@@ -97,6 +97,11 @@ def main():
 
                 if args.no_launch:
                     run_cmd.append('--no_launch')
+
+                p = subprocess.run(run_cmd, stdout=subprocess.PIPE)
+
+                if not args.no_launch:
+                    print(p.stdout.decode("utf-8"))
 
 
 if __name__ == "__main__":
