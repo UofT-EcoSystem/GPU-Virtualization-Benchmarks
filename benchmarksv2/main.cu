@@ -283,18 +283,6 @@ void invoke(int uid, std::string kernel_arg, cudaStream_t* stream)
   cudaDeviceSynchronize();
 
   set_exit(uid);
-
-  if (uid == 0) {
-      // sketchy join thread
-      for (unsigned tid = 1; tid < exit_flags.size(); tid++) {
-          while (!get_exit(tid)) {
-              std::this_thread::sleep_for(std::chrono::milliseconds(5));
-          }
-      }
-
-      // Explicitly exit program
-      exit(0);
-  }
 }
 
 
@@ -332,19 +320,20 @@ int main(int argc, char** argv) {
     std::thread(invoke, i, args[i], &(streams[i])).detach();
   }
 
-  // Get rid of main thread to save some CPU cycles
-//  // join threads
-//  for (auto & t : ts) {
-//    t.join();
-//  }
-//
-//  // sanity check: all flags should now be true
-//  for (auto f : done_flags) {
-//    if (!f) std::cout << "Some thread did not set flag to true!!!!" << std::endl;
-//  }
-//
-//  cudaDeviceSynchronize();
+  // Sketchy way to join threads without busy wait
+  for (unsigned tid = 0; tid < exit_flags.size(); tid++) {
+    while (!get_exit(tid)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  }
 
-//  return 0;
-  pthread_exit(0);
+  // sanity check: all flags should now be true
+  for (auto f : done_flags) {
+    if (!f) std::cout << "Some thread did not set flag to true!!!!" << std::endl;
+  }
+
+  cudaDeviceSynchronize();
+
+//  pthread_exit(0);
+  return 0;
 }
