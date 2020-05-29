@@ -340,28 +340,28 @@ def process_pairs():
         benchmarks = const.multi_kernel_app.keys()
         pair_up(benchmarks)
 
-        if args.how == 'dynamic':
-            # expand all the multi-kernel benchmarks into individual kernels
-            updated_pairs = []
-            for pair in args.pair:
-                apps = pair.split('+')
+    if args.how == 'dynamic':
+        # expand all the multi-kernel benchmarks into individual kernels
+        updated_pairs = []
+        for pair in args.pair:
+            apps = pair.split('+')
 
-                def expand_bench(app):
-                    expanded = []
-                    if app in const.multi_kernel_app.keys():
-                        [expanded.append("{0}:{1}".format(app, kidx)) for kidx
-                         in const.kernel_yaml[app].keys()]
-                    else:
-                        expanded.append(app)
-                    return expanded
+            def expand_bench(app):
+                expanded = []
+                if app in const.multi_kernel_app.keys():
+                    [expanded.append("{0}:{1}".format(app, kidx)) for kidx
+                     in const.kernel_yaml[app].keys()]
+                else:
+                    expanded.append(app)
+                return expanded
 
-                list_1 = expand_bench(apps[0])
-                list_2 = expand_bench(apps[1])
-                cross_list = ["{0}+{1}".format(k1, k2) for k2 in list_2 for k1
-                              in list_1]
-                updated_pairs += cross_list
+            list_1 = expand_bench(apps[0])
+            list_2 = expand_bench(apps[1])
+            cross_list = ["{0}+{1}".format(k1, k2) for k2 in list_2 for k1
+                          in list_1]
+            updated_pairs += cross_list
 
-            args.pair = updated_pairs
+        args.pair = updated_pairs
 
 
 def main():
