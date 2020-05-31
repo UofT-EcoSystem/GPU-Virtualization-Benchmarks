@@ -5,6 +5,7 @@ import oyaml as yaml
 import numpy as np
 import glob
 import multiprocessing
+import sys
 from joblib import Parallel, delayed
 
 import job_launching.launch.common as common
@@ -135,17 +136,37 @@ def collect_stats(outputfile, stats_to_pull):
     f = open(outputfile, errors='ignore')
     lines = f.readlines()
 
+    # If found_uid is true and we encounter a second kernel_uid metric,
+    # we should stop collecting stats from this file. This is to avoid parsing
+    # two separate blocks of gpusim metrics. Normally this should not
+    # happen unless the kernel pair finished almost at the same time. Print
+    # out some warning in case this is an error.
+    found_uid = False
+    should_parse = True
+    kernel_uid_token = r"kernel_launch_uid\s=\s"
+
+    max_break_token = r"GPGPU-Sim: \*\* break due to reaching " \
+                      r"the maximum cycles \(or instructions\) \*\*"
+
     for line in lines:
         # If we ended simulation due to too many insn -
         # ignore the last kernel launch, as it is no complete.
         # Note: This only appies if we are doing kernel-by-kernel stats
-        last_kernel_break = re.match(
-            r"GPGPU-Sim: \*\* break due to "
-            r"reaching the maximum cycles \(or instructions\) \*\*", line)
-        if last_kernel_break:
+        if re.match(max_break_token, line):
             # print("NOTE::::: Found Max Insn reached in {0}."
             #       .format(outputfile))
             hit_max = True
+
+        if re.match(kernel_uid_token, line):
+            if found_uid:
+                print("Warning: {} contains more than one gpusim output "
+                      "block.".format(outputfile))
+                should_parse = False
+            else:
+                found_uid = True
+
+        if not should_parse:
+            continue
 
         for stat_name, token in stats_to_pull.items():
             existance_test = token[0].search(line.rstrip())
@@ -160,20 +181,38 @@ def collect_stats(outputfile, stats_to_pull):
                     stat_map[stat_name] = number
                 else:
                     if num_groups == 1:
+                        # Vector style: not associated with stream
+                        # e.g. memory bandwidth usage per channel
                         if stat_name not in stat_map:
                             stat_map[stat_name] = []
 
                         stat_map[stat_name].append(number)
                     else:
+                        # Vector style: associated with stream and kernel index
+                        # e.g. runtime
                         if stat_name not in stat_map:
                             # Hard-code three different streams
                             stat_map[stat_name] = [[], [], []]
 
                         stream_id = int(existance_test.group(1))
+                        # kidx in gpgpusim output starts from 0
                         kidx = int(existance_test.group(2))
+
+                        if len(stat_map[stat_name][stream_id]) > kidx:
+                            print('Invalid multi-dimension metric',
+                                  stat_name, 'in', outputfile)
+                            print('stream', stream_id)
+                            print('kidx', kidx,
+                                  'len', len(stat_map[stat_name][stream_id]))
+                            sys.exit(1)
+                        elif len(stat_map[stat_name][stream_id]) < kidx:
+                            # GPGPU-Sim skipped printing stats, need to fill
+                            # in some zeros
+                            zeros = ['0'] * (kidx - 1 -
+                                           len(stat_map[stat_name][stream_id]))
+                            stat_map[stat_name][stream_id].extend(zeros)
+
                         stat_map[stat_name][stream_id].append(number)
-                        assert (kidx + 1 ==
-                                len(stat_map[stat_name][stream_id]))
 
     f.close()
 
