@@ -107,3 +107,20 @@ def get_num_repeat(bench, kidx):
         return kernel_yaml[bench][kidx]['repeat']
     else:
         return 1
+
+
+# For kernels that simply repeat the primary kernel, return the kidx key of
+# the primary kernel
+# Input kidx starts at 0 (GPUSim output)
+def get_primary_kidx(bench, kidx):
+    num_kernels = get_num_kernels(bench)
+    kidx = kidx % num_kernels + 1
+
+    if kidx in kernel_yaml[bench]:
+        return kidx
+    else:
+        # Find the largest existing key that is smaller than kidx
+        kidx_keys = kernel_yaml[bench].keys()
+        smaller = [x for x in kidx_keys if x < kidx]
+        primary = max(smaller)
+        return primary
