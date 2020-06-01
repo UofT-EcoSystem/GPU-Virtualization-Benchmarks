@@ -113,9 +113,6 @@ def get_num_repeat(bench, kidx):
 # the primary kernel
 # Input kidx starts at 0 (GPUSim output)
 def get_primary_kidx(bench, kidx):
-    num_kernels = get_num_kernels(bench)
-    kidx = kidx % num_kernels + 1
-
     if kidx in kernel_yaml[bench]:
         return kidx
     else:
@@ -124,3 +121,17 @@ def get_primary_kidx(bench, kidx):
         smaller = [x for x in kidx_keys if x < kidx]
         primary = max(smaller)
         return primary
+
+
+def translate_gpusim_kidx(bench, kidx):
+    num_kernels = get_num_kernels(bench)
+    kidx = kidx % num_kernels + 1
+
+    return get_primary_kidx(bench, kidx)
+
+
+def gen_kernel_headers(app):
+    result = ["{}:{}".format(app, kidx + 1)
+              for kidx in range(get_num_kernels(app))]
+
+    return result

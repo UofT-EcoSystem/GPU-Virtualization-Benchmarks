@@ -212,7 +212,7 @@ def evaluate_multi_kernel(df_pair, df_baseline):
                     bench = row['{}_bench'.format(stream_id)]
                     for kidx, time in enumerate(stream):
                         # Handle repeated kernel
-                        kidx = const.get_primary_kidx(bench, kidx)
+                        kidx = const.translate_gpusim_kidx(bench, kidx)
 
                         base_time = df_baseline.loc[
                             (bench, kidx), 'runtime']
