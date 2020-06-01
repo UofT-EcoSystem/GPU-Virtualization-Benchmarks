@@ -2,7 +2,6 @@ import re
 import argparse
 import os
 import oyaml as yaml
-import numpy as np
 import glob
 import multiprocessing
 import sys
@@ -58,6 +57,9 @@ def parse_args():
 
     parser.add_argument("--output", default="result.csv",
                         help="The logfile to save csv to.", required=True)
+
+    parser.add_argument("--skip_hit_max", action="store_true",
+                        help="Skip files that hit max cycles/instructions.")
 
     args = parser.parse_args()
     return args
@@ -153,7 +155,7 @@ def collect_stats(outputfile, stats_to_pull):
         # ignore the last kernel launch, as it is no complete.
         # Note: This only appies if we are doing kernel-by-kernel stats
         if re.match(max_break_token, line):
-            print("NOTE::::: Found Max Insn reached in {0}."
+            print("get_stats.py >>> Found Max Insn reached in {0}."
                   .format(outputfile))
             hit_max = True
 
@@ -281,6 +283,13 @@ def parse_app_files(app, args, stats_to_pull):
 
         hit_max, stat_map = collect_stats(valid_log, stats_to_pull)
 
+        if hit_max:
+            hit_max_count += 1
+
+        if args.skip_hit_max and hit_max:
+            # Do not print hit max results into csv
+            continue
+
         for stat in stats_list:
             csv_str += ','
             if stat in stat_map:
@@ -304,11 +313,7 @@ def parse_app_files(app, args, stats_to_pull):
                     csv_str += '[0]'
 
         csv_list.append(csv_str)
-
         file_count += 1
-
-        if hit_max:
-            hit_max_count += 1
 
     return '\n'.join(csv_list), found_failed_app, file_count, hit_max_count
 
