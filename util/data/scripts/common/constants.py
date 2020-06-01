@@ -99,3 +99,11 @@ def get_num_kernels(bench):
         return multi_kernel_app[bench]
     else:
         return 1
+
+
+# Only multi-kernel benchmarks would have repeat field
+def get_num_repeat(bench, kidx):
+    if 'repeat' in kernel_yaml[bench][kidx]:
+        return kernel_yaml[bench][kidx]['repeat']
+    else:
+        return 1

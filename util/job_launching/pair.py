@@ -215,8 +215,10 @@ def cap_cycles_multi_kernel(apps):
 
     for app in apps:
         sum_cycles = 0
-        for kidx in const.kernel_yaml[app].keys():
-            sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
+        for kidx in const.kernel_yaml[app]:
+            repeat = const.get_num_repeat(app, kidx)
+            for r in range(repeat):
+                sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
 
         if sum_cycles > max_cycles:
             max_cycles = sum_cycles
