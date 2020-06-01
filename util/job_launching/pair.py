@@ -231,10 +231,9 @@ def cap_cycles_multi_kernel(apps):
 
 # LUT selects resource configs based on the best pair dynamic results
 def process_lut(pair, base_config):
+    import data.scripts.gen_tables.gen_lut_configs as lut_configs
+
     df_pair_dynamic = get_pickle('pair_dynamic_multi.pkl')
-    df_best = df_pair_dynamic.sort_values('ws', ascending=False) \
-        .drop_duplicates(['1_bench', '1_kidx', '2_bench', '2_kidx'])
-    df_best = df_best.set_index(['1_bench', '1_kidx', '2_bench', '2_kidx'])
 
     apps = pair.split('+')
 
@@ -246,14 +245,15 @@ def process_lut(pair, base_config):
         sys.exit(4)
 
     # Build the CTA lookup table
+    cta_configs = lut_configs.get_lut_matrix(apps, df_pair_dynamic)[0]
     lut = []
-    for kidx_1 in const.kernel_yaml[apps[0]]:
-        for kidx_2 in const.kernel_yaml[apps[1]]:
-            cta_1 = df_best.loc[(apps[0], kidx_1, apps[1], kidx_2), '1_intra']
-            cta_2 = df_best.loc[(apps[0], kidx_1, apps[1], kidx_2), '2_intra']
-            entry = "0:{}:{}=0:{}:{}".format(kidx_1, kidx_2,
-                                             int(cta_1), int(cta_2))
-            lut.append(entry)
+
+    # Columns are kernels for apps[0] and rows are kernels for apps[1]
+    for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
+        entry = "0:{}:{}=0:{}:{}".format(col_idx+1, row_idx+1,
+                                         cta_configs[0][row_idx, col_idx],
+                                         cta_configs[1][row_idx, col_idx])
+        lut.append(entry)
 
     lut_config = ",".join(lut)
     lut_config = "INTRA_{}_LUT".format(lut_config)

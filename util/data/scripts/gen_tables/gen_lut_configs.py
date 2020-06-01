@@ -6,7 +6,7 @@ import data.scripts.common.constants as const
 import scheduler.scheduler as scheduler
 
 
-def get_lut_matrix(apps, df_dynamic, weighted=False):
+def get_lut_matrix(apps, df_dynamic, weighted=True):
     if weighted:
         # Want to minimize weighted runtime increase (sum_increase)
         df_best = df_dynamic.sort_values('sum_increase', ascending=True) \
@@ -75,7 +75,8 @@ def print_rsrc_usage(configs, headers, df_intra_index):
         usage_app = np.array(usage_app)
         print('>>> App', app_idx)
         max_usage = np.amax(usage_app, axis=0)
-        [print(r, f'{u:.3}') for u, r in zip(max_usage, rsrc)]
+        for u, r in zip(max_usage, rsrc):
+            print(r, "{:.3}".format(u))
 
     # App 1, take max of column in first table
     max_intra_1 = configs[0].max(axis=0)

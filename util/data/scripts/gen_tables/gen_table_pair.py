@@ -179,28 +179,6 @@ def evaluate_single_kernel(df_pair, df_baseline):
 def evaluate_multi_kernel(df_pair, df_baseline):
     df_baseline.set_index(['pair_str', '1_kidx'], inplace=True)
 
-    # def handle_incomplete(row):
-    #     runtime_adj = row['runtime']
-    #     tot_runtime = row['tot_runtime']
-    #     # list_time is in the format of [[], [k1, k2, ...], [k1, k2, ...]]
-    #     # First, we search if the last value in stream is zero
-    #     # Then we replace it with (tot_runtime - sum of previous)
-    #     for idx, stream in enumerate(row['runtime']):
-    #         if len(stream) == 0:
-    #             continue
-    #
-    #         if stream[-1] == 0:
-    #             infer_runtime = tot_runtime - sum(stream)
-    #             done_inst = row['instructions'][idx][-1]
-    #             tot_inst = df_baseline.loc[(row['{}_bench'.format(idx)],
-    #                                         len(stream)-1), 'instructions']
-    #             runtime_adj[idx][-1] = tot_runtime - sum(stream)
-    #
-    #     assert(all(row['runtime'] > 0))
-    #     return row['runtime']
-
-    # df_pair['runtime_adj'] = df_pair.apply(handle_incomplete, axis=1)
-
     # calculate normalized runtime
     if args.how == 'ctx' or args.how == 'lut':
         def calc_norm_runtime(row):
