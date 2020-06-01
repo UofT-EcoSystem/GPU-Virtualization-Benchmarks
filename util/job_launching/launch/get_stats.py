@@ -153,8 +153,8 @@ def collect_stats(outputfile, stats_to_pull):
         # ignore the last kernel launch, as it is no complete.
         # Note: This only appies if we are doing kernel-by-kernel stats
         if re.match(max_break_token, line):
-            # print("NOTE::::: Found Max Insn reached in {0}."
-            #       .format(outputfile))
+            print("NOTE::::: Found Max Insn reached in {0}."
+                  .format(outputfile))
             hit_max = True
 
         if re.match(kernel_uid_token, line):
