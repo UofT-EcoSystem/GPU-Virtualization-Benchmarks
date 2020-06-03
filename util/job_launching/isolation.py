@@ -54,10 +54,8 @@ for app in args.apps:
     if app in const.multi_kernel_app.keys():
         kernels = ["{0}:{1}".format(app, kidx)
                    for kidx in const.kernel_yaml[app].keys()]
-        launch_name = 'isolation-multi'
     elif app in const.kernel_yaml.keys():
         kernels = [app]
-        launch_name = 'isolation'
     else:
         print("{0} is not in application map. Skip.".format(app))
         continue
@@ -73,6 +71,7 @@ for app in args.apps:
             # This is a kernel part of a multi-kernel benchmark
             # append skip kidx config to do performance simulation only on
             # this kernel
+            jobname += '-multi'
             bench = split_kernel[0]
             kidx = split_kernel[1]
             num_kernel = const.multi_kernel_app[bench]
@@ -111,7 +110,7 @@ for app in args.apps:
                         for i in range(_step, _abs_max, _step)]
             intra_sm.append("INTRA_0:{0}:0_CTA".format(_abs_max))
 
-            launch_job(intra_sm, launch_name + '-intra', k)
+            launch_job(intra_sm, 'isolation-intra', k)
 
     if args.inter:
         for k in kernels:
@@ -124,4 +123,4 @@ for app in args.apps:
 
             print(app, inter_sm)
 
-            launch_job(inter_sm, launch_name + '-inter', k)
+            launch_job(inter_sm, 'isolation-inter', k)
