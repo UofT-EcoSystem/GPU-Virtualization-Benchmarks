@@ -51,9 +51,9 @@ static void
 cleanupMemoryGPU(int num, int size, float *& dev_ptr, float * host_ptr, cudaStream_t & stream)
 {
   cudaMemcpyAsync (host_ptr, dev_ptr, num * size, cudaMemcpyDeviceToHost, stream);
-  cudaStreamSynchronize(stream);
+//  cudaStreamSynchronize(stream);
 //  CUDA_ERRCK;
-  cudaFree(dev_ptr);
+//  cudaFree(dev_ptr);
 //  CUDA_ERRCK;
 }
 
@@ -110,31 +110,44 @@ int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
   printf("%d pixels in output; %d samples in trajectory; using %d samples\n",
          numX, original_numK, numK);
 
+  /* Create CPU data structures */
+  createDataStructsCPU(numK, numX, &phiMag, &Qr, &Qi);
+
+  float *phiR_d, *phiI_d;
+  float *phiMag_d;
+
+  setupMemoryGPU(numK, sizeof(float), phiR_d, phiR, stream);
+  setupMemoryGPU(numK, sizeof(float), phiI_d, phiI, stream);
+  cudaMalloc((void **)&phiMag_d, numK * sizeof(float));
+  CUDA_ERRCK;
+
+  float *x_d, *y_d, *z_d;
+  float *Qr_d, *Qi_d;
+
+  setupMemoryGPU(numX, sizeof(float), x_d, x, stream);
+  setupMemoryGPU(numX, sizeof(float), y_d, y, stream);
+  setupMemoryGPU(numX, sizeof(float), z_d, z, stream);
+
+  cudaMalloc((void **)&Qr_d, numX * sizeof(float));
+  CUDA_ERRCK;
+  cudaMemset((void *)Qr_d, 0, numX * sizeof(float));
+
+  cudaMalloc((void **)&Qi_d, numX * sizeof(float));
+  CUDA_ERRCK;
+  cudaMemset((void *)Qi_d, 0, numX * sizeof(float));
+
   cudaStreamSynchronize(stream);
   while(!set_and_check(uid, true)) {};
 
   bool can_exit = false;
 
   while(!can_exit) {
-    /* Create CPU data structures */
-    createDataStructsCPU(numK, numX, &phiMag, &Qr, &Qi);
-
     /* GPU section 1 (precompute PhiMag) */
     /* Mirror several data structures on the device */
-    float *phiR_d, *phiI_d;
-    float *phiMag_d;
-
-    setupMemoryGPU(numK, sizeof(float), phiR_d, phiR, stream);
-    setupMemoryGPU(numK, sizeof(float), phiI_d, phiI, stream);
-    cudaMalloc((void **)&phiMag_d, numK * sizeof(float));
-    CUDA_ERRCK;
-
     // kernel launch wrapper
     computePhiMag_GPU(numK, phiR_d, phiI_d, phiMag_d, stream);
 
     cleanupMemoryGPU(numK, sizeof(float), phiMag_d, phiMag, stream);
-    cudaFree(phiR_d);
-    cudaFree(phiI_d);
 
     kVals = (struct kValues*)calloc(numK, sizeof (struct kValues));
     for (int k = 0; k < numK; k++) {
@@ -144,35 +157,26 @@ int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
       kVals[k].PhiMag = phiMag[k];
     }
 
-    free(phiMag);
-
     /* GPU section 2 */
-    float *x_d, *y_d, *z_d;
-    float *Qr_d, *Qi_d;
-
-    setupMemoryGPU(numX, sizeof(float), x_d, x, stream);
-    setupMemoryGPU(numX, sizeof(float), y_d, y, stream);
-    setupMemoryGPU(numX, sizeof(float), z_d, z, stream);
-    cudaMalloc((void **)&Qr_d, numX * sizeof(float));
-    CUDA_ERRCK;
-    cudaMemset((void *)Qr_d, 0, numX * sizeof(float));
-    cudaMalloc((void **)&Qi_d, numX * sizeof(float));
-    CUDA_ERRCK;
-    cudaMemset((void *)Qi_d, 0, numX * sizeof(float));
 
     // kernel launch wrapper
     computeQ_GPU(numK, numX, x_d, y_d, z_d, kVals, Qr_d, Qi_d, stream);
-
-    cudaFree(x_d);
-    cudaFree(y_d);
-    cudaFree(z_d);
-    cleanupMemoryGPU(numX, sizeof(float), Qr_d, Qr, stream);
-    cleanupMemoryGPU(numX, sizeof(float), Qi_d, Qi, stream);
 
     cudaStreamSynchronize(stream);
     can_exit = set_and_check(uid, false);
   }
 
+  free(phiMag);
+  cudaFree(phiR_d);
+  cudaFree(phiI_d);
+  cudaFree(phiMag_d);
+  cudaFree(x_d);
+  cudaFree(y_d);
+  cudaFree(z_d);
+  cleanupMemoryGPU(numX, sizeof(float), Qr_d, Qr, stream);
+  cleanupMemoryGPU(numX, sizeof(float), Qi_d, Qi, stream);
+
+  cudaDeviceSynchronize();
   if (params->outFile)
   {
     /* Write Q to file */
