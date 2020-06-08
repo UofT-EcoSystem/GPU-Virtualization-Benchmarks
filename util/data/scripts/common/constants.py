@@ -48,12 +48,14 @@ def get_max_cta_per_sm(bench, kidx=0):
 
 def calc_cta_quota(bench, ctx):
     k_quota = []
-    if bench in multi_kernel_app.keys():
+    if bench in multi_kernel_app:
         for k in kernel_yaml[bench]:
             q = math.floor(get_max_cta_per_sm(bench, k) * ctx)
             q_grid = math.ceil(get_grid_size(bench, k) / num_sm_volta)
-            k_quota.append(min(q, q_grid))
-            assert (k == len(k_quota))
+
+            for i in range(get_num_repeat(bench, k)):
+                k_quota.append(min(q, q_grid))
+
     return k_quota
 
 
@@ -109,9 +111,6 @@ def get_num_repeat(bench, kidx):
         return 1
 
 
-# For kernels that simply repeat the primary kernel, return the kidx key of
-# the primary kernel
-# Input kidx starts at 0 (GPUSim output)
 def get_primary_kidx(bench, kidx):
     if kidx in kernel_yaml[bench]:
         return kidx
@@ -123,6 +122,9 @@ def get_primary_kidx(bench, kidx):
         return primary
 
 
+# For kernels that simply repeat the primary kernel, return the kidx key of
+# the primary kernel
+# Input kidx starts at 0 (GPUSim output)
 def translate_gpusim_kidx(bench, kidx):
     num_kernels = get_num_kernels(bench)
     kidx = kidx % num_kernels + 1

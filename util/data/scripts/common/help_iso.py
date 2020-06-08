@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import re
 import ast
+import sys
 
 # bench -> C(0)/M(1)
 bench_dict = {'cut_sgemm-0':0, 'cut_sgemm-1':0, 'cut_wmma-0': 0, 'cut_wmma-1': 0,
@@ -120,11 +121,15 @@ def calculate_sld_short(shared_runtime, isolated_runtime):
         if len(stream) > 0:
             num_kernels = len(isolated_runtime[stream_id])
             num_iters = int(len(stream) / num_kernels)
-            tot_time = sum(stream)
+            tot_time = sum(stream[0:num_iters * num_kernels])
 
             while tot_time > min_runtime:
                 num_iters -= 1
                 tot_time = sum(stream[0:num_iters * num_kernels])
+
+            if tot_time <= 0:
+                print("calculate_sld_short: tot_time is invalid.")
+                sys.exit(1)
 
             iter_time = sum(isolated_runtime[stream_id])
             sld_stream = num_iters * iter_time / tot_time
