@@ -60,6 +60,12 @@ INTRA_?_LUT:
 INTER_?_SM:
   extra_params: "-gpgpu_sharing_intra_sm 0 -max_sm_in_stream ?"
 
+MIG_?_SM:
+  extra_params: "-gpgpu_n_clusters ?"
+
+MIG_?_MEM:
+  extra_params: "-gpgpu_n_mem ?"
+
 ICNT_?_PRIORITY:
   extra_params: "-icnt_priority ?" 
 

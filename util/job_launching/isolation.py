@@ -24,10 +24,14 @@ def parse_args():
     parser.add_argument('--inter', action='store_true',
                         help='Run inter experiments or not.')
 
+    parser.add_argument('--mig', action='store_true',
+                        help='Run mig experiments or not.')
     parser.add_argument('--cta_configs', default=4, type=int,
                         help='Sweeping step of CTAs/SM for intra-SM sharing.')
     parser.add_argument('--sm_configs', default=4, type=int,
                         help='Sweeping step of SMs for inter-SM sharing.')
+    parser.add_argument('--mem_channel_configs', default=4, type=int,
+                        help='Sweeping step of memory channels for MIG sharing.')
 
     parser.add_argument('--no_launch', default=False, action='store_true',
                         help='Do not actually trigger job launching.')
@@ -41,6 +45,7 @@ def parse_args():
 
 
 achieved_sm = const.num_sm_volta
+mem_channels = const.num_mem_channels_volta
 
 args = parse_args()
 
@@ -124,3 +129,15 @@ for app in args.apps:
             print(app, inter_sm)
 
             launch_job(inter_sm, 'isolation-inter', k)
+
+    if args.mig:
+        for k in kernels:
+            _step = max(1, mem_channels // args.mem_channel_configs)
+
+            mig_mem = ["MIG_{0}_MEM".format(i)
+                        for i in range(_step, mem_channels, _step)]
+            mig_mem.append("MIG_{0}_MEM".format(mem_channels))
+
+            print(app, mig_mem)
+
+            launch_job(mig_mem, 'mig_mem_sweep', k)
