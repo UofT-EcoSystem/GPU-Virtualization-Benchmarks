@@ -11,6 +11,7 @@ max_thread_volta = 2048
 max_smem = 96 * 1024
 max_register = 64 * 1024
 num_sm_volta = 80
+num_mem_ch_volta = 48
 
 base_config = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
