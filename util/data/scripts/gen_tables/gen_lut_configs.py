@@ -49,6 +49,40 @@ def get_lut_matrix(apps, df_dynamic, weighted=True):
     return configs, interference
 
 
+def get_ctx_matrix(apps, row, df_dynamic_index):
+    # Show predicted timeline based on df_dynamic info
+    matrix_size = (const.get_num_kernels(apps[1]),
+                   const.get_num_kernels(apps[0]))
+    interference_1 = np.zeros(matrix_size)
+    interference_2 = np.zeros(matrix_size)
+
+    # Build interference matrix
+    for col_id in range(matrix_size[1]):
+        for row_id in range(matrix_size[0]):
+            cta_1 = row['cta_quota'][1][col_id]
+            cta_2 = row['cta_quota'][2][row_id]
+
+            kidx_1 = const.translate_gpusim_kidx(apps[0], col_id)
+            kidx_2 = const.translate_gpusim_kidx(apps[1], row_id)
+            dynamic_idx = (apps[0], kidx_1, int(cta_1),
+                           apps[1], kidx_2, int(cta_2))
+
+            if dynamic_idx not in df_dynamic_index.index:
+                # No prediction for this ctx config
+                return None
+
+            sld_1 = df_dynamic_index.loc[dynamic_idx, 'sld'][1]
+            sld_2 = df_dynamic_index.loc[dynamic_idx, 'sld'][2]
+
+            interference_1[row_id, col_id] = sld_1
+            interference_2[row_id, col_id] = sld_2
+
+    # Get baseline runtime
+    interference = [interference_1, interference_2]
+
+    return interference
+
+
 def pretty_print_matrix(apps, title, data, headers):
     for app, app_data in zip(apps, data):
         print(app, title)

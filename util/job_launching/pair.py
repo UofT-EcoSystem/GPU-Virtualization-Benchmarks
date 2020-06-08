@@ -224,7 +224,7 @@ def cap_cycles_multi_kernel(apps):
             max_cycles = sum_cycles
 
     cap_cycles = args.cap * max_cycles
-    cap_config = '-CAP_{0}_CYCLE'.format(int(cap_cycles))
+    cap_config = 'CAP_{0}_CYCLE'.format(int(cap_cycles))
 
     return cap_config
 
@@ -267,7 +267,7 @@ def process_lut(pair, base_config):
 
     # Calculate max cycle bound
     cap_config = cap_cycles_multi_kernel(apps)
-    config += cap_config
+    config += '-' + cap_config
 
     launch_job(config, pair=pair)
 
@@ -296,8 +296,15 @@ def process_ctx(pair, base_config):
     configs = [base_config + '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r) for r in
                np.arange(step, 1.0, step)]
 
+    # Number of kernels config
+    num_kernel = [const.get_num_kernels(app) for app in apps]
+    num_kernel_config = "NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
+                                                      num_kernel[1])
+
+    configs = [c + '-' + num_kernel_config for c in configs]
+
     cap_config = cap_cycles_multi_kernel(apps)
-    configs = [c + cap_config for c in configs]
+    configs = [c + '-' + cap_config for c in configs]
 
     launch_job(*configs, pair=pair)
 

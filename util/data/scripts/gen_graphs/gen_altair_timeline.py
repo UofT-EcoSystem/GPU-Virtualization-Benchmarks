@@ -24,17 +24,21 @@ def _prepare_data(pair_series):
         time_series = np.array(time_series)
         return time_series[0:-1], time_series[1:]
 
+    def get_kernels(stream_id, length):
+        bench = stream_id + '_bench'
+        kernels = np.arange(1, const.get_num_kernels(pair_series[bench]) + 1)
+        kernels = np.resize(kernels, length)
+        kernels = ['{}:{}'.format(stream_id, k) for k in kernels]
+
+        return kernels
+
     s1_from, s1_to = get_from_to(s1_runtime)
     s1 = np.repeat('1: ' + pair_series['1_bench'], s1_from.shape[0])
-    k1 = np.array(list(const.kernel_yaml[pair_series['1_bench']].keys()))
-    k1 = np.resize(k1, s1_from.shape[0])
-    k1 = ['{}:{}'.format('1', k) for k in k1]
+    k1 = get_kernels('1', s1_from.shape[0])
 
     s2_from, s2_to = get_from_to(s2_runtime)
     s2 = np.repeat('2: ' + pair_series['2_bench'], s2_from.shape[0])
-    k2 = np.array(list(const.kernel_yaml[pair_series['2_bench']].keys()))
-    k2 = np.resize(k2, s2_from.shape[0]).astype(str)
-    k2 = ['{}:{}'.format('2', k) for k in k2]
+    k2 = get_kernels('2', s2_from.shape[0])
 
     col_from = np.concatenate((s1_from, s2_from))
     col_to = np.concatenate((s1_to, s2_to))

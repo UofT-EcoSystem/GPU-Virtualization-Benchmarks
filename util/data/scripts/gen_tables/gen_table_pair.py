@@ -207,7 +207,8 @@ def evaluate_multi_kernel(df_pair, df_baseline):
                 base_stream = []
                 if len(stream) > 0:
                     bench = row['{}_bench'.format(stream_id)]
-                    for kidx in const.kernel_yaml[bench]:
+                    for id in range(const.get_num_kernels(bench)):
+                        kidx = const.translate_gpusim_kidx(bench, id)
                         base_stream.append(
                             df_baseline.loc[(bench, kidx), 'runtime']
                         )
