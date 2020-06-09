@@ -148,4 +148,4 @@ for app in args.apps:
 
             print(app, mig_params)
 
-            launch_job(mig_params, 'mig_mem_sweep', k)
+            launch_job(mig_params, 'mig_sweep', k)
