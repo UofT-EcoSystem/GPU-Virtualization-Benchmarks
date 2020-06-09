@@ -30,8 +30,8 @@ def parse_args():
                         help='Sweeping step of CTAs/SM for intra-SM sharing.')
     parser.add_argument('--sm_configs', default=4, type=int,
                         help='Sweeping step of SMs for inter-SM sharing.')
-    parser.add_argument('--mem_channel_configs', default=4, type=int,
-                        help='Sweeping step of memory channels for MIG sharing.')
+    parser.add_argument('--mig_configs', default=4, type=int,
+                        help='Sweeping step of SM and mem channels for MIG sharing.')
 
     parser.add_argument('--no_launch', default=False, action='store_true',
                         help='Do not actually trigger job launching.')
@@ -44,7 +44,7 @@ def parse_args():
     return results
 
 
-achieved_sm = const.num_sm_volta
+achieved_sm = const.num_sm_volta // 2
 mem_channels = const.num_mem_channels_volta
 
 args = parse_args()
@@ -132,12 +132,20 @@ for app in args.apps:
 
     if args.mig:
         for k in kernels:
-            _step = max(1, mem_channels // args.mem_channel_configs)
 
-            mig_mem = ["MIG_{0}_MEM".format(i)
-                        for i in range(_step, mem_channels, _step)]
-            mig_mem.append("MIG_{0}_MEM".format(mem_channels))
+            sm_step = max(1, achieved_sm // args.mig_configs)
+            mem_channel_step = max(1, mem_channels // args.mig_configs)
+            
+            sm_values = [i for i in range (sm_step, achieved_sm, sm_step)]
+            sm_values.append(achieved_sm)
 
-            print(app, mig_mem)
+            mem_values = [i for i in range (mem_channel_step, mem_channels, 
+                mem_channel_step)]
+            mem_values.append(mem_channels)
 
-            launch_job(mig_mem, 'mig_mem_sweep', k)
+            mig_params = ["MIG_{0}_MEM-MIG_{1}_SM".format(
+                mem_values[i], sm_values[i]) for i in range(len(sm_values))]
+
+            print(app, mig_params)
+
+            launch_job(mig_params, 'mig_mem_sweep', k)
