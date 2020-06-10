@@ -6,14 +6,14 @@
   'block_y': 'stream 1, .*blockDim\s=\s\([0-9]*,([0-9]*)'
   'block_z': 'stream 1, .*blockDim\s=\s\([0-9]*,[0-9]*,([0-9]*)'
   'ctas/SM': 'Stream 1/1.*:\s(.*)\sctas/SM'
-  'runtime': 'gpu_tot_sim_cycle\[1\]\s*:\s*(.*)'
+  'runtime': 'gpu_tot_sim_cycle\[1\].*:\s*(.*)'
   'ipc': 'gpu_tot_ipc\s*=\s*(.*)'
-  'instructions': 'gpu_tot_sim_insn\[1\]\s*:\s*(.*)'
+  'instructions': 'gpu_tot_sim_insn\[1\].*:\s*(.*)'
   'l2_parallelism': 'partiton_level_parallism\s*=\s*(.*)'
-  'avg_mem_lat': 'averagemflatency\[1\]\s*=\s*(.*)'
-  'avg_core_to_l2': 'avg_icnt2mem_latency\[1\]\s*=\s*(.*)'
-  'avg_l2_to_core': 'avg_icnt2sh_latency\[1\]\s*=\s*(.*)'
-  'avg_mrq_latency': 'avg_mrq_latency\[1\]\s*=\s*(.*)'
+  'avg_mem_lat': 'averagemflatency\[1\].*=\s*(.*)'
+  'avg_core_to_l2': 'avg_icnt2mem_latency\[1\].*=\s*(.*)'
+  'avg_l2_to_core': 'avg_icnt2sh_latency\[1\].*=\s*(.*)'
+  'avg_mrq_latency': 'avg_mrq_latency\[1\].*=\s*(.*)'
   'stall_core_ldst': 'gpgpu_n_stall_shd_mem\s*=\s*(.*)'
   'stall_icnt_to_l2': 'gpu_stall_dramfull\s*=\s*(.*)'
   'l2_BW': 'L2_BW\s*=\s*(.*)\s*GB/Sec'
@@ -78,29 +78,29 @@
   'sfu_busy':
     'gpgpu_sfu_busy\s*=\s*(.*)'
   'barrier_cycles':
-    'barrier_cycles\[1\]\s*=\s*(.*)'
+    'barrier_cycles\[1\].*=\s*(.*)'
   'inst_empty_cycles':
-    'inst_empty_cycles\[1\]\s*=\s*(.*)'
+    'inst_empty_cycles\[1\].*=\s*(.*)'
   'branch_cycles':
-    'branch_cycles\[1\]\s*=\s*(.*)'
+    'branch_cycles\[1\].*=\s*(.*)'
   'scoreboard_cycles':
-    'stall_scoreboard_cycles\[1\]\s*=\s*(.*)'
+    'stall_scoreboard_cycles\[1\].*=\s*(.*)'
   'stall_sp_cycles':
-    'stall_sp_cycles\[1\]\s*=\s*(.*)'
+    'stall_sp_cycles\[1\].*=\s*(.*)'
   'stall_dp_cycles':
-    'stall_dp_cycles\[1\]\s*=\s*(.*)'
+    'stall_dp_cycles\[1\].*=\s*(.*)'
   'stall_int_cycles':
-    'stall_int_cycles\[1\]\s*=\s*(.*)'
+    'stall_int_cycles\[1\].*=\s*(.*)'
   'stall_tensor_cycles':
-    'stall_tensor_cycles\[1\]\s*=\s*(.*)'
+    'stall_tensor_cycles\[1\].*=\s*(.*)'
   'stall_sfu_cycles':
-    'stall_sfu_cycles\[1\]\s*=\s*(.*)'
+    'stall_sfu_cycles\[1\].*=\s*(.*)'
   'stall_mem_cycles':
-    'stall_mem_cycles\[1\]\s*=\s*(.*)'
+    'stall_mem_cycles\[1\].*=\s*(.*)'
   'not_selected_cycles':
-    'not_selected_cycles\[1\]\s*=\s*(.*)'
+    'not_selected_cycles\[1\].*=\s*(.*)'
   'cycles_per_issue':
-    'cycles_per_issue\[1\]\s*=\s*(.*)'
+    'cycles_per_issue\[1\].*=\s*(.*)'
 'vector':
   'dram_eff': 'dram_eff=(.*)$'
   'dram_bw': 'bw_util=(.*)$'
