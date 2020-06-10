@@ -4,9 +4,21 @@ cut_sgemm-1:
   block:      256
   comp:       1
 
+cut_sgemm-0:
+  max_cta:    2
+  grid:       128
+  block:      256
+  comp:       1
+
 cut_wmma-0:
   max_cta:    4
   grid:       128
+  block:      64
+  comp:       1
+
+cut_wmma-2:
+  max_cta:    4
+  grid:       1024
   block:      64
   comp:       1
 
