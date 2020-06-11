@@ -214,63 +214,63 @@ parb_mriq-0:
     smem:       0
     repeat:     2
 
-parb_histo-0:
-  1:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-  2:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-  3:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-  4:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-
-parb_histo-1:
-  1:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-  2:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-  3:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
-  4:
-    max_cta:    None
-    grid:       None
-    block:      None
-    comp:       None
-    regs:       None
-    smem:       None
+#parb_histo-0:
+#  1:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#  2:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#  3:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#  4:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#
+#parb_histo-1:
+#  1:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#  2:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#  3:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
+#  4:
+#    max_cta:    None
+#    grid:       None
+#    block:      None
+#    comp:       None
+#    regs:       None
+#    smem:       None
 
