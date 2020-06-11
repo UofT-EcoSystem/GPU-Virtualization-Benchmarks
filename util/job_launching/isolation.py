@@ -56,7 +56,7 @@ if args.apps[0] == 'all':
     args.apps = all_apps[args.id_start:last_index]
 
 for app in args.apps:
-    if app in const.multi_kernel_app.keys():
+    if app in const.multi_kernel_app:
         kernels = ["{0}:{1}".format(app, kidx)
                    for kidx in const.kernel_yaml[app].keys()]
     elif app in const.kernel_yaml.keys():
@@ -79,7 +79,7 @@ for app in args.apps:
             jobname += '-multi'
             bench = split_kernel[0]
             kidx = split_kernel[1]
-            num_kernel = const.multi_kernel_app[bench]
+            num_kernel = const.get_num_kernels(bench)
             configs = ["-".join([cfg,
                                  "MIX_0:{}:0_KIDX".format(kidx),
                                  "NUM_0:{}:0_KERNEL".format(num_kernel)]

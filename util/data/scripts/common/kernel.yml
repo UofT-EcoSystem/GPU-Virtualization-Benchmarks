@@ -175,8 +175,15 @@ parb_sad-1:
       smem:       0
 
 rod_cfd-0:
+  1:
+    max_cta:    16
+    grid:       759
+    block:      128
+    comp:       None
+    regs:       18
+    smem:       0
   4:
-    max_cta:    7
+    max_cta:    10
     grid:       506
     block:      192
     comp:       None
@@ -190,8 +197,38 @@ rod_cfd-0:
     regs:       61
     smem:       0
   6:
-    max_cta:    5
+    max_cta:    8
     grid:       379
+    block:      256
+    comp:       None
+    regs:       21
+    smem:       0
+
+rod_cfd-1:
+  1:
+    max_cta:    16
+    grid:       1512
+    block:      128
+    comp:       None
+    regs:       18
+    smem:       0
+  4:
+    max_cta:    10
+    grid:       1008
+    block:      192
+    comp:       None
+    regs:       21
+    smem:       0
+  5:
+    max_cta:    8
+    grid:       1512
+    block:      128
+    comp:       None
+    regs:       61
+    smem:       0
+  6:
+    max_cta:    8
+    grid:       756
     block:      256
     comp:       None
     regs:       21
@@ -212,7 +249,6 @@ parb_mriq-0:
     comp:       None
     regs:       28
     smem:       0
-    repeat:     2
 
 #parb_histo-0:
 #  1:

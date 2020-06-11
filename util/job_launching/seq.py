@@ -48,7 +48,7 @@ for benchmark in args.app:
 
         print(p.stdout.decode("utf-8"))
 
-    if benchmark in const.multi_kernel_app.keys():
+    if benchmark in const.multi_kernel_app:
         ext_jobname = jobname + "-multi"
         # launch independent simulation for each unique kernel
         num_kernel = const.get_num_kernels(benchmark)

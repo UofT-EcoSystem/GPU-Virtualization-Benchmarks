@@ -215,10 +215,8 @@ def cap_cycles_multi_kernel(apps):
 
     for app in apps:
         sum_cycles = 0
-        for kidx in const.kernel_yaml[app]:
-            repeat = const.get_num_repeat(app, kidx)
-            for r in range(repeat):
-                sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
+        for kidx in const.multi_kernel_app[app]:
+            sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
 
         if sum_cycles > max_cycles:
             max_cycles = sum_cycles
@@ -238,7 +236,7 @@ def process_lut(pair, base_config):
     apps = pair.split('+')
 
     # LUT is for multi-kernel benchmarks only
-    multi_check = [app in const.multi_kernel_app.keys() for app in apps]
+    multi_check = [app in const.multi_kernel_app for app in apps]
     if not all(multi_check):
         print("Pair lut launch requires all benchmarks to be multi-kernel "
               "applications.")
@@ -357,7 +355,7 @@ def process_pairs():
 
             def expand_bench(app):
                 expanded = []
-                if app in const.multi_kernel_app.keys():
+                if app in const.multi_kernel_app:
                     [expanded.append("{0}:{1}".format(app, kidx)) for kidx
                      in const.kernel_yaml[app].keys()]
                 else:

@@ -19,15 +19,17 @@ kernel_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'kernel.yml')),
     Loader=yaml.FullLoader)
 
-# benchmark -> number of kernels
-multi_kernel_app = OrderedDict([('parb_sad-0', 3),
-                                ('parb_sad-1', 3),
-                                ('parb_histo-0', 4),
-                                ('parb_histo-1', 4),
-                                ('parb_mriq-0', 3),
-                                ('nvd_conv-0', 2),
-                                ('rod_cfd-0', 6),
-                                ])
+# benchmark -> kernel sequence in one iteration
+multi_kernel_app = OrderedDict(
+    [('parb_sad-0', [1, 2, 3]),
+     ('parb_sad-1', [1, 2, 3]),
+     # ('parb_histo-0', [1, 2, 3, 4]),
+     # ('parb_histo-1', [1, 2, 3, 4]),
+     ('parb_mriq-0', [1, 2, 2]),
+     ('nvd_conv-0', [1, 2]),
+     ('rod_cfd-0', [1, 1, 1, 4, 5, 6, 5, 6, 5, 6]),
+     ('rod_cfd-1', [1, 1, 1, 4, 5, 6, 5, 6, 5, 6]),
+     ])
 
 
 def get_kernel_stat(kernel, stat, kidx):
@@ -50,12 +52,10 @@ def get_max_cta_per_sm(bench, kidx=0):
 def calc_cta_quota(bench, ctx):
     k_quota = []
     if bench in multi_kernel_app:
-        for k in kernel_yaml[bench]:
+        for k in multi_kernel_app[bench]:
             q = math.floor(get_max_cta_per_sm(bench, k) * ctx)
             q_grid = math.ceil(get_grid_size(bench, k) / num_sm_volta)
-
-            for i in range(get_num_repeat(bench, k)):
-                k_quota.append(min(q, q_grid))
+            k_quota.append(min(q, q_grid))
 
     return k_quota
 
@@ -98,29 +98,14 @@ def get_smem(bench, kidx):
 
 
 def get_num_kernels(bench):
-    if bench in multi_kernel_app.keys():
-        return multi_kernel_app[bench]
+    if bench in multi_kernel_app:
+        return len(multi_kernel_app[bench])
     else:
         return 1
 
 
-# Only multi-kernel benchmarks would have repeat field
-def get_num_repeat(bench, kidx):
-    if 'repeat' in kernel_yaml[bench][kidx]:
-        return kernel_yaml[bench][kidx]['repeat']
-    else:
-        return 1
-
-
-def get_primary_kidx(bench, kidx):
-    if kidx in kernel_yaml[bench]:
-        return kidx
-    else:
-        # Find the largest existing key that is smaller than kidx
-        kidx_keys = kernel_yaml[bench].keys()
-        smaller = [x for x in kidx_keys if x < kidx]
-        primary = max(smaller)
-        return primary
+def get_primary_kidx(bench, idx):
+    return multi_kernel_app[bench][idx]
 
 
 # For kernels that simply repeat the primary kernel, return the kidx key of
@@ -128,13 +113,13 @@ def get_primary_kidx(bench, kidx):
 # Input kidx starts at 0 (GPUSim output)
 def translate_gpusim_kidx(bench, kidx):
     num_kernels = get_num_kernels(bench)
-    kidx = kidx % num_kernels + 1
+    idx = kidx % num_kernels
 
-    return get_primary_kidx(bench, kidx)
+    return get_primary_kidx(bench, idx)
 
 
 def gen_kernel_headers(app):
-    result = ["{}:{}".format(app, kidx + 1)
-              for kidx in range(get_num_kernels(app))]
+    result = ["{}:{}".format(app, idx)
+              for idx in range(get_num_kernels(app))]
 
     return result
