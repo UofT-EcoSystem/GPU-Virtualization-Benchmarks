@@ -256,9 +256,14 @@ def evaluate_multi_kernel(df_pair, df_baseline):
 
         def calc_row_importance(row):
             def get_importance(bench, kidx):
-                total_time = df_baseline[
-                    df_baseline.index.get_level_values('pair_str') == bench
-                    ]['runtime'].sum()
+                # total_time = df_baseline[
+                #     df_baseline.index.get_level_values('pair_str') == bench
+                #     ]['runtime'].sum()
+                total_time = 0
+                for idx in const.kernel_yaml[bench]:
+                    total_time += df_baseline.loc[(bench, idx), 'runtime'] * \
+                                  const.get_num_repeat(bench, idx)
+
                 importance = get_base_runtime(bench, kidx) / total_time
                 return importance
 
