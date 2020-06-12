@@ -85,6 +85,8 @@ rodinia:
       - 100 1 0
     - rod_cfd:
       - DATA/cfd/fvcorr.domn.097K
+      - DATA/cfd/fvcorr.domn.193K
+      - DATA/cfd/missile.domn.0.2M
 
 
 nvidia:
