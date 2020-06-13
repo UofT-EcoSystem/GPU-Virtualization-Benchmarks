@@ -317,7 +317,12 @@ def process_pairs():
         for bench0 in candidates:
             for bench1 in candidates:
                 if bench0 < bench1:
-                    pairs.append('+'.join([bench0, bench1]))
+                    # Make sure we don't pair up the same benchmarks with
+                    # different inputs
+                    bench0_name = bench0.split('-')[0]
+                    bench1_name = bench1.split('-')[0]
+                    if bench0_name != bench1_name:
+                        pairs.append('+'.join([bench0, bench1]))
 
         if not args.id_start < len(pairs):
             print('Length of all pairs is {0} but id_start is {1}'
