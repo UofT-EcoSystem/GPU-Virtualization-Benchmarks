@@ -31,3 +31,7 @@ endif()
 if (parb_mriq)
   add_subdirectory(mri-q)
 endif()
+
+if (parb_mrig)
+  add_subdirectory(mri-gridding)
+endif()

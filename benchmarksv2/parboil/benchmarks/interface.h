@@ -33,4 +33,9 @@ int main_histo(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_mriq(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef PARBOIL_MRIG
+int main_mrig(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
+
 #endif

@@ -168,6 +168,12 @@ app_t build_app(std::string kernel_arg) {
     result.pFunc = main_mriq;
 #endif
   }
+  else if (result.params[0].compare( "parb_mrig") == 0) {
+    std::cout << "main: parboil mrig" << std::endl;
+#ifdef PARBOIL_MRIG
+    result.pFunc = main_mrig;
+#endif
+  }
   else if (result.params[0].compare( "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
 #ifdef CUT_SGEMM
