@@ -37,5 +37,9 @@ int main_mriq(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_mrig(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef PARBOIL_TPACF
+int main_tpacf(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
+
 
 #endif

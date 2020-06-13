@@ -35,3 +35,7 @@ endif()
 if (parb_mrig)
   add_subdirectory(mri-gridding)
 endif()
+
+if (parb_tpacf)
+  add_subdirectory(tpacf)
+endif()
