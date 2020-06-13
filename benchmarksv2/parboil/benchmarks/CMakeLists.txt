@@ -39,3 +39,7 @@ endif()
 if (parb_tpacf)
   add_subdirectory(tpacf)
 endif()
+
+if (parb_bfs)
+  add_subdirectory(bfs)
+endif()

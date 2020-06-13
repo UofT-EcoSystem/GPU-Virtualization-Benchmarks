@@ -41,5 +41,8 @@ int main_mrig(int argc, char** argv, int uid, cudaStream_t & stream);
 int main_tpacf(int argc, char** argv, int uid, cudaStream_t & stream);
 #endif
 
+#ifdef PARBOIL_BFS
+int main_bfs(int argc, char** argv, int uid, cudaStream_t & stream);
+#endif
 
 #endif

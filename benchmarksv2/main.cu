@@ -180,6 +180,12 @@ app_t build_app(std::string kernel_arg) {
     result.pFunc = main_tpacf;
 #endif
   }
+  else if (result.params[0].compare( "parb_bfs") == 0) {
+    std::cout << "main: parboil bfs" << std::endl;
+#ifdef PARBOIL_BFS
+    result.pFunc = main_bfs;
+#endif
+  }
   else if (result.params[0].compare( "cut_sgemm") == 0) {
     std::cout << "main: cutlass sgemm" << std::endl;
 #ifdef CUT_SGEMM
