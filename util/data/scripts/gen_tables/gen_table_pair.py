@@ -228,7 +228,27 @@ def evaluate_multi_kernel(df_pair, df_baseline):
         def get_base_runtime(bench, kidx):
             return df_baseline.loc[(bench, kidx), 'runtime']
 
-        # calculate 1_sld and 2_sld
+        def get_base_inst(bench, kidx):
+            return df_baseline.loc[(bench, kidx), 'instructions']
+
+        def handle_incomplete(row):
+            runtime = row['runtime']
+
+            for idx in range(len(runtime)):
+                if len(runtime[idx]) > 0 and runtime[idx][-1] == 0:
+                    if len(runtime[idx]) > 1:
+                        runtime[idx][-1] = row['tot_runtime'] - runtime[idx][-2]
+                    else:
+                        runtime[idx][-1] = row['tot_runtime']
+
+                    # scale by completed instructions
+                    runtime[idx][-1] *= \
+                        get_base_inst(row['{}_bench'.format(idx)],
+                                      row['{}_kidx'.format(idx)]) \
+                        / row['instructions'][idx][-1]
+
+            return runtime
+
         def calc_sld(row):
             # Take average all of kernel instances, but drop the last one if
             # more than one instance
@@ -251,6 +271,7 @@ def evaluate_multi_kernel(df_pair, df_baseline):
 
             return [0, norm_1, norm_2]
 
+        df_pair['runtime'] = df_pair.apply(handle_incomplete, axis=1)
         df_pair['sld'] = df_pair.apply(calc_sld, axis=1)
         df_pair['ws'] = df_pair['sld'].transform(lambda sld: sld[1] + sld[2])
 
