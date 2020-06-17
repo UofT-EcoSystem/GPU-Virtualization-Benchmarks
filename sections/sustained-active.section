@@ -18,7 +18,7 @@ Header {
     Name: "sm__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active"
   }
   Metrics {
-    Label: "SPU"
+    Label: "SFU"
     Name: "sm__inst_executed_pipe_xu.avg.pct_of_peak_sustained_active"
   }
   Metrics {
@@ -29,11 +29,5 @@ Header {
     Label: "Load/Store"
     Name: "sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active"
   }
-  Metrics {
-    Label: "Eligible"
-    Name: "smsp__issue_active.avg.pct_of_peak_sustained_active"
-  }
-
-
 }
 

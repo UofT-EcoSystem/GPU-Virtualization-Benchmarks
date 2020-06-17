@@ -18,7 +18,7 @@ Header {
     Name: "sm__inst_executed_pipe_fp64.avg.pct_of_peak_burst_active"
   }
   Metrics {
-    Label: "SPU"
+    Label: "SFU"
     Name: "sm__inst_executed_pipe_xu.avg.pct_of_peak_burst_active"
   }
   Metrics {
@@ -29,29 +29,5 @@ Header {
     Label: "Load/Store"
     Name: "sm__inst_executed_pipe_lsu.avg.pct_of_peak_burst_active"
   }
-  Metrics {
-    Label: "ADU"
-    Name: "sm__inst_executed_pipe_adu.avg.pct_of_peak_burst_active"
-  }
-  Metrics {
-    Label: "CBU"
-    Name: "sm__inst_executed_pipe_cbu.avg.pct_of_peak_burst_active"
-  }
-  Metrics {
-    Label: "ADU"
-    Name: "sm__inst_executed_pipe_adu.avg.pct_of_peak_burst_active"
-  }
-  Metrics {
-    Label: "IPA"
-    Name: "sm__inst_executed_pipe_ipa.avg.pct_of_peak_burst_active"
-  }
-  Metrics {
-    Label: "UNIFORM"
-    Name: "sm__inst_executed_pipe_uniform.avg.pct_of_peak_burst_active"
-  }
-
-
-
-
 }
 
