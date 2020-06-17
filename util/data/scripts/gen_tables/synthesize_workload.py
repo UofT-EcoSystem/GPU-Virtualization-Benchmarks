@@ -1,5 +1,7 @@
 from random import seed
 from random import choices
+import os
+import oyaml
 
 import data.scripts.common.constants as const
 
@@ -12,7 +14,7 @@ def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
     seed(rseed)
     benchmarks = list(const.kernel_yaml.keys())
 
-    apps = []
+    apps = {}
 
     for app_idx in range(num_apps):
         app = []
@@ -32,7 +34,14 @@ def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
                     app += choices(leftover)
 
         print(app)
-        apps.append(app)
+        apps['syn-{}'.format(app_idx)] = app
+
+    # write to yml file
+    outfile = os.path.join(const.DATA_HOME,
+                           'scripts/common/synthetic.yml')
+
+    with open(outfile, 'w+') as f:
+        f.write(oyaml.dump(apps, default_flow_style=False))
 
     return apps
 
