@@ -233,7 +233,7 @@ def process_lut(pair, base_config):
 
     # Columns are kernels for apps[0] and rows are kernels for apps[1]
     for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
-        entry = "0:{}:{}=0:{}:{}".format(col_idx+1, row_idx+1,
+        entry = "0:{}:{}=0:{}:{}".format(col_idx + 1, row_idx + 1,
                                          cta_configs[0][row_idx, col_idx],
                                          cta_configs[1][row_idx, col_idx])
         lut.append(entry)
@@ -330,15 +330,15 @@ def process_pairs():
 
     # Determine what app pairs to launch
     if args.pair[0] == 'single':
-        benchmarks = list(set(const.kernel_yaml.keys()) -
-                          set(const.multi_kernel_app.keys()))
+        benchmarks = [b for b in const.kernel_yaml.keys() if b not in
+                      const.multi_kernel_app]
         pair_up(benchmarks)
     elif args.pair[0] == 'multi':
         benchmarks = const.multi_kernel_app.keys()
         pair_up(benchmarks)
     elif args.pair[0] == 'syn':
         syn_yml = yaml.load(open(os.path.join(RUN_HOME,
-                                                 'apps/synthetic.yml')))
+                                              'apps/synthetic.yml')))
         benchmarks = syn_yml.keys()
         pair_up(benchmarks)
 
