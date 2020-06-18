@@ -1,0 +1,30 @@
+if [ "$GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN" != "1" ]; then
+    export GPGPUSIM_ROOT=REPLACE_GPGPUSIM_ROOT
+    source $GPGPUSIM_ROOT/setup_environment
+else
+    echo "Skipping setup_environment - already set"
+fi
+
+echo "doing: export benchmark root directory"
+export BENCH_HOME=REPLACE_BENCH_HOME
+
+echo "doing: export -n PTX_SIM_USE_PTX_FILE"
+export -n PTX_SIM_USE_PTX_FILE
+echo "doing: export LD_LIBRARY_PATH=REPLACE_LIBPATH:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH=REPLACE_LIBPATH:$LD_LIBRARY_PATH
+
+echo "doing: cd REPLACE_SUBDIR"
+cd "REPLACE_SUBDIR"
+
+echo "doing: cmake $BENCH_HOME REPLACE_DEFINES"
+cmake $BENCH_HOME REPLACE_DEFINES
+
+echo "doing: make -j4"
+make -j4
+
+# Uncomment to force blocking torque launches
+# echo "doing export CUDA_LAUNCH_BLOCKING=1"
+# export CUDA_LAUNCH_BLOCKING=1
+
+echo "doing: ./driver REPLACE_INPUTS"
+./driver REPLACE_INPUTS | tee whatup.txt

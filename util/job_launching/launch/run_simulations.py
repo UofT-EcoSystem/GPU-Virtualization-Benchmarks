@@ -8,6 +8,9 @@ import shutil
 import glob
 
 import job_launching.launch.common as common
+import data.scripts.common.constants as const
+
+args = None
 
 
 # File system helper functions. #
@@ -62,12 +65,11 @@ def parse_args():
                         help="Choose cluster environment. Eco will invoke "
                              "torque while vector will invoke slurm.")
 
-    results = parser.parse_args()
+    global args
+    args = parser.parse_args()
 
-    return results
 
-
-def sanity_checks(args):
+def sanity_checks():
     # Check if gpgpusim set up is run
     if str(os.getenv("GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN")) != "1":
         sys.exit(
@@ -155,52 +157,42 @@ def copy_so_to_run_dir(launch_run_dir):
     return gpusim_version, so_run_dir
 
 
-def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
-                   sim_run_dir, args):
-    bench_str = '-'.join(bench)
+def gen_job_script(apps, config_name, gpusim_version, so_run_dir,
+                   sim_run_dir):
+    job_name = "{0}-{1}-{2}".format('-'.join(apps), config_name, gpusim_version)
 
-    if args.env == 'eco':
-        queue_name = "batch"
-        job_script = 'torque.sim'
-    else:
-        # use cpu partition in vector cluster
-        queue_name = 'cpu'
-        job_script = 'slurm.sim'
+    job_script = 'torque.sim' if args.env == 'eco' else 'slurm.sim'
 
-    _input_1 = common.get_inputs_from_app(bench[0])
-    _app_1_cmake = _input_1.split(' ')[0]
+    # Build CMAKE defines
+    defines = []
 
-    if len(bench) > 1:
-        _valid_app_2 = 'true'
-        _app_2 = bench[1]
-        _input_2 = common.get_inputs_from_app(bench[1])
-        _app_2_cmake = _input_2.split(' ')[0]
-    else:
-        _valid_app_2 = 'false'
-        _app_2 = 'dont_care'
-        _input_2 = 'dont_care'
-        _app_2_cmake = 'dont_care'
+    def get_define(_benchmark):
+        define_key = _benchmark.split('-')[0]
+        return "-D{}=ON".format(define_key)
+
+    for app in apps:
+        if app in const.syn_yaml:
+            for benchmark in const.syn_yaml[app]:
+                defines.append(get_define(benchmark))
+        else:
+            defines.append(get_define(app))
+
+    # Build input file names
+    inputs = ["stream{}.txt".format(idx+1) for idx in range(len(apps))]
 
     # The job launching threads are doing coarse-grained polling with sleep,
     # So we only need one cpu core to do gpgpusim simulation
-    _cpu = 1
+    cpu = 1
 
     replacement_dict = {
-        "NAME": bench_str + '-' + config_name + '-' + gpusim_version,
-        "CPU": _cpu,
-        "QUEUE_NAME": queue_name,
+        "NAME": job_name,
+        "CPU": cpu,
         "GPGPUSIM_ROOT": os.getenv("GPGPUSIM_ROOT"),
         "BENCH_HOME": args.bench_home,
         "LIBPATH": so_run_dir,
         "SUBDIR": sim_run_dir,
-        "APP_1": bench[0],
-        "SHORT_APP_1": _app_1_cmake,
-        "VALID_APP_2": _valid_app_2,
-        "APP_2": _app_2,
-        "SHORT_APP_2": _app_2_cmake,
-        "INPUT_1": _input_1,
-        "INPUT_2": _input_2,
-        "PATH": os.getenv("PATH"),
+        "DEFINES": " ".join(defines),
+        "INPUTS": " ".join(inputs),
     }
 
     this_directory = os.path.dirname(os.path.realpath(__file__))
@@ -208,11 +200,32 @@ def gen_job_script(bench, config_name, gpusim_version, so_run_dir,
     with open(os.path.join(this_directory, job_script)) as f:
         script_text = f.read().strip()
 
+    with open(os.path.join(this_directory, 'job.sim')) as f:
+        script_text += '\n' + f.read().strip()
+
     for entry in replacement_dict:
         script_text = re.sub("REPLACE_" + entry,
                              str(replacement_dict[entry]),
                              script_text)
     return script_text
+
+
+def gen_input_files(apps):
+    result = []
+    for app in apps:
+        if app in const.syn_yaml:
+            # This is a synthetic workload
+            inputs = []
+            for bench in const.syn_yaml[app]:
+                input_line = bench if bench == 'repeat' \
+                    else common.get_inputs_from_app(bench, args.bench_home)
+                inputs.append(input_line)
+
+            result.append("\n".join(inputs))
+        else:
+            result.append(common.get_inputs_from_app(app, args.bench_home))
+
+    return result
 
 
 def gen_gpusim_config(config):
@@ -229,7 +242,8 @@ def gen_gpusim_config(config):
     return config_name, config_str, src_config_dir
 
 
-def setup_sim_dir(sim_run_dir, job_script_str, config_str, src_config_dir):
+def setup_sim_dir(sim_run_dir, job_script_str, config_str,
+                  input_str, src_config_dir):
     mkdir(sim_run_dir)
 
     # Copy config files into sim run dir
@@ -249,8 +263,14 @@ def setup_sim_dir(sim_run_dir, job_script_str, config_str, src_config_dir):
     with open(os.path.join(sim_run_dir, 'gpgpusim.config'), 'w+') as f:
         f.write(config_str)
 
+    # Write input files
+    for stream_id, input in enumerate(input_str):
+        filename = os.path.join(sim_run_dir, 'stream{}.txt'.format(stream_id+1))
+        with open(filename, 'w+') as f:
+            f.write(input)
 
-def launch_sim_job(sim_run_dir, args):
+
+def launch_sim_job(sim_run_dir):
     current_dir = os.getcwd()
     os.chdir(sim_run_dir)
 
@@ -273,10 +293,10 @@ def launch_sim_job(sim_run_dir, args):
 
 
 def main():
-    args = parse_args()
+    parse_args()
 
     # Sanity checks:
-    sanity_checks(args)
+    sanity_checks()
 
     parent_run_dir = os.path.join(args.bench_home, 'run')
     # mkdir(parent_run_dir)
@@ -314,10 +334,13 @@ def main():
 
             # Generate job script for this bench
             job_script_str = gen_job_script(bench, config_name, gpusim_version,
-                                            so_run_dir, sim_run_dir, args)
+                                            so_run_dir, sim_run_dir)
+
+            # Generate input files
+            input_str = gen_input_files(bench)
 
             # Real deal: create sim run dir and launch sim job
-            setup_sim_dir(sim_run_dir, job_script_str, config_str,
+            setup_sim_dir(sim_run_dir, job_script_str, config_str, input_str,
                           src_config_dir)
 
             if not args.no_launch:
@@ -325,7 +348,7 @@ def main():
                 pretty_print("Benchmark: ", bench)
                 pretty_print("Config: ", config_name)
 
-                launch_sim_job(sim_run_dir, args)
+                launch_sim_job(sim_run_dir)
 
                 print('-' * 30)
 

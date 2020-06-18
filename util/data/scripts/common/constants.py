@@ -145,7 +145,7 @@ def get_seq_cycles(app):
     df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True)
 
     df_seq = get_pickle('seq.pkl')
-    df_seq.set_index(['pair-str'], inplace=True)
+    df_seq.set_index(['pair_str'], inplace=True)
 
     def get_seq_cycles_bench(bench):
         if bench in multi_kernel_app:
@@ -160,7 +160,7 @@ def get_seq_cycles(app):
         # Synthetic workloads
         sum_cycles = 0
         list_bench = syn_yaml[app]
-        for idx, benchmark in list_bench:
+        for idx, benchmark in enumerate(list_bench):
             if benchmark == 'repeat':
                 sum_cycles += get_seq_cycles_bench(list_bench[idx-1])
             else:
