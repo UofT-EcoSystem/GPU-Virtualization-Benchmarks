@@ -59,6 +59,10 @@ def parse_args():
     parser.add_argument('--top',
                         action='store_true',
                         help='If how is dynamic, only select top candidates.')
+    parser.add_argument('--qos',
+                        type=float,
+                        default=0.5,
+                        help='If how is dynamic, specify target qos.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -168,6 +172,7 @@ def process_dynamic(pair):
 
     pair_config_args += ['--cap', str(args.cap)]
     pair_config_args += ['--intra_pkl', args.intra_pkl]
+    pair_config_args += ['--qos', str(args.qos)]
 
     if args.top:
         pair_config_args += ['--top']
