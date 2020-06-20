@@ -344,6 +344,8 @@ void run(int argc, char** argv)
 	printf("Ending simulation\n");
     cudaMemcpyAsync(MatrixOut, MatrixTemp[ret], sizeof(float)*size, cudaMemcpyDeviceToHost, hotspot::gpusim_stream);
 
+    cudaStreamSynchronize(hotspot::gpusim_stream);
+
     writeoutput(MatrixOut,grid_rows, grid_cols, ofile);
 
     cudaFree(MatrixPower);
