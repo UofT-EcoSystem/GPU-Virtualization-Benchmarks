@@ -1,4 +1,5 @@
 'scalar':
+  'tot_runtime': 'gpu_tot_sim_cycle\s=\s(.*)'
   'stall_icnt_to_l2': 'gpu_stall_dramfull\s*=\s*(.*)'
   'stall_l2_to_icnt': 'gpu_stall_icnt2sh\s*=\s*(.*)'
   'stall_core_ldst': 'gpgpu_n_stall_shd_mem\s*=\s*(.*)'

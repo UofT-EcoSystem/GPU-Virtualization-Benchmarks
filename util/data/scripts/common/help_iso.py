@@ -90,7 +90,12 @@ def normalize(df, index, metric, value, inverse):
 
 def parse_multi_array(text):
     text = text.replace(' ', ',')
-    return ast.literal_eval(text)
+
+    # In case there's any inf and ast literal_eval will fail
+    text = text.replace('inf', '-1')
+    arr = ast.literal_eval(text)
+
+    return arr
 
 
 def multi_array_col_seq(df):

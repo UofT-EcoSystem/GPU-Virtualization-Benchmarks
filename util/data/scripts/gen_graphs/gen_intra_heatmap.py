@@ -222,7 +222,7 @@ def parse_args():
 def print_ipc_only(df, benchmarks, maxGridWidth, figsize, outfile):
     print(benchmarks)
     fig_tot = plt.figure(figsize=figsize)
-    bench_keys = df[['pair_str', 'kidx']].apply(tuple, axis=1)
+    bench_keys = df[['pair_str', '1_kidx']].apply(tuple, axis=1)
 
     cols = 0
     rows = 1
@@ -261,10 +261,10 @@ def main():
     args = parse_args()
 
     df_intra = pd.read_pickle(args.pickle)
-    df_intra.sort_values(['pair_str', 'kidx'], inplace=True)
+    df_intra.sort_values(['pair_str', '1_kidx'], inplace=True)
 
     if args.benchmark[0] == 'all':
-        pairs = df_intra.apply(lambda row: (row['pair_str'], row['kidx']),
+        pairs = df_intra.apply(lambda row: (row['pair_str'], row['1_kidx']),
                                axis=1)
         bench_list = pairs.unique()
         args.benchmark = bench_list

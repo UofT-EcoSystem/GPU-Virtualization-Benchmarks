@@ -104,7 +104,7 @@ unsigned int readSampleData(parameters params, FILE* uksdata_f, ReconstructionSa
 }
 
 
-int main (int argc, char* argv[]){
+int main_mrig(int argc, char** argv, int uid, cudaStream_t & stream) {
   struct pb_Parameters* prms;
   struct pb_TimerSet timers;
 

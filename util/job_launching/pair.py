@@ -3,6 +3,7 @@ import subprocess
 import pandas as pd
 import numpy as np
 import sys
+import oyaml as yaml
 from job_launching.constant import *
 import data.scripts.common.constants as const
 import data.scripts.common.help_iso as help_iso
@@ -31,7 +32,8 @@ def parse_args():
     parser.add_argument('--pair', required=True, nargs='+',
                         help="Apps to run. Accept 1) benchmark name, "
                              "2) `single` for all single-kernel benchmarks, "
-                             "or 3) `multi` for all multi-kernel benchmarks")
+                             "3) `multi` for all multi-kernel benchmarks"
+                             "or 4) `syn` for synthetic workloads")
     parser.add_argument('--id_start', type=int, default=0,
                         help='For all pairs only. Starting pair id.')
     parser.add_argument('--count', type=int, default=20,
@@ -57,6 +59,10 @@ def parse_args():
     parser.add_argument('--top',
                         action='store_true',
                         help='If how is dynamic, only select top candidates.')
+    parser.add_argument('--qos',
+                        type=float,
+                        default=0.5,
+                        help='If how is dynamic, specify target qos.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -80,17 +86,6 @@ def parse_args():
 
     global args
     args = parser.parse_args()
-
-
-def get_pickle(pickle_name):
-    path_pickle = os.path.join(const.DATA_HOME, 'pickles', pickle_name)
-
-    if not os.path.exists(path_pickle):
-        print("Pair {0} launch cannot find {1}.".format(args.how, pickle_name))
-        sys.exit(3)
-
-    df = pd.read_pickle(path_pickle)
-    return df
 
 
 def launch_job(*configs, pair, multi=False):
@@ -177,6 +172,7 @@ def process_dynamic(pair):
 
     pair_config_args += ['--cap', str(args.cap)]
     pair_config_args += ['--intra_pkl', args.intra_pkl]
+    pair_config_args += ['--qos', str(args.qos)]
 
     if args.top:
         pair_config_args += ['--top']
@@ -206,23 +202,17 @@ def process_dynamic(pair):
     return len(configs)
 
 
-def cap_cycles_multi_kernel(apps):
-    # Cap cycles are calculated based on seq run
-    df_seq_multi = get_pickle('seq-multi.pkl')
-    df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True)
-
+def get_cap_config(apps):
     max_cycles = 0
 
     for app in apps:
-        sum_cycles = 0
-        for kidx in const.multi_kernel_app[app]:
-            sum_cycles += df_seq_multi.loc[(app, kidx)]['runtime']
+        sum_cycles = const.get_seq_cycles(app)
 
         if sum_cycles > max_cycles:
             max_cycles = sum_cycles
 
-    cap_cycles = args.cap * max_cycles
-    cap_config = 'CAP_{0}_CYCLE'.format(int(cap_cycles))
+    cycles = args.cap * max_cycles
+    cap_config = 'CAP_{0}_CYCLE'.format(int(cycles))
 
     return cap_config
 
@@ -231,16 +221,16 @@ def cap_cycles_multi_kernel(apps):
 def process_lut(pair, base_config):
     import data.scripts.gen_tables.gen_lut_configs as lut_configs
 
-    df_pair_dynamic = get_pickle('pair_dynamic_multi.pkl')
+    df_pair_dynamic = const.get_pickle('pair_dynamic_multi.pkl')
 
     apps = pair.split('+')
 
     # LUT is for multi-kernel benchmarks only
-    multi_check = [app in const.multi_kernel_app for app in apps]
-    if not all(multi_check):
-        print("Pair lut launch requires all benchmarks to be multi-kernel "
-              "applications.")
-        sys.exit(4)
+    # multi_check = [app in const.multi_kernel_app for app in apps]
+    # if not all(multi_check):
+    #     print("Pair lut launch requires all benchmarks to be multi-kernel "
+    #           "applications.")
+    #     sys.exit(4)
 
     # Build the CTA lookup table
     cta_configs = lut_configs.get_lut_matrix(apps, df_pair_dynamic)[0]
@@ -248,7 +238,7 @@ def process_lut(pair, base_config):
 
     # Columns are kernels for apps[0] and rows are kernels for apps[1]
     for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
-        entry = "0:{}:{}=0:{}:{}".format(col_idx+1, row_idx+1,
+        entry = "0:{}:{}=0:{}:{}".format(col_idx + 1, row_idx + 1,
                                          cta_configs[0][row_idx, col_idx],
                                          cta_configs[1][row_idx, col_idx])
         lut.append(entry)
@@ -264,7 +254,7 @@ def process_lut(pair, base_config):
     config = base_config + "-" + lut_config + "-" + num_kernel_config
 
     # Calculate max cycle bound
-    cap_config = cap_cycles_multi_kernel(apps)
+    cap_config = get_cap_config(apps)
     config += '-' + cap_config
 
     launch_job(config, pair=pair)
@@ -301,7 +291,7 @@ def process_ctx(pair, base_config):
 
     configs = [c + '-' + num_kernel_config for c in configs]
 
-    cap_config = cap_cycles_multi_kernel(apps)
+    cap_config = get_cap_config(apps)
     configs = [c + '-' + cap_config for c in configs]
 
     launch_job(*configs, pair=pair)
@@ -317,7 +307,12 @@ def process_pairs():
         for bench0 in candidates:
             for bench1 in candidates:
                 if bench0 < bench1:
-                    pairs.append('+'.join([bench0, bench1]))
+                    # Make sure we don't pair up the same benchmarks with
+                    # different inputs, except for synthetic workloads
+                    bench0_name = bench0.split('-')[0]
+                    bench1_name = bench1.split('-')[0]
+                    if bench0_name != bench1_name or bench0_name == 'syn':
+                        pairs.append('+'.join([bench0, bench1]))
 
         if not args.id_start < len(pairs):
             print('Length of all pairs is {0} but id_start is {1}'
@@ -340,11 +335,16 @@ def process_pairs():
 
     # Determine what app pairs to launch
     if args.pair[0] == 'single':
-        benchmarks = list(set(const.kernel_yaml.keys()) -
-                          set(const.multi_kernel_app.keys()))
+        benchmarks = [b for b in const.kernel_yaml.keys() if b not in
+                      const.multi_kernel_app]
         pair_up(benchmarks)
     elif args.pair[0] == 'multi':
         benchmarks = const.multi_kernel_app.keys()
+        pair_up(benchmarks)
+    elif args.pair[0] == 'syn':
+        syn_yml = yaml.load(open(os.path.join(RUN_HOME,
+                                              'apps/synthetic.yml')))
+        benchmarks = syn_yml.keys()
         pair_up(benchmarks)
 
     if args.how == 'dynamic':

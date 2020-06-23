@@ -3,6 +3,8 @@ import oyaml as yaml
 import math
 from collections import OrderedDict
 import numpy as np
+import sys
+import pandas as pd
 
 DATA_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../')
 
@@ -18,6 +20,10 @@ base_config = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 kernel_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'kernel.yml')),
     Loader=yaml.FullLoader)
+syn_yaml = yaml.load(
+    open(os.path.join(DATA_HOME, 'scripts/common/', 'synthetic.yml')),
+    Loader=yaml.FullLoader)
+
 
 # benchmark -> kernel sequence in one iteration
 multi_kernel_app = OrderedDict(
@@ -39,7 +45,7 @@ def get_kernel_stat(kernel, stat, kidx):
         bench = sp_kernel[0]
         kidx = int(sp_kernel[1])
         return kernel_yaml[bench][kidx][stat]
-    elif kidx != 0:
+    elif (kidx != 0) and (kernel in multi_kernel_app):
         return kernel_yaml[kernel][kidx][stat]
     else:
         return kernel_yaml[kernel][stat]
@@ -97,15 +103,72 @@ def get_smem(bench, kidx):
     return get_kernel_stat(bench, 'smem', kidx)
 
 
-def get_num_kernels(bench):
-    if bench in multi_kernel_app:
-        return len(multi_kernel_app[bench])
+def get_num_kernels(app):
+    def get_num_kernels_bench(bench):
+        if bench in multi_kernel_app:
+            return len(multi_kernel_app[bench])
+        else:
+            return 1
+
+    if app in syn_yaml:
+        list_bench = syn_yaml[app]
+
+        # Replace "repeat" benchmark with previous benchmark in list
+        for idx, bench in enumerate(list_bench):
+            if bench == 'repeat':
+                list_bench[idx] = list_bench[idx-1]
+
+        result = sum([get_num_kernels_bench(bench) for bench in list_bench])
+        return result
     else:
-        return 1
+        return get_num_kernels_bench(app)
 
 
 def get_primary_kidx(bench, idx):
     return multi_kernel_app[bench][idx]
+
+
+def get_pickle(pickle_name):
+    path_pickle = os.path.join(DATA_HOME, 'pickles', pickle_name)
+
+    if not os.path.exists(path_pickle):
+        print("Cannot find {0}.".format(pickle_name))
+        sys.exit(3)
+
+    df = pd.read_pickle(path_pickle)
+    return df
+
+
+def get_seq_cycles(app):
+    # Cap cycles are calculated based on seq run
+    df_seq_multi = get_pickle('seq-multi.pkl')
+    df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True)
+
+    df_seq = get_pickle('seq.pkl')
+    df_seq.set_index(['pair_str'], inplace=True)
+
+    def get_seq_cycles_bench(bench):
+        if bench in multi_kernel_app:
+            cycles = sum([df_seq_multi.loc[(bench, kidx)]['runtime']
+                              for kidx in multi_kernel_app[bench]])
+        else:
+            cycles = df_seq.loc[bench]['runtime']
+
+        return cycles
+
+    if app in syn_yaml:
+        # Synthetic workloads
+        sum_cycles = 0
+        list_bench = syn_yaml[app]
+        for idx, benchmark in enumerate(list_bench):
+            if benchmark == 'repeat':
+                sum_cycles += get_seq_cycles_bench(list_bench[idx-1])
+            else:
+                sum_cycles += get_seq_cycles_bench(benchmark)
+
+        return sum_cycles
+    else:
+        return get_seq_cycles_bench(app)
 
 
 # For kernels that simply repeat the primary kernel, return the kidx key of

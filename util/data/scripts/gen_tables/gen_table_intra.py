@@ -30,8 +30,8 @@ def parse_args():
 
     parser.add_argument('--multi',
                         action='store_true',
-                        default='Whether simulation file is in multi-kernel '
-                                'format.')
+                        help='Whether simulation file is in multi-kernel '
+                             'format.')
 
     results = parser.parse_args()
     return results
@@ -101,6 +101,10 @@ def process_metrics(df_intra, multi):
 
     df_intra['reg_ratio'] = threads * df_intra['regs'] / const.max_register
 
+    # Dominant usage
+    df_intra['usage'] = df_intra[['cta_ratio', 'thread_ratio', 'smem_ratio',
+                                  'reg_ratio']].max(axis=1)
+
 
 def normalize_over_seq(df_intra, df_seq, multi):
     df_intra = df_intra.copy()
@@ -130,7 +134,7 @@ def normalize_over_seq(df_intra, df_seq, multi):
                                               axis=1)
     else:
         # gpusim config
-        hi.process_config_column('intra', df=df_intra)
+        hi.process_config_column('intra', '1_kidx', df=df_intra)
 
         df_seq.set_index('pair_str', inplace=True)
 

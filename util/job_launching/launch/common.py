@@ -67,9 +67,11 @@ def parse_app_list(apps):
     return results
 
 
-def get_inputs_from_app(app):
+def get_inputs_from_app(app, bench_home):
     if app in defined_apps:
-        return defined_apps[app][0] + ' ' + defined_apps[app][1]
+        result = defined_apps[app][0] + ' ' + defined_apps[app][1]
+        result = re.sub(r"\$BENCH_HOME", bench_home, result)
+        return result
     else:
         return ''
 
