@@ -45,7 +45,7 @@ def get_kernel_stat(kernel, stat, kidx):
         bench = sp_kernel[0]
         kidx = int(sp_kernel[1])
         return kernel_yaml[bench][kidx][stat]
-    elif kidx != 0:
+    elif (kidx != 0) and (kernel in multi_kernel_app):
         return kernel_yaml[kernel][kidx][stat]
     else:
         return kernel_yaml[kernel][stat]

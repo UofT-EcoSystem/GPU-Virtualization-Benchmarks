@@ -63,8 +63,6 @@ def parse_args():
 
 def preprocess_df_pair(df_pair):
     df_pair = df_pair.copy()
-    print(df_pair.columns)
-
     df_pair.reset_index(inplace=True, drop=True)
 
     # Extract multi-kernel information, if any
@@ -118,163 +116,126 @@ def preprocess_df_pair(df_pair):
         df_pair['cta_quota'] = df_pair.apply(cta_quota, axis=1)
 
     # Parse per stream per kernel information
-    if args.multi:
-        df_pair['runtime'] = df_pair['runtime'].apply(hi.parse_multi_array)
-        df_pair['instructions'] = df_pair['instructions'].apply(
-            hi.parse_multi_array)
-        df_pair['l2_bw'] = df_pair['l2_bw'].apply(hi.parse_multi_array)
-        df_pair['avg_mem_lat'] = df_pair['avg_mem_lat'].apply(
-            hi.parse_multi_array)
+    # if args.multi:
+    df_pair['runtime'] = df_pair['runtime'].apply(hi.parse_multi_array)
+    df_pair['instructions'] = df_pair['instructions'].apply(
+        hi.parse_multi_array)
+    df_pair['l2_bw'] = df_pair['l2_bw'].apply(hi.parse_multi_array)
+    df_pair['avg_mem_lat'] = df_pair['avg_mem_lat'].apply(
+        hi.parse_multi_array)
 
     return df_pair
 
 
-def evaluate_single_kernel(df_pair, df_baseline):
-    df_baseline.set_index('pair_str', inplace=True)
-    df_pair = df_pair.copy()
+def evaluate_app_wise(df_pair, df_baseline):
+    df_baseline = df_baseline.set_index(['pair_str', '1_kidx'])
 
-    # Special handling: if simulation breaks due to cycle count limit,
-    # Runtime per stream might be empty if the kernel did not run to completion.
-    # In this case, copy global runtime to the empty runtime per stream and
-    # infer IPC from incomplete runs. Label this case in a new column 'infer'
-    # = [True/False]
-    def handle_incomplete(row):
-        result = {}
-        for app_id in ['1', '2']:
-            result[app_id + '_infer'] = (row[app_id + '_runtime'] == 0)
+    def calc_norm_runtime(row):
+        runtime = row['runtime']
+        norm_runtime = []
+        for stream_id, stream in enumerate(runtime):
+            norm_stream = []
+            if len(stream) > 0:
+                bench = row['{}_bench'.format(stream_id)]
+                for kidx, time in enumerate(stream):
+                    # Handle repeated kernel
+                    kidx = const.translate_gpusim_kidx(bench, kidx)
 
-            runtime = row['runtime'] if result[app_id + '_infer'] \
-                else row[app_id + '_runtime']
-            result[app_id + '_ipc'] = row[app_id + '_instructions'] / runtime
+                    base_time = df_baseline.loc[
+                        (bench, kidx), 'runtime']
+                    norm_stream.append(base_time / time)
 
-        return pd.Series(result)
+            norm_runtime.append(norm_stream)
 
-    df_pair = pd.concat([df_pair, df_pair.apply(handle_incomplete, axis=1)],
-                        axis=1)
+        return norm_runtime
 
-    def get_index(row, bench_id):
-        return row[bench_id + '_bench']
+    def collect_baseline(row):
+        runtime = row['runtime']
+        baseline = []
+        for stream_id, stream in enumerate(runtime):
+            base_stream = []
+            if len(stream) > 0:
+                bench = row['{}_bench'.format(stream_id)]
+                for id in range(const.get_num_kernels(bench)):
+                    kidx = const.translate_gpusim_kidx(bench, id)
+                    base_stream.append(
+                        df_baseline.loc[(bench, kidx), 'runtime']
+                    )
+            baseline.append(base_stream)
 
-    def calculate_metric(col_suffix, metric, invert):
-        for app_id in ['1', '2']:
-            df_pair[app_id + col_suffix] = \
-                df_pair.apply(lambda row:
-                              hi.normalize(df_baseline, get_index(row, app_id),
-                                           metric,
-                                           row[app_id + '_' + metric], invert),
-                              axis=1)
+        return baseline
 
-    calculate_metric('_sld', 'ipc', invert=False)
+    def calculate_total_sld(row):
+        return hi.calculate_sld_short(row['runtime'], row['baseline'])
 
-    df_pair['ws'] = df_pair['1_sld'] + df_pair['2_sld']
-
-    df_pair['fairness'] = np.minimum(df_pair['1_sld'] / df_pair['2_sld'],
-                                     df_pair['2_sld'] / df_pair['1_sld'])
-
-    calculate_metric('_norm_mflat', 'avg_mem_lat', invert=False)
+    df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
+    df_pair['baseline'] = df_pair.apply(collect_baseline, axis=1)
+    df_pair['sld'] = df_pair.apply(calculate_total_sld, axis=1)
+    df_pair['ws'] = df_pair['sld'].apply(np.sum)
 
     return df_pair
 
 
-def evaluate_multi_kernel(df_pair, df_baseline):
+def evaluate_kernel_wise(df_pair, df_baseline):
+    if not args.multi:
+        df_baseline['1_kidx'] = 1
+
     df_baseline.set_index(['pair_str', '1_kidx'], inplace=True)
 
-    # calculate normalized runtime
-    if args.how == 'ctx' or args.how == 'lut':
-        def calc_norm_runtime(row):
-            runtime = row['runtime']
-            norm_runtime = []
-            for stream_id, stream in enumerate(runtime):
-                norm_stream = []
-                if len(stream) > 0:
-                    bench = row['{}_bench'.format(stream_id)]
-                    for kidx, time in enumerate(stream):
-                        # Handle repeated kernel
-                        kidx = const.translate_gpusim_kidx(bench, kidx)
+    def get_base_runtime(bench, kidx):
+        return df_baseline.loc[(bench, kidx), 'runtime']
 
-                        base_time = df_baseline.loc[
-                            (bench, kidx), 'runtime']
-                        norm_stream.append(base_time / time)
+    def get_base_inst(bench, kidx):
+        return df_baseline.loc[(bench, kidx), 'instructions']
 
-                norm_runtime.append(norm_stream)
+    def handle_incomplete(row):
+        runtime = row['runtime']
 
-            return norm_runtime
-
-        def collect_baseline(row):
-            runtime = row['runtime']
-            baseline = []
-            for stream_id, stream in enumerate(runtime):
-                base_stream = []
-                if len(stream) > 0:
-                    bench = row['{}_bench'.format(stream_id)]
-                    for id in range(const.get_num_kernels(bench)):
-                        kidx = const.translate_gpusim_kidx(bench, id)
-                        base_stream.append(
-                            df_baseline.loc[(bench, kidx), 'runtime']
-                        )
-                baseline.append(base_stream)
-
-            return baseline
-
-        def calculate_total_sld(row):
-            return hi.calculate_sld_short(row['runtime'], row['baseline'])
-
-        df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
-        df_pair['baseline'] = df_pair.apply(collect_baseline, axis=1)
-        df_pair['sld'] = df_pair.apply(calculate_total_sld, axis=1)
-        df_pair['ws'] = df_pair['sld'].apply(np.sum)
-
-    elif args.how == 'dynamic':
-        def get_base_runtime(bench, kidx):
-            return df_baseline.loc[(bench, kidx), 'runtime']
-
-        def get_base_inst(bench, kidx):
-            return df_baseline.loc[(bench, kidx), 'instructions']
-
-        def handle_incomplete(row):
-            runtime = row['runtime']
-
-            for idx in range(len(runtime)):
-                if len(runtime[idx]) > 0 and runtime[idx][-1] == 0:
-                    if len(runtime[idx]) > 1:
-                        runtime[idx][-1] = row['tot_runtime'] - runtime[idx][-2]
-                    else:
-                        runtime[idx][-1] = row['tot_runtime']
-
-                    # scale by completed instructions
-                    runtime[idx][-1] *= \
-                        get_base_inst(row['{}_bench'.format(idx)],
-                                      row['{}_kidx'.format(idx)]) \
-                        / row['instructions'][idx][-1]
-
-            return runtime
-
-        def calc_sld(row):
-            # Take average all of kernel instances, but drop the last one if
-            # more than one instance
-            def average_runtime(list_runtime):
-                if len(list_runtime) > 1:
-                    return np.average(list_runtime[0:-1])
+        for idx in range(len(runtime)):
+            if len(runtime[idx]) > 0 and runtime[idx][-1] == 0:
+                if len(runtime[idx]) > 1:
+                    runtime[idx][-1] = row['tot_runtime'] - runtime[idx][-2]
                 else:
-                    return list_runtime[0]
+                    runtime[idx][-1] = row['tot_runtime']
 
-            runtime_1 = average_runtime(row['runtime'][1])
-            runtime_2 = average_runtime(row['runtime'][2])
-            assert (runtime_1 > 0)
-            assert (runtime_2 > 0)
+                # scale by completed instructions
+                runtime[idx][-1] *= \
+                    get_base_inst(row['{}_bench'.format(idx)],
+                                  row['{}_kidx'.format(idx)]) \
+                    / row['instructions'][idx][-1]
 
-            base_1 = get_base_runtime(row['1_bench'], row['1_kidx'])
-            base_2 = get_base_runtime(row['2_bench'], row['2_kidx'])
+        return runtime
 
-            norm_1 = base_1 / runtime_1
-            norm_2 = base_2 / runtime_2
+    def calc_sld(row):
+        # Take average all of kernel instances, but drop the last one if
+        # more than one instance
+        def average_runtime(list_runtime):
+            if len(list_runtime) > 1:
+                return np.average(list_runtime[0:-1])
+            else:
+                return list_runtime[0]
 
-            return [0, norm_1, norm_2]
+        runtime_1 = average_runtime(row['runtime'][1])
+        runtime_2 = average_runtime(row['runtime'][2])
+        assert (runtime_1 > 0)
+        assert (runtime_2 > 0)
 
-        df_pair['runtime'] = df_pair.apply(handle_incomplete, axis=1)
-        df_pair['sld'] = df_pair.apply(calc_sld, axis=1)
-        df_pair['ws'] = df_pair['sld'].transform(lambda sld: sld[1] + sld[2])
+        base_1 = get_base_runtime(row['1_bench'], row['1_kidx'])
+        base_2 = get_base_runtime(row['2_bench'], row['2_kidx'])
 
+        norm_1 = base_1 / runtime_1
+        norm_2 = base_2 / runtime_2
+
+        return [0, norm_1, norm_2]
+
+    df_pair['runtime'] = df_pair.apply(handle_incomplete, axis=1)
+    df_pair['sld'] = df_pair.apply(calc_sld, axis=1)
+    df_pair['fairness'] = df_pair['sld'].transform(
+        lambda sld: min(sld[1]/sld[2], sld[2]/sld[1])
+    )
+    df_pair['ws'] = df_pair['sld'].transform(lambda sld: sld[1] + sld[2])
+
+    if args.multi:
         def calc_row_importance(row):
             def get_importance(bench, kidx):
                 # total_time = df_baseline[
@@ -298,13 +259,12 @@ def evaluate_multi_kernel(df_pair, df_baseline):
                                                  row['sld'])]
             return result
 
-        if args.multi:
-            # calculated runtime increase weighted by kernel runtime importance
-            df_pair['importance'] = df_pair.apply(calc_row_importance,
-                                                  axis=1)
-            df_pair['weighted_increase'] = df_pair.apply(weighted_by, axis=1)
-            df_pair['sum_increase'] = df_pair['weighted_increase'].transform(
-                lambda inc: inc[1] + inc[2])
+        # calculated runtime increase weighted by kernel runtime importance
+        df_pair['importance'] = df_pair.apply(calc_row_importance,
+                                              axis=1)
+        df_pair['weighted_increase'] = df_pair.apply(weighted_by, axis=1)
+        df_pair['sum_increase'] = df_pair['weighted_increase'].transform(
+            lambda inc: inc[1] + inc[2])
 
     return df_pair
 
@@ -322,14 +282,13 @@ def main():
     # Calculate weighted speedup and fairness w.r.t seq
     df_seq = pd.read_pickle(args.seq_pkl)
 
-    if args.multi:
-        df_pair = evaluate_multi_kernel(df_pair, df_seq)
-    else:
-        df_pair = evaluate_single_kernel(df_pair, df_seq)
-
-    if args.how == 'smk' or args.how == 'ctx' or args.how == 'lut':
+    if args.how == 'ctx' or args.how == 'lut':
+        df_pair = evaluate_kernel_wise(df_pair, df_seq)
         df_pair.to_pickle(args.output)
     else:
+        # how == 'dynamic' or 'smk' or 'inter'
+        df_pair = evaluate_kernel_wise(df_pair, df_seq)
+
         # Get profiled info from intra pkl
         if args.multi:
             app_pairs = df_pair[
@@ -354,6 +313,7 @@ def main():
                     args.isolated_pkl, app, args.cap)
                 for app in app_pairs]
         else:
+            print('Unimplemented for SMK')
             sys.exit(1)
 
         df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
