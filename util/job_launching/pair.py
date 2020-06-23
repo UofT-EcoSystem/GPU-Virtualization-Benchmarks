@@ -47,7 +47,7 @@ def parse_args():
                              'Only checked when all is passed to --pair.')
 
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
-                                          'inter', 'ctx', 'lut'],
+                                          'inter', 'ctx', 'lut', 'custream'],
                         help='How to partition resources between benchmarks.')
     parser.add_argument('--num_slice', default=4, type=int,
                         help='If how is ctx, num_slice specifies how many '
@@ -124,6 +124,15 @@ def launch_job(*configs, pair, multi=False):
 def process_smk(pair, config):
     launch_job(config, pair=pair)
     return 1
+
+
+def process_custream(pair, config):
+    configs = [config + '-CUDA_0:{}:0_STREAM'.format(const.LAUNCH_LATENCY),
+               config + '-CUDA_0:0:{}_STREAM'.format(const.LAUNCH_LATENCY)]
+
+    [launch_job(cfg, pair=pair) for cfg in configs]
+
+    return 2
 
 
 def process_static(pair, base_config):
@@ -400,6 +409,9 @@ def main():
         len_configs = [process_ctx(pair, base_config) for pair in args.pair]
     elif args.how == 'lut':
         len_configs = [process_lut(pair, base_config) for pair in args.pair]
+    elif args.how == 'custream':
+        len_configs = [process_custream(pair, base_config) for pair in
+                       args.pair]
     else:
         print('Invalid sharing config how.')
         sys.exit(1)

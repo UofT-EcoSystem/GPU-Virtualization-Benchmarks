@@ -17,6 +17,11 @@ num_mem_channels_volta = 24
 
 base_config = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
+# Specify kernel launch latency in cycles
+# This is useful to enforce which stream gets to launch its kernel first in
+# CUDA stream simulation
+LAUNCH_LATENCY = 10
+
 kernel_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'kernel.yml')),
     Loader=yaml.FullLoader)
