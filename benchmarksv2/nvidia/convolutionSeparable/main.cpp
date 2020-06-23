@@ -143,7 +143,6 @@ int main_conv(int argc, char **argv, int uid, cudaStream_t & stream)
         can_exit = set_and_check(uid, false);
     }
 
-    checkCudaErrors(cudaDeviceSynchronize());
     sdkStopTimer(&hTimer);
     double gpuTime = 0.001 * sdkGetTimerValue(&hTimer) / (double)iterations;
     printf("convolutionSeparable, Throughput = %.4f MPixels/sec, Time = %.5f s, Size = %u Pixels, NumDevsUsed = %i, Workgroup = %u\n",
