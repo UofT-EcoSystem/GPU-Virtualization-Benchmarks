@@ -182,7 +182,7 @@ def gen_job_script(apps, config_name, gpusim_version, so_run_dir,
 
     # The job launching threads are doing coarse-grained polling with sleep,
     # So we only need one cpu core to do gpgpusim simulation
-    cpu = 1
+    cpu = 2
 
     replacement_dict = {
         "NAME": job_name,
