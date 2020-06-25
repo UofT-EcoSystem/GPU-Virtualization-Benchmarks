@@ -176,7 +176,8 @@ int main_mriq(int argc, char *argv[], int uid, cudaStream_t & stream) {
   cleanupMemoryGPU(numX, sizeof(float), Qr_d, Qr, stream);
   cleanupMemoryGPU(numX, sizeof(float), Qi_d, Qi, stream);
 
-  cudaDeviceSynchronize();
+  cudaStreamSynchronize(stream);
+
   if (params->outFile)
   {
     /* Write Q to file */

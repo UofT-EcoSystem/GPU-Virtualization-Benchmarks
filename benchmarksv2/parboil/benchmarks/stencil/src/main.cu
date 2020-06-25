@@ -213,10 +213,7 @@ int main_stencil(int argc, char** argv, int uid, cudaStream_t & stream) {
 	dim3 grid ((nx+tx*2-1)/(tx*2), (ny+ty-1)/ty,1);
 	int sh_size = tx*2*ty*sizeof(float);	
  
-  set_and_check(uid, true);
-  while (!set_and_check(uid, true)) {
-    usleep(100);
-  }
+  while (!set_and_check(uid, true));
 
 	//main execution
 	pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);

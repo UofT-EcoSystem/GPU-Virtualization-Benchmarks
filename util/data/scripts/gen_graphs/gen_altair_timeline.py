@@ -1,11 +1,13 @@
 import altair as alt
 import pandas as pd
 import numpy as np
+import os
+import re
 
 import data.scripts.common.constants as const
 
 
-def _prepare_data(pair_series):
+def _prepare_gpusim_metrics(pair_series):
     runtime = pair_series['runtime']
     s1_runtime = runtime[-2]
     s2_runtime = runtime[-1]
@@ -58,27 +60,59 @@ def _prepare_data(pair_series):
     return data
 
 
-# Required fields in pair_series: 1_bench, 2_bench, runtime, norm_ipc
-def draw_altair_timeline(pair_series, col_title=None, title=None):
-    # 1. Prepare data
-    data = _prepare_data(pair_series)
+def _prepare_gpusim_console(apps, filename, df_baseline):
+    # Assuming the timeline file is in
+    # util/data/timeline/apps[0]-apps[1]/filename
+    timeline_file = os.path.join(const.DATA_HOME,
+                                 'timeline/{}-{}/{}'.format(apps[0],
+                                                            apps[1],
+                                                            filename))
 
-    if col_title:
-        chart_title = "{0} = {1}".format(col_title, pair_series[col_title])
-    elif title:
-        chart_title = "{0}".format(title)
-    else:
-        chart_title = ""
+    df_baseline = df_baseline.set_index(['pair_str', '1_kidx'], drop=True)
+    kidx = [1 for app in apps]
 
-    # 2. Draw altair objects
+    data = []
+    with open(timeline_file) as f:
+        for line in f:
+            stream_id = int(re.search(r"Stream\s(.*)\skernel", line).group(1))
+            kernel = re.search(r"kernel\s(.*)\slaunched", line).group(1)
+            start = int(re.search(r"started\s@\s(.*),", line).group(1))
+            end = int(re.search(r"ended\s@\s(.*)\.", line).group(1))
+            position = (start + end) / 2
+
+            isolated_duration = df_baseline.loc[(apps[stream_id - 1],
+                                                 kidx[stream_id - 1])][
+                'runtime']
+            norm = (isolated_duration / (end - start)).round(2)
+
+            # Increment kernel index for the app
+            kidx[stream_id - 1] = (kidx[stream_id - 1] + 1)
+            if kidx[stream_id - 1] > const.get_num_kernels(apps[stream_id - 1]):
+                kidx[stream_id - 1] = 1
+
+            entry = {'stream': "{}: {}".format(stream_id, apps[stream_id-1]),
+                     'kernel': kernel,
+                     'start': start,
+                     'end': end,
+                     'norm': norm,
+                     'position': position}
+            data.append(entry)
+
+    data = pd.DataFrame(data)
+    return data
+
+
+def draw_altair(data, chart_title, width=900, xmax=None):
+    xmax = xmax if xmax else data['end'].max()
+
     bars = alt.Chart(data, title=chart_title).mark_bar().encode(
-        x=alt.X("start", title='Cycles'),
+        x=alt.X("start", title='Cycles', scale=alt.Scale(domain=(0, xmax))),
         x2="end",
         y=alt.Y("stream", sort=None),
         color=alt.Color('kernel', scale=alt.Scale(scheme='pastel1'),
                         legend=None)
     ).properties(
-        width=900,
+        width=width,
         height=100
     )
 
@@ -89,7 +123,7 @@ def draw_altair_timeline(pair_series, col_title=None, title=None):
         fontSize=12,
         angle=90,
     ).encode(
-        y=alt.Y('stream', title=None, sort=None),
+        y=alt.Y('stream', title=None, sort="ascending"),
         x='position',
         text='norm'
     )
@@ -100,3 +134,26 @@ def draw_altair_timeline(pair_series, col_title=None, title=None):
         titleColor='black',
         titleFontSize=14,
     )
+
+
+# Required fields in pair_series: 1_bench, 2_bench, runtime, norm_ipc
+def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
+    # 1. Prepare data
+    data = _prepare_gpusim_metrics(pair_series)
+
+    if col_title:
+        chart_title = "{0} = {1}".format(col_title, pair_series[col_title])
+    elif title:
+        chart_title = "{0}".format(title)
+    else:
+        chart_title = ""
+
+    # 2. Draw altair objects
+    return draw_altair(data, chart_title)
+
+
+def draw_timeline_from_console(apps, filename, df_baseline, title=None,
+                               width=900, xmax=None):
+    data = _prepare_gpusim_console(apps, filename, df_baseline)
+
+    return draw_altair(data, title, width, xmax)

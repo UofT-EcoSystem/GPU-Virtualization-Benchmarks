@@ -80,6 +80,7 @@ else:
 
     # sort table based on benchmark name
     df.sort_values('pair_str', inplace=True)
+    df['1_kidx'] = 1
 
 # Output pickle
 df.to_pickle(args.output)

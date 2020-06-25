@@ -127,13 +127,14 @@ int main_spmv(int argc, char** argv, int uid, cudaStream_t & stream) {
 	cudaMemcpyToSymbolAsync(sh_zcnt_int, h_nzcnt, nzcnt_len*sizeof(int), 0, 
       cudaMemcpyHostToDevice, stream);
 	
-  cudaThreadSynchronize();
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	unsigned int grid;
-	unsigned int block;
-  compute_active_thread(&block, &grid, nzcnt_len,pad, 
-      deviceProp.major,deviceProp.minor,
-			deviceProp.warpSize,deviceProp.multiProcessorCount);
+  cudaStreamSynchronize(stream);
+
+  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  unsigned int grid;
+  unsigned int block;
+  compute_active_thread(&block, &grid, nzcnt_len,pad,
+                        deviceProp.major,deviceProp.minor,
+                        deviceProp.warpSize,deviceProp.multiProcessorCount);
 
 	
   cudaFuncSetCacheConfig(spmv_jds, cudaFuncCachePreferL1);
@@ -158,43 +159,41 @@ int main_spmv(int argc, char** argv, int uid, cudaStream_t & stream) {
   }
 						
   CUERR // check and clear any existing errors
-	
-	cudaThreadSynchronize();
-	
-	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	//HtoD memory copy
-	cudaMemcpyAsync(h_Ax_vector, d_Ax_vector,dim*sizeof(float), 
-      cudaMemcpyDeviceToHost, stream);	
 
-	cudaDeviceSynchronize();
+  pb_SwitchToTimer(&timers, pb_TimerID_COPY);
+  //HtoD memory copy
+  cudaMemcpyAsync(h_Ax_vector, d_Ax_vector,dim*sizeof(float),
+                  cudaMemcpyDeviceToHost, stream);
 
-	cudaFree(d_data);
-    cudaFree(d_indices);
-    cudaFree(d_ptr);
-	cudaFree(d_perm);
-    cudaFree(d_nzcnt);
-    cudaFree(d_x_vector);
-	cudaFree(d_Ax_vector);
- 
-	if (parameters->outFile) {
-		pb_SwitchToTimer(&timers, pb_TimerID_IO);
-		outputData(parameters->outFile,h_Ax_vector,dim);
-		
-	}
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	
-	free (h_data);
-	free (h_indices);
-	free (h_ptr);
-	free (h_perm);
-	free (h_nzcnt);
-	free (h_Ax_vector);
-	free (h_x_vector);
-	pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+  cudaStreamSynchronize(stream);
 
-	pb_PrintTimerSet(&timers);
-	pb_FreeParameters(parameters);
+  cudaFree(d_data);
+  cudaFree(d_indices);
+  cudaFree(d_ptr);
+  cudaFree(d_perm);
+  cudaFree(d_nzcnt);
+  cudaFree(d_x_vector);
+  cudaFree(d_Ax_vector);
 
-	return 0;
+  if (parameters->outFile) {
+    pb_SwitchToTimer(&timers, pb_TimerID_IO);
+    outputData(parameters->outFile,h_Ax_vector,dim);
+
+  }
+  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+
+  free (h_data);
+  free (h_indices);
+  free (h_ptr);
+  free (h_perm);
+  free (h_nzcnt);
+  free (h_Ax_vector);
+  free (h_x_vector);
+  pb_SwitchToTimer(&timers, pb_TimerID_NONE);
+
+  pb_PrintTimerSet(&timers);
+  pb_FreeParameters(parameters);
+
+  return 0;
 
 }

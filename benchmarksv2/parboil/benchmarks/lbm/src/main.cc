@@ -45,20 +45,20 @@ struct pb_TimerSet timers;
 /*############################################################################*/
 
 int main_lbm( int nArgs, char* arg[], int uid, cudaStream_t & stream ) {
-	MAIN_Param param;
+  MAIN_Param param;
 
-	pb_InitializeTimerSet(&timers);
-        struct pb_Parameters* params;
-        params = pb_ReadParameters(&nArgs, arg);
-        
+  pb_InitializeTimerSet(&timers);
+  struct pb_Parameters* params;
+  params = pb_ReadParameters(&nArgs, arg);
 
-	//static LBM_GridPtr TEMP_srcGrid;
-	//Setup TEMP datastructures
-	//LBM_allocateGrid( (float**) &TEMP_srcGrid );
-	MAIN_parseCommandLine( nArgs, arg, &param, params );
-	MAIN_printInfo( &param );
 
-	MAIN_initialize( &param, stream );
+  //static LBM_GridPtr TEMP_srcGrid;
+  //Setup TEMP datastructures
+  //LBM_allocateGrid( (float**) &TEMP_srcGrid );
+  MAIN_parseCommandLine( nArgs, arg, &param, params );
+  MAIN_printInfo( &param );
+
+  MAIN_initialize( &param, stream );
 
   set_and_check(uid, true);
   while (!set_and_check(uid, true)) {
@@ -67,33 +67,31 @@ int main_lbm( int nArgs, char* arg[], int uid, cudaStream_t & stream ) {
 
   bool can_exit = false;
   int t = 1;
-	//for( t = 1; t <= param.nTimeSteps; t++ ) 
+  //for( t = 1; t <= param.nTimeSteps; t++ )
   while (!can_exit)
   {
     pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
-		CUDA_LBM_performStreamCollide( CUDA_srcGrid, CUDA_dstGrid, stream );
+    CUDA_LBM_performStreamCollide( CUDA_srcGrid, CUDA_dstGrid, stream );
     pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-		LBM_swapGrids( &CUDA_srcGrid, &CUDA_dstGrid );
+    LBM_swapGrids( &CUDA_srcGrid, &CUDA_dstGrid );
 
-		if( (t & 63) == 0 ) {
-			printf( "timestep: %i\n", t );
-			//CUDA_LBM_getDeviceGrid((float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid);
-			//LBM_showGridStatistics( *TEMP_srcGrid );
-		}
+    if( (t & 63) == 0 ) {
+      printf( "timestep: %i\n", t );
+      //CUDA_LBM_getDeviceGrid((float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid);
+      //LBM_showGridStatistics( *TEMP_srcGrid );
+    }
 
     cudaStreamSynchronize(stream);
-    
+
     t++;
     printf("parboil lbm - t: %d\n", t);
 
     can_exit = set_and_check(uid, false);
-	}
+  }
 
-  cudaDeviceSynchronize();
+  MAIN_finalize( &param, stream );
 
-	MAIN_finalize( &param, stream );
-
-	//LBM_freeGrid( (float**) &TEMP_srcGrid );
+  //LBM_freeGrid( (float**) &TEMP_srcGrid );
   LBM_freeGrid( (float**) &TEMP_srcGrid );
   LBM_freeGrid( (float**) &TEMP_dstGrid );
 
@@ -101,7 +99,7 @@ int main_lbm( int nArgs, char* arg[], int uid, cudaStream_t & stream ) {
   pb_PrintTimerSet(&timers);
   pb_FreeParameters(params);
 
-	return 0;
+  return 0;
 }
 
 /*############################################################################*/

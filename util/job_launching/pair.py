@@ -47,7 +47,7 @@ def parse_args():
                              'Only checked when all is passed to --pair.')
 
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
-                                          'inter', 'ctx', 'lut'],
+                                          'inter', 'ctx', 'lut', 'custream'],
                         help='How to partition resources between benchmarks.')
     parser.add_argument('--num_slice', default=4, type=int,
                         help='If how is ctx, num_slice specifies how many '
@@ -59,6 +59,10 @@ def parse_args():
     parser.add_argument('--top',
                         action='store_true',
                         help='If how is dynamic, only select top candidates.')
+    parser.add_argument('--qos',
+                        type=float,
+                        default=0.5,
+                        help='If how is dynamic, specify target qos.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -122,6 +126,15 @@ def process_smk(pair, config):
     return 1
 
 
+def process_custream(pair, config):
+    configs = [config + '-CUDA_0:{}:0_STREAM'.format(const.LAUNCH_LATENCY),
+               config + '-CUDA_0:0:{}_STREAM'.format(const.LAUNCH_LATENCY)]
+
+    [launch_job(cfg, pair=pair) for cfg in configs]
+
+    return 2
+
+
 def process_static(pair, base_config):
     apps = pair.split('+')
     app_df = pd.DataFrame.from_dict(bench_opt_config, orient='index',
@@ -168,6 +181,7 @@ def process_dynamic(pair):
 
     pair_config_args += ['--cap', str(args.cap)]
     pair_config_args += ['--intra_pkl', args.intra_pkl]
+    pair_config_args += ['--qos', str(args.qos)]
 
     if args.top:
         pair_config_args += ['--top']
@@ -395,6 +409,9 @@ def main():
         len_configs = [process_ctx(pair, base_config) for pair in args.pair]
     elif args.how == 'lut':
         len_configs = [process_lut(pair, base_config) for pair in args.pair]
+    elif args.how == 'custream':
+        len_configs = [process_custream(pair, base_config) for pair in
+                       args.pair]
     else:
         print('Invalid sharing config how.')
         sys.exit(1)

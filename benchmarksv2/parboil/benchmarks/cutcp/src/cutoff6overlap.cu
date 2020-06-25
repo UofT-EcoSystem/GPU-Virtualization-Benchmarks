@@ -638,8 +638,6 @@ int gpu_compute_cutoff_potential_lattice6overlap(
     printf("\n");
   }
 
-  cudaStreamSynchronize(stream);
-  CUERR;
   printf("Finished CUDA kernel calls                        \n");
 
   /* copy result regions from CUDA device */
@@ -647,7 +645,7 @@ int gpu_compute_cutoff_potential_lattice6overlap(
   cudaMemcpyAsync(regionZeroAddr, regionZeroCuda, lnall * sizeof(ener_t),
       cudaMemcpyDeviceToHost, stream);
 
-  cudaDeviceSynchronize();
+  cudaStreamSynchronize(stream);
   CUERR;
 
   /* free CUDA memory allocations */
