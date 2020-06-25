@@ -1,0 +1,11 @@
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 0, started @ 1, ended @ 188549. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 188552, started @ 2509873, ended @ 3108876. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 3108879, started @ 3108880, ended @ 3473116. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 3473118, started @ 3473119, ended @ 3674686. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 3674688, started @ 3674689, ended @ 3876786. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 3876788, started @ 3876789, ended @ 4074829. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 4074831, started @ 4074832, ended @ 4265398. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 4265402, started @ 4265403, ended @ 4452779. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 4452783, started @ 4452784, ended @ 4638285. 
+>>>>>>>> Stream 2 kernel _Z15kernel_gpu_cuda7par_str7dim_strP7box_strP11FOUR_VECTORPdS4_ launched @ 10, started @ 172531, ended @ 4802888. 
+>>>>>>>> Stream 1 kernel _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi launched @ 4638297, started @ 4638298, ended @ 4818501. 

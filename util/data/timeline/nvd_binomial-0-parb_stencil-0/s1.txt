@@ -1,0 +1,5 @@
+>>>>>>>> Stream 2 kernel _Z24block2D_hybrid_coarsen_xffPfS_iii launched @ 10, started @ 26, ended @ 454472. 
+>>>>>>>> Stream 2 kernel _Z24block2D_hybrid_coarsen_xffPfS_iii launched @ 454474, started @ 454475, ended @ 936246. 
+>>>>>>>> Stream 2 kernel _Z24block2D_hybrid_coarsen_xffPfS_iii launched @ 936249, started @ 936250, ended @ 1363266. 
+>>>>>>>> Stream 1 kernel _Z21binomialOptionsKernelv launched @ 0, started @ 1, ended @ 1448370. 
+>>>>>>>> Stream 2 kernel _Z24block2D_hybrid_coarsen_xffPfS_iii launched @ 1363270, started @ 1363271, ended @ 1774515. 
