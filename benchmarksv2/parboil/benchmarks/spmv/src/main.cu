@@ -127,13 +127,14 @@ int main_spmv(int argc, char** argv, int uid, cudaStream_t & stream) {
 	cudaMemcpyToSymbolAsync(sh_zcnt_int, h_nzcnt, nzcnt_len*sizeof(int), 0, 
       cudaMemcpyHostToDevice, stream);
 	
-  cudaThreadSynchronize();
-	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	unsigned int grid;
-	unsigned int block;
-  compute_active_thread(&block, &grid, nzcnt_len,pad, 
-      deviceProp.major,deviceProp.minor,
-			deviceProp.warpSize,deviceProp.multiProcessorCount);
+  cudaStreamSynchronize(stream);
+
+  pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
+  unsigned int grid;
+  unsigned int block;
+  compute_active_thread(&block, &grid, nzcnt_len,pad,
+                        deviceProp.major,deviceProp.minor,
+                        deviceProp.warpSize,deviceProp.multiProcessorCount);
 
 	
   cudaFuncSetCacheConfig(spmv_jds, cudaFuncCachePreferL1);
