@@ -104,7 +104,7 @@ for app in args.apps:
         print(p.stdout.decode("utf-8"))
 
 
-    base_config = "TITANV-SEP_RW-PAE-CONCURRENT"
+    base_config = const.base_config
 
     if args.intra:
         for k in kernels:

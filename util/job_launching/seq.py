@@ -26,7 +26,7 @@ def parse_args():
 
 args = parse_args()
 
-config_str = "TITANV-SEP_RW-PAE"
+config_str = const.base_config
 jobname = 'seq'
 
 for benchmark in args.app:

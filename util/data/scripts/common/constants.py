@@ -15,7 +15,8 @@ max_register = 64 * 1024
 num_sm_volta = 80
 num_mem_channels_volta = 24
 
-base_config = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
+base_config = "V100-PAE-CONCURRENT-SEP_RW"
+pair_base_config = base_config + "-LSRR"
 
 # Specify kernel launch latency in cycles
 # This is useful to enforce which stream gets to launch its kernel first in
