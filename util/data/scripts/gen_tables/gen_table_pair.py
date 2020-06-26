@@ -230,6 +230,11 @@ def evaluate_kernel_wise(df_pair, df_baseline):
 
     df_pair['runtime'] = df_pair.apply(handle_incomplete, axis=1)
     df_pair['sld'] = df_pair.apply(calc_sld, axis=1)
+
+    # Backward compatible with existing scripts...
+    df_pair['1_sld'] = [sld_list[1] for sld_list in df_pair['sld']]
+    df_pair['2_sld'] = [sld_list[2] for sld_list in df_pair['sld']]
+
     df_pair['fairness'] = df_pair['sld'].transform(
         lambda sld: min(sld[1]/sld[2], sld[2]/sld[1])
     )
@@ -319,10 +324,19 @@ def main():
         df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
 
         # Join table with profiled info and predicted performance
+        if args.multi:
+            pair_cols = ['1_bench', '2_bench', '1_kidx', '2_kidx', '1_intra',
+                         '2_intra']
+            intra_cols = ['pair_str_x', 'pair_str_y', '1_kidx_x', '1_kidx_y',
+                          '1_intra_x', '1_intra_y']
+        else:
+            pair_cols = ['1_bench', '2_bench', '1_intra', '2_intra']
+            intra_cols = ['pair_str_x', 'pair_str_y', 'intra_x', 'intra_y']
+
         df_join = pd.merge(df_pair, df_profiled,
                            how='left',
-                           left_on=['1_bench', '2_bench', 'config'],
-                           right_on=['pair_str_x', 'pair_str_y', 'config'])
+                           left_on=pair_cols,
+                           right_on=intra_cols)
 
         # Output pickle
         df_join.to_pickle(args.output)
