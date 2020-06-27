@@ -51,13 +51,14 @@ def get_kernel_stat(kernel, stat, kidx):
         bench = sp_kernel[0]
         kidx = int(sp_kernel[1])
         return kernel_yaml[bench][kidx][stat]
-    elif (kidx != 0) and (kernel in multi_kernel_app):
+    elif kernel in multi_kernel_app:
         return kernel_yaml[kernel][kidx][stat]
     else:
+        # Ignore kidx if this is a single-kernel benchmark
         return kernel_yaml[kernel][stat]
 
 
-def get_max_cta_per_sm(bench, kidx=0):
+def get_max_cta_per_sm(bench, kidx=1):
     return get_kernel_stat(bench, 'max_cta', kidx)
 
 
@@ -72,7 +73,7 @@ def calc_cta_quota(bench, ctx):
     return k_quota
 
 
-def get_grid_size(bench, kidx=0):
+def get_grid_size(bench, kidx=1):
     return get_kernel_stat(bench, 'grid', kidx)
 
 
@@ -87,7 +88,7 @@ def get_achieved_cta(kernel):
     return result
 
 
-def get_block_size(bench, kidx=0, padded=True):
+def get_block_size(bench, kidx=1, padded=True):
     block_size = get_kernel_stat(bench, 'block', kidx)
     if padded:
         block_size = math.ceil(block_size / 32) * 32
@@ -95,7 +96,7 @@ def get_block_size(bench, kidx=0, padded=True):
     return block_size
 
 
-def get_block_ratio(bench, kidx=0):
+def get_block_ratio(bench, kidx=1):
     block_size = get_block_size(bench, kidx)
 
     return block_size / max_thread_volta

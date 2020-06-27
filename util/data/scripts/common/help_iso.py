@@ -63,7 +63,7 @@ def std_array(s):
     return np.array(result)
 
 
-def process_config_column(*configs, df):
+def process_config_column(*configs, df, default=0):
 
     for c in configs:
         def parse_cfg(str):
@@ -76,7 +76,7 @@ def process_config_column(*configs, df):
                 if match:
                     return match.group(1)
 
-            return 0
+            return default
 
         df[c] = df['config'].apply(parse_cfg).astype(type_table.get(c, float))
 
@@ -106,7 +106,12 @@ def multi_array_col_seq(df):
                 df[m] = df[m].transform(lambda x: x[1][0])
 
     singular('runtime', 'instructions', 'l2_bw', 'avg_mem_lat',
-             'avg_core_to_l2', 'avg_l2_to_core', 'avg_mrq_latency')
+             'avg_core_to_l2', 'avg_l2_to_core', 'avg_mrq_latency',
+             'barrier_cycles', 'inst_empty_cycles', 'branch_cycles',
+             'scoreboard_cycles', 'stall_sp_cycles', 'stall_dp_cycles',
+             'stall_int_cycles', 'stall_tensor_cycles', 'stall_sfu_cycles',
+             'stall_mem_cycles', 'not_selected_cycles', 'cycles_per_issue',
+             )
 
 
 def calculate_sld_short(shared_runtime, isolated_runtime):
