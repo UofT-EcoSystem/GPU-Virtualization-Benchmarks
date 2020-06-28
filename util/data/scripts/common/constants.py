@@ -13,10 +13,12 @@ max_thread_volta = 2048
 max_smem = 96 * 1024
 max_register = 64 * 1024
 num_sm_volta = 80
-num_mem_channels_volta = 24
+num_mem_channels_volta = 32
 
 base_config = "V100-PAE-CONCURRENT-SEP_RW"
 pair_base_config = base_config + "-LSRR"
+
+l2d_bypass_threshold = 0.95
 
 # Specify kernel launch latency in cycles
 # This is useful to enforce which stream gets to launch its kernel first in

@@ -1,7 +1,6 @@
 import argparse
 import subprocess
 import pandas as pd
-import numpy as np
 from job_launching.constant import *
 import data.scripts.common.constants as const
 
@@ -23,15 +22,16 @@ def parse_args():
                         help='Run intra experiments or not.')
     parser.add_argument('--inter', action='store_true',
                         help='Run inter experiments or not.')
-
     parser.add_argument('--mig', action='store_true',
                         help='Run mig experiments or not.')
+
     parser.add_argument('--cta_configs', default=4, type=int,
                         help='Sweeping step of CTAs/SM for intra-SM sharing.')
     parser.add_argument('--sm_configs', default=4, type=int,
                         help='Sweeping step of SMs for inter-SM sharing.')
     parser.add_argument('--mig_configs', default=4, type=int,
-                        help='Sweeping step of SM and mem channels for MIG sharing.')
+                        help='Sweeping step of SM and mem channels for MIG '
+                             'sharing.')
 
     parser.add_argument('--no_launch', default=False, action='store_true',
                         help='Do not actually trigger job launching.')
@@ -55,6 +55,14 @@ if args.apps[0] == 'all':
     last_index = min(len(all_apps), args.count + args.id_start)
     args.apps = all_apps[args.id_start:last_index]
 
+# Load seq run results for find out whether the kernels should bypass L2D
+df_seq = pd.read_pickle(os.path.join(const.DATA_HOME, 'pickles/seq.pkl'))
+df_seq.set_index('pair_str', inplace=True)
+
+df_seq_multi = pd.read_pickle(os.path.join(const.DATA_HOME,
+                                           'pickles/seq-multi.pkl'))
+df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True)
+
 for app in args.apps:
     if app in const.multi_kernel_app:
         kernels = ["{0}:{1}".format(app, kidx)
@@ -67,9 +75,7 @@ for app in args.apps:
 
 
     def launch_job(sm_config, jobname, kernel):
-        #        configs = ["-".join([base_config, sm, l2])
-        #                   for sm in sm_config for l2 in l2_partition]
-        configs = ["-".join([base_config, sm]) for sm in sm_config]
+        configs = ["-".join([const.base_config, sm]) for sm in sm_config]
 
         split_kernel = kernel.split(':')
         if len(split_kernel) > 1:
@@ -85,6 +91,15 @@ for app in args.apps:
                                  "NUM_0:{}:0_KERNEL".format(num_kernel)]
                                 )
                        for cfg in configs]
+
+            # Check if we should disable l2d
+            configs = [cfg + "-BYPASS_L2D_S1" for cfg in configs if
+                       df_seq_multi.loc[(bench, kidx)]['l2_miss_rate'] >
+                       const.l2d_bypass_threshold]
+        else:
+            configs = [cfg + "-BYPASS_L2D_S1" for cfg in configs if
+                       df_seq.loc[kernel]['l2_miss_rate']
+                       > const.l2d_bypass_threshold]
 
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
@@ -104,7 +119,6 @@ for app in args.apps:
         print(p.stdout.decode("utf-8"))
 
 
-    base_config = const.base_config
 
     if args.intra:
         for k in kernels:
