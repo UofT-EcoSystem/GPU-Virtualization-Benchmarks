@@ -57,11 +57,11 @@ if args.apps[0] == 'all':
 
 # Load seq run results for find out whether the kernels should bypass L2D
 df_seq = pd.read_pickle(os.path.join(const.DATA_HOME, 'pickles/seq.pkl'))
-df_seq.set_index('pair_str', inplace=True)
+df_seq.set_index('pair_str', inplace=True, drop=True)
 
 df_seq_multi = pd.read_pickle(os.path.join(const.DATA_HOME,
                                            'pickles/seq-multi.pkl'))
-df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True)
+df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True, drop=True)
 
 for app in args.apps:
     if app in const.multi_kernel_app:
@@ -84,7 +84,7 @@ for app in args.apps:
             # this kernel
             jobname += '-multi'
             bench = split_kernel[0]
-            kidx = split_kernel[1]
+            kidx = int(split_kernel[1])
             num_kernel = const.get_num_kernels(bench)
             configs = ["-".join([cfg,
                                  "MIX_0:{}:0_KIDX".format(kidx),
