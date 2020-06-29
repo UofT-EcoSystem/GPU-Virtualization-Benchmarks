@@ -64,14 +64,24 @@ df_seq_multi = pd.read_pickle(os.path.join(const.DATA_HOME,
 df_seq_multi.set_index(['pair_str', '1_kidx'], inplace=True, drop=True)
 
 for app in args.apps:
-    if app in const.multi_kernel_app:
-        kernels = ["{0}:{1}".format(app, kidx)
-                   for kidx in const.kernel_yaml[app].keys()]
-    elif app in const.kernel_yaml.keys():
-        kernels = [app]
+    # Check if this is part of a multi-kernel app
+    sp_kernel = app.split(':')
+
+    if len(sp_kernel) > 1:
+        if sp_kernel[0] not in const.multi_kernel_app:
+            print("{} is not in multi-kernel map. Skip.", sp_kernel[0])
+            continue
+        else:
+            kernels = [app]
     else:
-        print("{0} is not in application map. Skip.".format(app))
-        continue
+        if app in const.multi_kernel_app:
+            kernels = ["{0}:{1}".format(app, kidx)
+                       for kidx in const.kernel_yaml[app].keys()]
+        elif app in const.kernel_yaml.keys():
+            kernels = [app]
+        else:
+            print("{0} is not in application map. Skip.".format(app))
+            continue
 
 
     def launch_job(sm_config, jobname, kernel):
