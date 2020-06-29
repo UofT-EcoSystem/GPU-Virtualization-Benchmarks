@@ -64,7 +64,7 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
 
     # Make apps into tuples
     split_kernel = [a.split(':') for a in apps]
-    apps = [(sk[0], int(sk[1])) if len(sk) > 1 else (sk[0], 0) for sk in
+    apps = [(sk[0], int(sk[1])) if len(sk) > 1 else (sk[0], 1) for sk in
             split_kernel]
     kernel_keys = df_intra[['pair_str', '1_kidx']].apply(tuple, axis=1)
 
@@ -152,20 +152,17 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
         # fail fast config
         max_cycle = int(cap * max(row['runtime_x'] * row['norm_ipc_x'],
                                   row['runtime_y'] * row['norm_ipc_y']))
-        config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
+        config_cap = 'CAP_{0}_CYCLE'.format(max_cycle)
 
+        # Intra SM quota
         config_intra = 'INTRA_0:' + str(row['intra_x']) + ':' \
                        + str(row['intra_y']) + '_CTA'
-        # config_l2 = 'PARTITION_L2_0:' + str(row['l2_x']) + ':'
-        # + str(row['l2_y'])
 
-#        if row['pair_str_x'] == row['penalized']:
-#            config_icnt = 'ICNT_0:2:1_PRIORITY'
-#        else:
-#            config_icnt = 'ICNT_0:1:2_PRIORITY'
+        # Bypass L2D config
+        config_l2 = 'ENABLE_L2D_1:{}:{}'.format(int(not row['bypass_l2_x']),
+                                                int(not row['bypass_l2_y']))
 
-        # config = '-'.join([config_base, config_intra, config_l2])
-        config = '-'.join([config_base, config_intra])
+        config = '-'.join([config_base, config_cap, config_intra, config_l2])
 
         return config
 
@@ -176,6 +173,10 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
 
 def main(_args):
     args = parse_args(_args)
+
+    # clear output file
+    if os.path.exists(args.output):
+        os.remove(args.output)
 
     df_prod = build_df_prod(args.intra_pkl, args.qos, args.apps,
                             cap=args.cap, top_only=args.top)
