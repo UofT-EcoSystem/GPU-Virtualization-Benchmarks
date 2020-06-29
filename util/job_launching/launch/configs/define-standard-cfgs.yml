@@ -74,11 +74,14 @@ MIG_?_MEM:
 ICNT_?_PRIORITY:
   extra_params: "-icnt_priority ?" 
 
-BYPASS_L2:
+DISABLE_L2:
   extra_params: "-gpgpu_cache:dl2 none -gpgpu_cache:il1 N:64:128:16,L:R:f:N:L,A:2:48,4 -gpgpu_const_cache:l1 N:128:64:8,L:R:f:N:L,A:2:64,4"
 
 BYPASS_L2D_S1:
   extra_params: "-l2d_enabled 1:0:1"
+
+ENABLE_L2D_?:
+  extra_params: "-l2d_enabled ?"
 
 NO_RW_TURNAROUND:
   extra_params: "-Elimnate_rw_turnaround"
