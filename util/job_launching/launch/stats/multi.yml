@@ -24,6 +24,10 @@
     'gpgpu_tensor_busy\s*=\s*(.*)'
   'sfu_busy':
     'gpgpu_sfu_busy\s*=\s*(.*)'
+  'regs':
+    'regs=(.*),\slmem'
+  'smem':
+    'smem=(.*),'
 'vector':
   'runtime': 'gpu_tot_sim_cycle\[(.*)\]\[(.*)\]\s*:\s*(.*)'
   'instructions': 'gpu_tot_sim_insn\[(.*)\]\[(.*)\]\s*:\s*(.*)'

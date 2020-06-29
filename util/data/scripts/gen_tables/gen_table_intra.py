@@ -39,17 +39,11 @@ def parse_args():
 
 def process_metrics(df_intra, multi):
     # concurrent thread count per SM
-    if multi:
-        df_intra['thread_count'] = df_intra.apply(
-            lambda row: row['intra'] * const.get_block_size(row['pair_str'],
-                                                            row['1_kidx']),
-            axis=1
-        )
-    else:
-        df_intra['thread_count'] = df_intra.apply(
-            lambda row: row['intra'] * const.get_block_size(row['pair_str']),
-            axis=1
-        )
+    df_intra['thread_count'] = df_intra.apply(
+        lambda row: row['intra'] * const.get_block_size(row['pair_str'],
+                                                        row['1_kidx']),
+        axis=1
+    )
 
     # avg dram bandwidth
     df_intra['avg_dram_bw'] = df_intra['dram_bw'].transform(hi.avg_array)
@@ -87,6 +81,8 @@ def process_metrics(df_intra, multi):
     df_intra['thread_ratio'] = threads / const.max_thread_volta
 
     if multi:
+        # Multi-kernel cannot rely on gpusim to report regs/smem since there
+        # are multiple kernels
         df_intra['smem'] = df_intra.apply(
             lambda row: const.get_smem(row['pair_str'], row['1_kidx']),
             axis=1
@@ -109,47 +105,28 @@ def process_metrics(df_intra, multi):
 def normalize_over_seq(df_intra, df_seq, multi):
     df_intra = df_intra.copy()
 
-    if multi:
-        hi.multi_array_col_seq(df_intra)
+    hi.multi_array_col_seq(df_intra)
 
-        # calculate ipc
-        df_intra['ipc'] = df_intra['instructions'] / df_intra['runtime']
+    # calculate ipc
+    df_intra['ipc'] = df_intra['instructions'] / df_intra['runtime']
 
-        # gpusim config
-        hi.process_config_column('intra', '1_kidx', df=df_intra)
+    # gpusim config
+    hi.process_config_column('intra', df=df_intra)
+    hi.process_config_column('1_kidx', df=df_intra, default=1)
 
-        df_seq.set_index(['pair_str', '1_kidx'], inplace=True)
+    df_seq.set_index(['pair_str', '1_kidx'], inplace=True)
 
-        # Process df_intra
-        def norm_over_seq(index, metric, value, inverse=True):
-            return hi.normalize(df_seq, index, metric, value, inverse)
+    # Process df_intra
+    def norm_over_seq(index, value, inverse=True):
+        return hi.normalize(df_seq, index, 'ipc', value, inverse)
 
-        # normalized IPC
-        df_intra['norm_ipc'] = df_intra.apply(lambda row:
-                                              norm_over_seq((row['pair_str'],
-                                                             row['1_kidx']),
-                                                            'ipc',
-                                                            row['ipc'],
-                                                            False),
-                                              axis=1)
-    else:
-        # gpusim config
-        hi.process_config_column('intra', '1_kidx', df=df_intra)
-
-        df_seq.set_index('pair_str', inplace=True)
-
-        # Process df_intra
-        def norm_over_seq(index, metric, value, inverse=True):
-            return hi.normalize(df_seq, index, metric, value, inverse)
-
-        # normalized IPC
-        df_intra['norm_ipc'] = df_intra.apply(lambda row:
-                                              norm_over_seq(row['pair_str'],
-                                                            'ipc',
-                                                            row['ipc'],
-                                                            False),
-                                              axis=1)
-
+    # normalized IPC
+    df_intra['norm_ipc'] = df_intra.apply(lambda row:
+                                          norm_over_seq((row['pair_str'],
+                                                         row['1_kidx']),
+                                                        row['ipc'],
+                                                        False),
+                                          axis=1)
     return df_intra
 
 
