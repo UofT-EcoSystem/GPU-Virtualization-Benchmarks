@@ -13,6 +13,7 @@ bench_dict = {'cut_sgemm-0':0, 'cut_sgemm-1':0, 'cut_wmma-0': 0, 'cut_wmma-1': 0
 regex_table = {'intra': r'INTRA_0:(.*):[0-9]+_CTA',
                'inter': r'INTER_0:(.*):[0-9]+_SM',
                'kidx': r'MIX_(.*)_KIDX',
+               'bypass_l2': r'BYPASS_L2D_S1',
                'l2': r'PARTITION_L2_0:(.*):[0-9|\.]+',
                '1_intra': r'INTRA_0:(.*):[0-9]+_CTA',
                '1_inter': r'INTER_0:(.*):[0-9]+_SM',
@@ -74,7 +75,10 @@ def process_config_column(*configs, df, default=0):
             for substring in list_config:
                 match = re.search(regex_table[c], substring)
                 if match:
-                    return match.group(1)
+                    if len(match.groups()) == 1:
+                        return match.group(1)
+                    else:
+                        return True
 
             return default
 
