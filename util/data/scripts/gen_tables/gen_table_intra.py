@@ -113,7 +113,7 @@ def normalize_over_seq(df_intra, df_seq, multi):
     # gpusim config
     hi.process_config_column('intra', df=df_intra)
     hi.process_config_column('1_kidx', df=df_intra, default=1)
-    hi.process_config_column('bypass_l2', df=df_intra, default=True)
+    hi.process_config_column('bypass_l2', df=df_intra, default=False)
 
     df_seq.set_index(['pair_str', '1_kidx'], inplace=True)
 
