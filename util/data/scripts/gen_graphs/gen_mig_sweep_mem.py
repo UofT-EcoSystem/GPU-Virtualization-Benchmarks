@@ -25,6 +25,10 @@ def parse_args():
     parser.add_argument('--outfile',
                         help='name of file where the image will be saved.')
 
+    parser.add_argument('--gpu',
+                        required=True,
+                        help='name of the gpu used.')
+
     results = parser.parse_args()
     return results
 
@@ -66,8 +70,9 @@ def main():
                 data=df_by_suite[i], hue=df_by_suite[i].iat[0,2],
                 ax=axes[i])
         graph.legend(loc='lower right')
-        axes[i].set_xticks(range(0,25,4))
+        axes[i].set_xticks(range(0,25,12))
 
+    f.suptitle('Mig sweep mem_only on {}'.format(args.gpu), fontsize=24)
     f.savefig(args.outfile)
 
 
