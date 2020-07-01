@@ -102,16 +102,18 @@ for app in args.apps:
                                 )
                        for cfg in configs]
 
-            # Check if we should disable l2d
-            configs = [cfg + "-BYPASS_L2D_S1" if
-                       df_seq_multi.loc[(bench, kidx)]['l2_miss_rate'] >
-                       const.l2d_bypass_threshold
-                       else cfg for cfg in configs]
+            if args.intra:
+                # Check if we should disable l2d
+                configs = [cfg + "-BYPASS_L2D_S1" if
+                           df_seq_multi.loc[(bench, kidx)]['l2_miss_rate'] >
+                           const.l2d_bypass_threshold
+                           else cfg for cfg in configs]
         else:
-            configs = [cfg + "-BYPASS_L2D_S1" if
-                       df_seq.loc[kernel]['l2_miss_rate']
-                       > const.l2d_bypass_threshold
-                       else cfg for cfg in configs]
+            if args.intra:
+                configs = [cfg + "-BYPASS_L2D_S1" if
+                           df_seq.loc[kernel]['l2_miss_rate']
+                           > const.l2d_bypass_threshold
+                           else cfg for cfg in configs]
 
         cmd = ['python3',
                os.path.join(RUN_HOME, 'run_simulations.py'),
