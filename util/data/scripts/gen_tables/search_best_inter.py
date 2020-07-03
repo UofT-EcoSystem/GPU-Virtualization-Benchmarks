@@ -49,15 +49,20 @@ def parse_args(_args):
     return results
 
 
-def build_config(max_cycle, inter_cta):
+def build_config(max_cycle, inter_cta, df_inter, apps):
     config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
 
-    config_base += '-CAP_{0}_CYCLE'.format(max_cycle)
+    config_cap = 'CAP_{0}_CYCLE'.format(max_cycle)
 
     config_inter = 'INTER_0:' + str(inter_cta) + ':' \
                    + str(const.num_sm_volta - inter_cta) + '_SM'
 
-    config = '-'.join([config_base, config_inter])
+    config_l2 = 'ENABLE_L2D_1:{}:{}'.format(
+        int(not df_inter.loc[apps[0], inter_cta]['bypass_l2']),
+        int(not df_inter.loc[apps[1], inter_cta]['bypass_l2'])
+    )
+
+    config = '-'.join([config_base, config_cap, config_inter, config_l2])
 
     return config
 
@@ -82,8 +87,9 @@ def build_configs_local(inter_pkl, pair_inter_pkl, apps, max_cycle):
     df_pair_inter.set_index('1_inter', inplace=True)
 
     if estimated_best_inter not in df_pair_inter.index:
-        print('App {0} and {1} cannot find expected best inter simulation.'.format(
-            apps[0], apps[1]))
+        print(
+            'App {0} and {1} cannot find expected best inter simulation.'.format(
+                apps[0], apps[1]))
         return []
 
     # real ws of estimated best
@@ -201,11 +207,15 @@ def build_configs_large(inter_pkl, pair_inter_pkl, apps, max_cycle):
         return []
 
     list_configs = []
+
+    df_inter = pd.read_pickle(inter_pkl)
+    df_inter.set_index(['pair_str', 'inter'], drop=True)
+
     for inter_cta in range(left_bound, right_bound + 4, 4):
         if (inter_cta == best_1_inter) or (inter_cta == best_1_inter + 4):
             continue
 
-        config = build_config(max_cycle, inter_cta)
+        config = build_config(max_cycle, inter_cta, df_inter, apps)
         list_configs.append(config)
 
     return list_configs
@@ -222,7 +232,7 @@ def main(_args):
     df_seq.set_index('pair_str', inplace=True)
 
     max_cycle = int(args.cap * max(df_seq.loc[args.apps[0], 'runtime'],
-                                    df_seq.loc[args.apps[1], 'runtime']))
+                                   df_seq.loc[args.apps[1], 'runtime']))
 
     if args.how == 'large':
         list_configs = build_configs_large(args.inter_pkl, args.pair_inter_pkl,

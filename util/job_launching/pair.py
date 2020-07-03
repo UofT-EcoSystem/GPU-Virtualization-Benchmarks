@@ -8,7 +8,7 @@ from job_launching.constant import *
 import data.scripts.common.constants as const
 import data.scripts.common.help_iso as help_iso
 import data.scripts.gen_tables.gen_pair_configs as dynamic
-import data.scripts.gen_tables.search_best_inter as inter
+import data.scripts.gen_tables.gen_inter_configs as inter
 
 # (Intra CTAs/SM, L2 usage, disable l2D)
 bench_opt_config = {
@@ -277,7 +277,7 @@ def process_inter(pair):
     pair_config_args = ['--apps'] + apps
     pair_config_args.append('--print')
     pair_config_args += ['--cap', str(args.cap)]
-    pair_config_args += ['--how', 'local']
+    pair_config_args += ['--top']
 
     configs = inter.main(pair_config_args)
 

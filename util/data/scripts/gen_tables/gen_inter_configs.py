@@ -5,6 +5,8 @@ import os
 import pandas as pd
 import numpy as np
 
+TOP_CHOICES = 5
+
 
 def parse_args(_args):
     parser = argparse.ArgumentParser('Generate application pair configs '
@@ -44,7 +46,7 @@ def parse_args(_args):
     return results
 
 
-def build_df_prod(inter_pkl, apps, cap):
+def build_df_prod(inter_pkl, apps, cap, top):
     df_inter = pd.read_pickle(inter_pkl)
 
     df_a1 = df_inter[df_inter['pair_str'] == apps[0]].copy()
@@ -58,8 +60,12 @@ def build_df_prod(inter_pkl, apps, cap):
     df_prod['inter_sum'] = df_prod['inter_x'] + df_prod['inter_y']
     df_prod['norm_ipc_sum'] = df_prod['norm_ipc_x'] + df_prod['norm_ipc_y']
 
-    df_prod = df_prod[df_prod['inter_sum'] == 80]
+    df_prod = df_prod[df_prod['inter_sum'] <= const.num_sm_volta]
     df_prod.sort_values('norm_ipc_sum', inplace=True, ascending=False)
+
+    # Only run the top rated candidates
+    if top:
+        df_prod = df_prod.head(TOP_CHOICES)
 
     def build_config(row):
         config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
@@ -72,7 +78,12 @@ def build_df_prod(inter_pkl, apps, cap):
         config_inter = 'INTER_0:' + str(row['inter_x']) + ':' \
                        + str(row['inter_y']) + '_SM'
 
-        config = '-'.join([config_base, config_inter])
+        config_l2 = 'ENABLE_L2D_1:{}:{}'.format(
+            int(not row['bypass_l2_x']),
+            int(not row['bypass_l2_y'])
+        )
+
+        config = '-'.join([config_base, config_inter, config_l2])
 
         return config
 
@@ -88,15 +99,11 @@ def main(_args):
         print("Number of apps is not equal to 2. Abort.")
         exit(1)
 
-    df_prod = build_df_prod(args.inter_pkl, args.apps, args.cap)
+    df_prod = build_df_prod(args.inter_pkl, args.apps, args.cap, args.top)
 
     if len(df_prod.index) > 0:
-        if args.top:
-            # only show the best weighted speedup config
-            df_prod = df_prod.head(1)
-
         if args.print:
-            print('-'* 30)
+            print('-' * 30)
             print('app order:', args.apps[0], args.apps[1])
 
             for config in df_prod['config']:
