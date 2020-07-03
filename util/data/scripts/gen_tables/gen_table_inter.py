@@ -31,22 +31,33 @@ def parse_args():
 def process_df_inter(df_inter, df_seq):
     df_inter = df_inter.copy()
 
-    df_seq.set_index('pair_str', inplace=True)
-
-    # Process df_inter
-    def norm_over_seq(index, metric, value, inverse=True):
-        return hi.normalize(df_seq, index, metric, value, inverse)
-
-    # normalized IPC
-    df_inter['norm_ipc'] = df_inter.apply(lambda row:
-                                          norm_over_seq(row['pair_str'],
-                                                        'ipc',
-                                                        row['ipc'],
-                                                        False),
-                                          axis=1)
+    # Singularize metrics
+    hi.multi_array_col_seq(df_inter)
 
     # gpusim config
     hi.process_config_column('inter', df=df_inter)
+    hi.process_config_column('bypass_l2', df=df_inter, default=False)
+    hi.process_config_column('1_kidx', df=df_inter, default=1)
+
+    # Set indices of baseline dataframe
+    df_seq.set_index(['pair_str', '1_kidx'], inplace=True)
+
+    # Process df_inter
+    def norm_ipc_over_seq(row, inverse=True):
+        return hi.normalize(df_seq,
+                            (row['pair_str'], row['1_kidx']),
+                            'ipc',
+                            row['ipc'],
+                            inverse
+                            )
+
+    # calculate ipc
+    df_inter['ipc'] = df_inter['instructions'] / df_inter['runtime']
+
+    # normalized IPC
+    df_inter['norm_ipc'] = df_inter.apply(lambda row:
+                                          norm_ipc_over_seq(row, False),
+                                          axis=1)
 
     # avg dram bandwidth
     df_inter['avg_dram_bw'] = df_inter['dram_bw'].transform(hi.avg_array)
