@@ -318,10 +318,10 @@ def process_pairs():
                 if bench0 < bench1:
                     # Make sure we don't pair up the same benchmarks with
                     # different inputs, except for synthetic workloads
-                    bench0_name = bench0.split('-')[0]
-                    bench1_name = bench1.split('-')[0]
-                    if bench0_name != bench1_name or bench0_name == 'syn':
-                        pairs.append('+'.join([bench0, bench1]))
+                    # bench0_name = bench0.split('-')[0]
+                    # bench1_name = bench1.split('-')[0]
+                    # if bench0_name != bench1_name or bench0_name == 'syn':
+                    pairs.append('+'.join([bench0, bench1]))
 
         if not args.id_start < len(pairs):
             print('Length of all pairs is {0} but id_start is {1}'

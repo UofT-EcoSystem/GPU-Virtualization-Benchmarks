@@ -1,5 +1,6 @@
 import os
 # max ctas according to resource constraints, grid size
 
-RUN_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'launch')
-DEFAULT_BENCH_HOME = "/mnt/GPU-Virtualization-Benchmarks/benchmarksv2"
+THIS_DIR = os.path.dirname(os.path.realpath(__file__))
+RUN_HOME = os.path.join(THIS_DIR, 'launch')
+DEFAULT_BENCH_HOME = os.path.join(THIS_DIR, '../../benchmarksv2')
