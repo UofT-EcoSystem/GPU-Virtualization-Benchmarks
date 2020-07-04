@@ -32,7 +32,6 @@ syn_yaml = yaml.load(
     open(os.path.join(DATA_HOME, 'scripts/common/', 'synthetic.yml')),
     Loader=yaml.FullLoader)
 
-
 # benchmark -> kernel sequence in one iteration
 multi_kernel_app = OrderedDict(
     [('parb_sad-0', [1, 2, 3]),
@@ -125,7 +124,7 @@ def get_num_kernels(app):
         # Replace "repeat" benchmark with previous benchmark in list
         for idx, bench in enumerate(list_bench):
             if bench == 'repeat':
-                list_bench[idx] = list_bench[idx-1]
+                list_bench[idx] = list_bench[idx - 1]
 
         result = sum([get_num_kernels_bench(bench) for bench in list_bench])
         return result
@@ -148,6 +147,7 @@ def get_pickle(pickle_name):
     return df
 
 
+# Return a list of isolated runtime in app
 def get_seq_cycles(app):
     # Cap cycles are calculated based on seq run
     df_seq_multi = get_pickle('seq-multi.pkl')
@@ -158,27 +158,26 @@ def get_seq_cycles(app):
 
     def get_seq_cycles_bench(bench):
         if bench in multi_kernel_app:
-            cycles = sum([df_seq_multi.loc[(bench, kidx)]['runtime']
-                              for kidx in multi_kernel_app[bench]])
+            cycles = [df_seq_multi.loc[(bench, kidx)]['runtime']
+                      for kidx in multi_kernel_app[bench]]
         else:
-            cycles = df_seq.loc[bench]['runtime']
+            cycles = [df_seq.loc[bench]['runtime']]
 
         return cycles
 
+    result = []
     if app in syn_yaml:
         # Synthetic workloads
-        sum_cycles = 0
         list_bench = syn_yaml[app]
         for idx, benchmark in enumerate(list_bench):
             if benchmark == 'repeat':
-                sum_cycles += get_seq_cycles_bench(list_bench[idx-1])
+                result += get_seq_cycles_bench(list_bench[idx - 1])
             else:
-                sum_cycles += get_seq_cycles_bench(benchmark)
-
-        return sum_cycles
+                result += get_seq_cycles_bench(benchmark)
     else:
-        return get_seq_cycles_bench(app)
+        result += get_seq_cycles_bench(app)
 
+    return result
 
 # For kernels that simply repeat the primary kernel, return the kidx key of
 # the primary kernel

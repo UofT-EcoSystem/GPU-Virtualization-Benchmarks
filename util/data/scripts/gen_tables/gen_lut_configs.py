@@ -1,22 +1,13 @@
 import numpy as np
 import pandas as pd
 import math
+import sys
 
 import data.scripts.common.constants as const
 import scheduler.scheduler as scheduler
 
 
-def get_lut_matrix(apps, df_dynamic, weighted=True):
-    if weighted:
-        # Want to minimize weighted runtime increase (sum_increase)
-        df_best = df_dynamic.sort_values('sum_increase', ascending=True) \
-            .drop_duplicates(['1_bench', '1_kidx', '2_bench', '2_kidx']) \
-            .set_index(['1_bench', '1_kidx', '2_bench', '2_kidx'])
-    else:
-        df_best = df_dynamic.sort_values('ws', ascending=False) \
-            .drop_duplicates(['1_bench', '1_kidx', '2_bench', '2_kidx']) \
-            .set_index(['1_bench', '1_kidx', '2_bench', '2_kidx'])
-
+def get_lut_matrix(apps, df_dynamic, df_intra):
     num_cols = const.get_num_kernels(apps[0])
     num_rows = const.get_num_kernels(apps[1])
     matrix_size = (num_rows, num_cols)
@@ -26,25 +17,106 @@ def get_lut_matrix(apps, df_dynamic, weighted=True):
     interference = [np.zeros(matrix_size),
                     np.zeros(matrix_size)]
 
+    # Calculate total runtime
+    seq_cycles = [const.get_seq_cycles(app) for app in apps]
+    importance = [[cycles / sum(app_cycles) for cycles in app_cycles]
+                  for app_cycles in seq_cycles]
+
+    if num_cols != len(importance[0]) or num_rows != len(importance[1]):
+        print('Dimension mismatch between matrix size and importance array')
+        sys.exit(1)
+
+    # return list_cta, list_sld
+    def get_cta_sld(bench_idx):
+        real_bench = []
+
+        for app, midx in zip(apps, bench_idx):
+            if 'syn' in app:
+                # FIXME: Here we assume we don't involve multi-kernel bench
+                real_bench.append((const.syn_yaml[app][midx], 1))
+            else:
+                real_bench.append((app, const.translate_gpusim_kidx(app, midx)))
+
+        if real_bench[0] == real_bench[1]:
+            # Identical benchmark pair. Get settings from df_intra
+            df_bench = df_intra[(df_intra['pair_str'] == real_bench[0][0]) &
+                                (df_intra['1_kidx'] == real_bench[0][1])].copy()
+            idx_max = df_bench[['intra', 'norm_ipc']].idxmax(axis=0)
+            if idx_max['intra'] == idx_max['norm_ipc']:
+                # Max setting is the max allowed setting
+                max_cta = const.get_max_cta_per_sm(real_bench[0][0],
+                                                   real_bench[0][1])
+                if df_bench['intra'].max() * 2 > max_cta:
+                    cta_setting = max_cta // 2
+                    # Might be a bit pessimistic here:
+                    sld = 0.5
+                else:
+                    cta_setting = df_bench.loc[idx_max['intra']]['intra']
+                    sld = df_bench.loc[idx_max['intra']]['norm_ipc']
+            else:
+                print('idx', idx_max['norm_ipc'])
+                print('index', df_bench.index)
+                cta_setting = df_bench.loc[idx_max['norm_ipc']]['intra'] // 2
+                sld = 0.5
+
+            return [cta_setting, cta_setting], [sld, sld]
+
+        else:
+            # Different benchmarks. Get settings from df_dynamic
+            # Benchmarks within each pair in dynamic are sorted
+            sorted_real_bench = real_bench.copy()
+            sorted_real_bench.sort(key=lambda x: x[0])
+            bench_importance = [importance[0][bench_idx[0]],
+                                importance[1][bench_idx[1]]]
+
+            if real_bench != sorted_real_bench:
+                bench_importance.reverse()
+
+            idx_df = (df_dynamic['1_bench'] == sorted_real_bench[0][0]) & \
+                     (df_dynamic['1_kidx'] == sorted_real_bench[0][1]) & \
+                     (df_dynamic['2_bench'] == sorted_real_bench[1][0]) & \
+                     (df_dynamic['2_kidx'] == sorted_real_bench[1][1])
+
+            df_pair = df_dynamic[idx_df].copy()
+
+            if len(df_pair.index) == 0:
+                print("No feasible pair config for {}".format(
+                    sorted_real_bench)
+                )
+                return [], []
+
+            df_pair['sum_increase'] = df_pair['sld'].apply(
+                lambda list_sld: bench_importance[0] / list_sld[1] +
+                                 bench_importance[1] / list_sld[2]
+            )
+
+            df_pair.sort_values('sum_increase', inplace=True, ascending=True)
+
+            series_best = df_pair.iloc[0]
+            cta_setting = [series_best['1_intra'], series_best['2_intra']]
+            sld = series_best['sld'][1:3]
+
+            if real_bench != sorted_real_bench:
+                cta_setting.reverse()
+                sld.reverse()
+
+            return cta_setting, sld
+
     for row_idx in range(num_rows):
         for col_idx in range(num_cols):
-            kidx = [const.translate_gpusim_kidx(apps[0], col_idx),
-                    const.translate_gpusim_kidx(apps[1], row_idx)]
-            best_idx = (apps[0], kidx[0], apps[1], kidx[1])
+            list_cta, list_sld = get_cta_sld([col_idx, row_idx])
 
-            cta_1 = df_best.loc[best_idx, '1_intra']
-            sld_1 = df_best.loc[best_idx, 'sld'][1]
-
-            cta_2 = df_best.loc[best_idx, '2_intra']
-            sld_2 = df_best.loc[best_idx, 'sld'][2]
+            if len(list_cta) == 0:
+                print("LUT config does not exist for {}", apps)
+                return None
 
             matrix_idx = (row_idx, col_idx)
 
-            configs[0][matrix_idx] = int(cta_1)
-            configs[1][matrix_idx] = int(cta_2)
+            configs[0][matrix_idx] = int(list_cta[0])
+            configs[1][matrix_idx] = int(list_cta[1])
 
-            interference[0][matrix_idx] = sld_1
-            interference[1][matrix_idx] = sld_2
+            interference[0][matrix_idx] = list_sld[0]
+            interference[1][matrix_idx] = list_sld[1]
 
     return configs, interference
 
@@ -124,8 +196,9 @@ def print_rsrc_usage(configs, headers, df_intra_index):
 def predict_app(apps, interference, df_seq_index):
     # Get seq runtimes
     def get_runtime(app):
-        result = [df_seq_index.loc[(app, const.translate_gpusim_kidx(app, kidx))]
-                  ['runtime'] for kidx in range(const.get_num_kernels(app))]
+        result = [
+            df_seq_index.loc[(app, const.translate_gpusim_kidx(app, kidx))]
+            ['runtime'] for kidx in range(const.get_num_kernels(app))]
 
         return result
 

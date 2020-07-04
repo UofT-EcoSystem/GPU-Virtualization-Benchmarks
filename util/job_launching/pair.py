@@ -53,9 +53,15 @@ def parse_args():
                         help='If how is ctx, num_slice specifies how many '
                              'slice configs to sweep.')
     parser.add_argument('--intra_pkl',
-                        default=os.path.join(const.DATA_HOME, 'pkl/intra.pkl'),
-                        help='If how is dynamic, path to the intra pickle '
+                        default=os.path.join(const.DATA_HOME,
+                                             'pickles/intra.pkl'),
+                        help='If how is dynamic/lut, path to the intra pickle '
                              'file.')
+    parser.add_argument('--dynamic_pkl',
+                        default=os.path.join(const.DATA_HOME,
+                                             'pkl/pair_dynamic.pkl'),
+                        help='If how is lut, path to the pair dynamic pickle '
+                             'file')
     parser.add_argument('--top',
                         action='store_true',
                         help='If how is dynamic, only select top candidates.')
@@ -215,7 +221,7 @@ def get_cap_config(apps):
     max_cycles = 0
 
     for app in apps:
-        sum_cycles = const.get_seq_cycles(app)
+        sum_cycles = sum(const.get_seq_cycles(app))
 
         if sum_cycles > max_cycles:
             max_cycles = sum_cycles
@@ -230,45 +236,45 @@ def get_cap_config(apps):
 def process_lut(pair, base_config):
     import data.scripts.gen_tables.gen_lut_configs as lut_configs
 
-    df_pair_dynamic = const.get_pickle('pair_dynamic_multi.pkl')
+    df_pair_dynamic = pd.read_pickle(args.dynamic_pkl)
+    df_intra = pd.read_pickle(args.intra_pkl)
 
     apps = pair.split('+')
 
-    # LUT is for multi-kernel benchmarks only
-    # multi_check = [app in const.multi_kernel_app for app in apps]
-    # if not all(multi_check):
-    #     print("Pair lut launch requires all benchmarks to be multi-kernel "
-    #           "applications.")
-    #     sys.exit(4)
-
     # Build the CTA lookup table
-    cta_configs = lut_configs.get_lut_matrix(apps, df_pair_dynamic)[0]
-    lut = []
+    lut_matrix = lut_configs.get_lut_matrix(apps, df_pair_dynamic,
+                                            df_intra)
 
-    # Columns are kernels for apps[0] and rows are kernels for apps[1]
-    for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
-        entry = "0:{}:{}=0:{}:{}".format(col_idx + 1, row_idx + 1,
-                                         cta_configs[0][row_idx, col_idx],
-                                         cta_configs[1][row_idx, col_idx])
-        lut.append(entry)
+    if lut_matrix:
+        cta_configs = lut_matrix[0]
+        lut = []
 
-    lut_config = ",".join(lut)
-    lut_config = "INTRA_{}_LUT".format(lut_config)
+        # Columns are kernels for apps[0] and rows are kernels for apps[1]
+        for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
+            entry = "0:{}:{}=0:{}:{}".format(col_idx + 1, row_idx + 1,
+                                             cta_configs[0][row_idx, col_idx],
+                                             cta_configs[1][row_idx, col_idx])
+            lut.append(entry)
 
-    # Number of kernels config
-    num_kernel = [const.get_num_kernels(app) for app in apps]
-    num_kernel_config = "NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
-                                                      num_kernel[1])
+        lut_config = ",".join(lut)
+        lut_config = "INTRA_{}_LUT".format(lut_config)
 
-    config = base_config + "-" + lut_config + "-" + num_kernel_config
+        # Number of kernels config
+        num_kernel = [const.get_num_kernels(app) for app in apps]
+        num_kernel_config = "NUM_0:{0}:{1}_KERNEL".format(num_kernel[0],
+                                                          num_kernel[1])
 
-    # Calculate max cycle bound
-    cap_config = get_cap_config(apps)
-    config += '-' + cap_config
+        config = base_config + "-" + lut_config + "-" + num_kernel_config
 
-    launch_job(config, pair=pair)
+        # Calculate max cycle bound
+        cap_config = get_cap_config(apps)
+        config += '-' + cap_config
 
-    return 1
+        launch_job(config, pair=pair)
+
+        return 1
+    else:
+        return 0
 
 
 def process_inter(pair):
@@ -352,8 +358,11 @@ def process_pairs():
         benchmarks = const.multi_kernel_app.keys()
         pair_up(benchmarks)
     elif args.pair[0] == 'syn':
-        syn_yml = yaml.load(open(os.path.join(RUN_HOME,
-                                              'apps/synthetic.yml')))
+        syn_yml = yaml.load(
+            open(os.path.join(THIS_DIR,
+                              '../data/scripts/common/synthetic.yml')),
+            Loader=yaml.FullLoader
+        )
         benchmarks = syn_yml.keys()
         pair_up(benchmarks)
 

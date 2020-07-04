@@ -12,7 +12,9 @@ FRESH = 1
 # Create 10 different multi-kernel synthetic workloads
 def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
     seed(rseed)
-    benchmarks = list(const.kernel_yaml.keys())
+    # Candidates are non multi-kernel benchmarks
+    benchmarks = [benchmark for benchmark in const.kernel_yaml if benchmark
+                  not in const.multi_kernel_app]
 
     apps = {}
 
@@ -25,12 +27,13 @@ def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
                 app += choices(benchmarks)
             else:
                 # Figure out if we are repeating or selecting a fresh benchmark
-                if choices([REPEAT, FRESH], weights=[pRepeat, 1-pRepeat])[0] \
+                if choices([REPEAT, FRESH], weights=[pRepeat, 1 - pRepeat])[0] \
                         == REPEAT:
                     app.append('repeat')
                 else:
                     # Make sure we don't pick the same benchmark again
-                    leftover = list(set(benchmarks) - set(app))
+                    leftover = [benchmark for benchmark in benchmarks
+                                if benchmark not in app]
                     app += choices(leftover)
 
         print(app)
@@ -52,5 +55,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

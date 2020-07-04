@@ -1,0 +1,14 @@
+# Testing combo
+# syn-0+syn-0 => 2:2_CTA
+# syn-1+syn-1 => 2:2_CTA
+# syn-2+syn-3 => 2:13_CTA, 8:8_CTA, sum_increase: (1.4000, 2.1338)
+# syn-3+syn-2 => 13:2_CTA, 8:8_CTA, sum_increase: (1.4000, 2.1338)
+syn-0:
+  - cut_wmma-0
+syn-1:
+  - cut_wmma-2
+syn-2:
+  - parb_cutcp-0
+  - nvd_binomial-0
+syn-3:
+  - parb_stencil-0
