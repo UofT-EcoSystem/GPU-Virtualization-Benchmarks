@@ -25,6 +25,10 @@ def parse_args():
     parser.add_argument('--outfile',
                         help='name of file where the image will be saved.')
 
+    parser.add_argument('--gpu',
+                        required=True,
+                        help='name of the gpu used.')
+
     results = parser.parse_args()
     return results
 
@@ -67,6 +71,7 @@ def main():
                 ax=axes[i])
         graph.legend(loc='lower right')
 
+    f.suptitle('Mig sweep combined on {}'.format(args.gpu), fontsize=24)
     f.savefig(args.outfile)
 
 

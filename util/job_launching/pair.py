@@ -8,7 +8,7 @@ from job_launching.constant import *
 import data.scripts.common.constants as const
 import data.scripts.common.help_iso as help_iso
 import data.scripts.gen_tables.gen_pair_configs as dynamic
-import data.scripts.gen_tables.search_best_inter as inter
+import data.scripts.gen_tables.gen_inter_configs as inter
 
 # (Intra CTAs/SM, L2 usage, disable l2D)
 bench_opt_config = {
@@ -277,7 +277,7 @@ def process_inter(pair):
     pair_config_args = ['--apps'] + apps
     pair_config_args.append('--print')
     pair_config_args += ['--cap', str(args.cap)]
-    pair_config_args += ['--how', 'local']
+    pair_config_args += ['--top']
 
     configs = inter.main(pair_config_args)
 
@@ -318,10 +318,10 @@ def process_pairs():
                 if bench0 < bench1:
                     # Make sure we don't pair up the same benchmarks with
                     # different inputs, except for synthetic workloads
-                    bench0_name = bench0.split('-')[0]
-                    bench1_name = bench1.split('-')[0]
-                    if bench0_name != bench1_name or bench0_name == 'syn':
-                        pairs.append('+'.join([bench0, bench1]))
+                    # bench0_name = bench0.split('-')[0]
+                    # bench1_name = bench1.split('-')[0]
+                    # if bench0_name != bench1_name or bench0_name == 'syn':
+                    pairs.append('+'.join([bench0, bench1]))
 
         if not args.id_start < len(pairs):
             print('Length of all pairs is {0} but id_start is {1}'

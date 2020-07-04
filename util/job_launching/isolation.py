@@ -24,6 +24,8 @@ def parse_args():
                         help='Run inter experiments or not.')
     parser.add_argument('--mig', action='store_true',
                         help='Run mig experiments or not.')
+    parser.add_argument('--mig_mem', action='store_true',
+                        help='Run mig memory only experiments or not.')
 
     parser.add_argument('--cta_configs', default=4, type=int,
                         help='Sweeping step of CTAs/SM for intra-SM sharing.')
@@ -44,7 +46,7 @@ def parse_args():
     return results
 
 
-achieved_sm = const.num_sm_volta // 2
+achieved_sm = const.num_sm_volta
 mem_channels = const.num_mem_channels_volta
 
 args = parse_args()
@@ -175,3 +177,18 @@ for app in args.apps:
             print(app, mig_params)
 
             launch_job(mig_params, 'mig_sweep', k)
+    if args.mig_mem:
+        for k in kernels:
+
+            mem_channel_step = max(1, mem_channels // args.mig_configs)
+            
+            mem_values = [i for i in range (mem_channel_step, mem_channels, 
+                mem_channel_step)]
+            mem_values.append(mem_channels)
+
+            mig_mem_params = ["MIG_{0}_MEM".format(
+                mem_values[i]) for i in range(len(mem_values))]
+
+            print(app, mig_mem_params)
+
+            launch_job(mig_mem_params, 'mig_mem_sweep', k)

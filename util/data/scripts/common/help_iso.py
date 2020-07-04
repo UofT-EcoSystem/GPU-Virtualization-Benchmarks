@@ -39,7 +39,7 @@ type_table = {'intra': int,
               '2_ctx': float,
               }
 
-metric_label = {'intra': 'Concurrent CTAs/SM',
+metric_label = {'intra': 'Concurrent TBs/SM',
                 'inter': '# of SMs',
                 'l2': 'Norm. L2 Partition Size',
                 'norm_ipc': 'Normalized IPC',

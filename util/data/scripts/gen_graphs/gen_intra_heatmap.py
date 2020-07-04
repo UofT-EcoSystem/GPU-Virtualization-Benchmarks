@@ -201,6 +201,10 @@ def parse_args():
                         default=['all'],
                         nargs='+',
                         help='Individual benchmark to print heatmaps')
+    parser.add_argument('--title',
+                        nargs='+',
+                        default=[],
+                        help='Title for each heatmap')
     parser.add_argument('--maxwidth',
                         type=int,
                         default=14,
@@ -219,7 +223,7 @@ def parse_args():
     return results
 
 
-def print_ipc_only(df, benchmarks, maxGridWidth, figsize, outfile):
+def print_ipc_only(df, benchmarks, titles, maxGridWidth, figsize, outfile):
     print(benchmarks)
     fig_tot = plt.figure(figsize=figsize)
     bench_keys = df[['pair_str', '1_kidx']].apply(tuple, axis=1)
@@ -241,19 +245,23 @@ def print_ipc_only(df, benchmarks, maxGridWidth, figsize, outfile):
     gs_width = 0
 
     # for ax, bench in zip(axs, benchmarks):
-    for bench in benchmarks:
+    for bench, title in zip(benchmarks, titles):
         _df = df[bench_keys == bench]
 
+        if len(_df.index) == 0:
+            print("{0} does not exist in dataframe. Skip.".format(bench))
+            continue
+
         gs_height, gs_width = plot_heatmap_1d(_df, x_key='intra',
-                                              z_key='norm_ipc', title=bench,
-                                              scale=1.5, gs=gs,
+                                              z_key='norm_ipc', title=title,
+                                              scale=2.2, gs=gs,
                                               gs_height=gs_height,
                                               gs_width=gs_width,
                                               gs_width_max=maxGridWidth)
 
     plt.tight_layout()
     # fig_tot.suptitle('Intra, Normalized IPC', fontsize=18)
-    fig_tot.savefig(outfile)
+    fig_tot.savefig(outfile, bbox_inches='tight')
     plt.close()
 
 
@@ -280,11 +288,14 @@ def main():
 
         args.benchmark = tuple_bench
 
+    if len(args.title) != len(args.benchmark):
+        args.title = args.benchmark
+
     if args.content == 'metrics':
         for bench in args.benchmark:
             print_intra(df_intra, bench)
     elif args.content == 'ipc':
-        print_ipc_only(df_intra, args.benchmark, args.maxwidth,
+        print_ipc_only(df_intra, args.benchmark, args.title, args.maxwidth,
                        tuple(args.figsize), args.output)
 
 
