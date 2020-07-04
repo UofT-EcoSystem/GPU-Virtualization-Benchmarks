@@ -38,15 +38,20 @@ def parse_args(_args):
                         help='Fail fast simulation: cap runtime at n times '
                              'the longer kernel. Default is 2.5x.')
 
+    parser.add_argument('--qos',
+                        default=0.5,
+                        type=float,
+                        help='QoS target of each benchmark.')
+
     parser.add_argument('--top',
-            action='store_true',
-            help='Cherry pick the top configs.')
+                        action='store_true',
+                        help='Cherry pick the top configs.')
 
     results = parser.parse_args(_args)
     return results
 
 
-def build_df_prod(inter_pkl, apps, cap, top):
+def build_df_prod(inter_pkl, apps, cap, top, qos):
     df_inter = pd.read_pickle(inter_pkl)
 
     df_a1 = df_inter[df_inter['pair_str'] == apps[0]].copy()
@@ -60,8 +65,18 @@ def build_df_prod(inter_pkl, apps, cap, top):
     df_prod['inter_sum'] = df_prod['inter_x'] + df_prod['inter_y']
     df_prod['norm_ipc_sum'] = df_prod['norm_ipc_x'] + df_prod['norm_ipc_y']
 
+    # Filter out configs that exceed resource limit
     df_prod = df_prod[df_prod['inter_sum'] <= const.num_sm_volta]
+
+    # Filter out configs that do not meet qos target
+    df_prod = df_prod[(df_prod['norm_ipc_x'] >= qos) &
+                      (df_prod['norm_ipc_y'] >= qos)]
+
     df_prod.sort_values('norm_ipc_sum', inplace=True, ascending=False)
+
+    if len(df_prod.index) == 0:
+        print("No feasible inter configs for {} at QoS {}".format(apps, qos))
+        return pd.DataFrame()
 
     # Only run the top rated candidates
     if top:
@@ -99,7 +114,8 @@ def main(_args):
         print("Number of apps is not equal to 2. Abort.")
         exit(1)
 
-    df_prod = build_df_prod(args.inter_pkl, args.apps, args.cap, args.top)
+    df_prod = build_df_prod(args.inter_pkl, args.apps, args.cap, args.top,
+                            args.qos)
 
     if len(df_prod.index) > 0:
         if args.print:

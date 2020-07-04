@@ -62,7 +62,7 @@ def parse_args():
     parser.add_argument('--qos',
                         type=float,
                         default=0.5,
-                        help='If how is dynamic, specify target qos.')
+                        help='If how is dynamic/inter, specify target qos.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -278,6 +278,7 @@ def process_inter(pair):
     pair_config_args.append('--print')
     pair_config_args += ['--cap', str(args.cap)]
     pair_config_args += ['--top']
+    pair_config_args += ['--qos', str(args.qos)]
 
     configs = inter.main(pair_config_args)
 
