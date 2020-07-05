@@ -66,7 +66,7 @@ def preprocess_df_pair(df_pair):
     df_pair.reset_index(inplace=True, drop=True)
 
     # Extract multi-kernel information, if any
-    hi.process_config_column('1_kidx', '2_kidx', df=df_pair)
+    hi.process_config_column('1_kidx', '2_kidx', df=df_pair, default=1)
 
     # avg mem bandwidth
     df_pair['avg_dram_bw'] = df_pair['dram_bw'].transform(hi.avg_array)
@@ -198,11 +198,15 @@ def evaluate_kernel_wise(df_pair, df_baseline):
                 else:
                     runtime[idx][-1] = row['tot_runtime']
 
-                # scale by completed instructions
-                runtime[idx][-1] *= \
-                    get_base_inst(row['{}_bench'.format(idx)],
-                                  row['{}_kidx'.format(idx)]) \
-                    / row['instructions'][idx][-1]
+                if row['instructions'][idx][-1] == 0:
+                    # Get rid of the last element since it's zero
+                    runtime[idx].pop()
+                else:
+                    # scale by completed instructions
+                    runtime[idx][-1] *= \
+                        get_base_inst(row['{}_bench'.format(idx)],
+                                      row['{}_kidx'.format(idx)]) \
+                        / row['instructions'][idx][-1]
 
         return runtime
 
@@ -312,31 +316,36 @@ def main():
                     args.isolated_pkl, args.qos, app, args.cap)
                 for app in app_pairs]
 
+            # Join table with profiled info and predicted performance
+            if args.multi:
+                pair_cols = ['1_bench', '2_bench', '1_kidx', '2_kidx', '1_intra',
+                             '2_intra']
+                profiled_cols = ['pair_str_x', 'pair_str_y', '1_kidx_x', '1_kidx_y',
+                              '1_intra_x', '1_intra_y']
+            else:
+                pair_cols = ['1_bench', '2_bench', '1_intra', '2_intra']
+                profiled_cols = ['pair_str_x', 'pair_str_y', 'intra_x', 'intra_y']
+
         elif args.how == 'inter':
             df_profiled = [
                 inter_pair_config.build_df_prod(
-                    args.isolated_pkl, app, args.cap)
+                    args.isolated_pkl, app, args.cap, True, args.qos)
                 for app in app_pairs]
+
+            # Join table with profiled info and predicted performance
+            pair_cols = ['1_bench', '2_bench', '1_inter', '2_inter']
+            profiled_cols = ['pair_str_x', 'pair_str_y', 'inter_x', 'inter_y']
+
         else:
             print('Unimplemented for SMK')
             sys.exit(1)
 
         df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
 
-        # Join table with profiled info and predicted performance
-        if args.multi:
-            pair_cols = ['1_bench', '2_bench', '1_kidx', '2_kidx', '1_intra',
-                         '2_intra']
-            intra_cols = ['pair_str_x', 'pair_str_y', '1_kidx_x', '1_kidx_y',
-                          '1_intra_x', '1_intra_y']
-        else:
-            pair_cols = ['1_bench', '2_bench', '1_intra', '2_intra']
-            intra_cols = ['pair_str_x', 'pair_str_y', 'intra_x', 'intra_y']
-
         df_join = pd.merge(df_pair, df_profiled,
                            how='left',
                            left_on=pair_cols,
-                           right_on=intra_cols)
+                           right_on=profiled_cols)
 
         # Output pickle
         df_join.to_pickle(args.output)
