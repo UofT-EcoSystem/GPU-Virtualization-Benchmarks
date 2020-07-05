@@ -83,7 +83,7 @@ def build_df_prod(inter_pkl, apps, cap, top, qos):
         df_prod = df_prod.head(TOP_CHOICES)
 
     def build_config(row):
-        config_base = 'TITANV-PAE-CONCURRENT-SEP_RW-LSRR'
+        config_base = const.pair_base_config
 
         # fail fast config
         max_cycle = int(cap * max(row['runtime_x'] * row['norm_ipc_x'],
