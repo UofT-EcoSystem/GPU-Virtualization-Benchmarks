@@ -54,8 +54,6 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
                     cta_setting = df_bench.loc[idx_max['intra']]['intra']
                     sld = df_bench.loc[idx_max['intra']]['norm_ipc']
             else:
-                print('idx', idx_max['norm_ipc'])
-                print('index', df_bench.index)
                 cta_setting = df_bench.loc[idx_max['norm_ipc']]['intra'] // 2
                 sld = 0.5
 
