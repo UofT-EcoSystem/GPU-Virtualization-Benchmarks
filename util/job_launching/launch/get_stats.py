@@ -267,10 +267,18 @@ def parse_app_files(app, args, stats_to_pull):
                 break
 
         if not found_valid_log:
-            found_failed_app = True
-            pretty_print("--app {0} --config {1} log does not contain a "
-                         "terminating string from GPGPU-Sim. Skip.".format
-                         (app, config))
+            app_str = '+'.join(re.split(r'-(?=\D)', app))
+
+            if log_status == ASSERTION:
+                pretty_print("--app {0} --config {1} log zero cta assertion "
+                             "failed. Skip.".format
+                             (app_str, config))
+            else:
+                found_failed_app = True
+                pretty_print("--app {0} --config {1} log does not contain a "
+                             "terminating string from GPGPU-Sim. Skip.".format
+                             (app_str, config))
+
             # continue to the next config folder
             continue
 

@@ -59,7 +59,7 @@ def parse_args():
                              'file.')
     parser.add_argument('--dynamic_pkl',
                         default=os.path.join(const.DATA_HOME,
-                                             'pkl/pair_dynamic.pkl'),
+                                             'pickles/pair_dynamic.pkl'),
                         help='If how is lut, path to the pair dynamic pickle '
                              'file')
     parser.add_argument('--top',
