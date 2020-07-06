@@ -20,6 +20,18 @@ struct app_t {
     done = false;
   }
 
+  // Return true if this app is done with all repetitions
+  bool increment_and_check_pos() {
+    current_pos++;
+
+    if (current_pos == num_repeat) {
+      current_pos = 0;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   std::function<int(int,char**,int,cudaStream_t&)> pFunc;
   std::vector<std::string> params;
   unsigned num_repeat;
@@ -38,6 +50,13 @@ struct stream_ops_t {
     current_pos = 0;
     done_iteration = false;
     exited = false;
+  }
+
+  void increment_pos() {
+    current_pos++;
+    if (current_pos == apps.size()) {
+      current_pos = 0;
+    }
   }
 
   std::vector<app_t> apps;

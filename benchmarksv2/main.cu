@@ -45,13 +45,15 @@ bool set_and_check(int uid, bool start) {
     if (start) {
       return true;
     } else {
-      if (app.current_pos < app.num_repeat) {
-        app.current_pos++;
-      }
+      bool done = app.increment_and_check_pos();
 
-      if (app.current_pos == app.num_repeat) {
+      if (done) {
         return true;
       } else {
+        std::cout << "******** Repeat " << app.params[0] <<
+                  " on Stream " << uid + 1 << "********" << std::endl;
+        std::cout << std::endl;
+
         return false;
       }
     }
@@ -328,7 +330,7 @@ void invoke(int uid)
 
       std::cout << std::endl;
       std::cout << "******** Invoking " << app.params[0] <<
-                " on Stream " << uid << "********" << std::endl;
+                " on Stream " << uid + 1 << "********" << std::endl;
       std::cout << std::endl;
 
       // invoke the real function
@@ -338,6 +340,8 @@ void invoke(int uid)
       for (auto carray: to_free) {
         delete carray;
       }
+
+      stream_ops.increment_pos();
     }
 
     can_stop_launching = set_and_check_iteration(uid);
