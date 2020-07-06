@@ -9,6 +9,7 @@ import glob
 
 import job_launching.launch.common as common
 import data.scripts.common.constants as const
+from job_launching.constant import *
 
 args = None
 
@@ -42,8 +43,7 @@ def parse_args():
                         help="GPGPUSim config name.")
 
     parser.add_argument("--bench_home",
-                        default="/mnt/GPU-Virtualization-Benchmarks"
-                                "/benchmarksv2",
+                        default=DEFAULT_BENCH_HOME,
                         help="Benchmark home folder.")
 
     parser.add_argument("--no_launch", action="store_true",
