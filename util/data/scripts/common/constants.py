@@ -45,6 +45,10 @@ multi_kernel_app = OrderedDict(
      ])
 
 
+def get_single_kernel_app():
+    return [app for app in kernel_yaml if app not in multi_kernel_app]
+
+
 def get_kernel_stat(kernel, stat, kidx):
     sp_kernel = kernel.split(':')
     kidx = int(kidx)
@@ -178,6 +182,7 @@ def get_seq_cycles(app):
         result += get_seq_cycles_bench(app)
 
     return result
+
 
 # For kernels that simply repeat the primary kernel, return the kidx key of
 # the primary kernel
