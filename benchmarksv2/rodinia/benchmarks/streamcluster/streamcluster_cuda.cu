@@ -35,7 +35,7 @@ extern int set_and_check(int uid, bool start);
 
 #define THREADS_PER_BLOCK 512
 #define MAXBLOCKS 65536
-#define CUDATIME
+//#define CUDATIME
 
 // host memory
 float *work_mem_h;
