@@ -336,6 +336,11 @@ void invoke(int uid)
       // invoke the real function
       app.pFunc(argc, argv, uid, stream_ops.cudaStream);
 
+      std::cout << std::endl;
+      std::cout << "******** Done " << app.params[0] <<
+                " on Stream " << uid + 1 << "********" << std::endl;
+      std::cout << std::endl;
+
       // cleanup the char arrays
       for (auto carray: to_free) {
         delete carray;
@@ -347,7 +352,7 @@ void invoke(int uid)
     can_stop_launching = set_and_check_iteration(uid);
   }
 
-  cudaDeviceSynchronize();
+  cudaStreamSynchronize(stream_ops.cudaStream);
   set_exit(uid);
 }
 
