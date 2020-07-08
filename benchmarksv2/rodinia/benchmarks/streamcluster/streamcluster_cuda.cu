@@ -314,6 +314,8 @@ float pgain( long x, Points *points, float z, long int *numcenters, int kmax, bo
 	
 	cudaEventRecord(start,0);
 #endif
+
+	cudaStreamSynchronize(streamcluster::gpusim_stream);
 	
 	//=======================================
 	// CPU (SERIAL) WORK
