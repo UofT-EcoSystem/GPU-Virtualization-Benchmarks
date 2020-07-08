@@ -169,5 +169,6 @@ extern "C" void binomialOptionsGPU(
     }
 
     getLastCudaError("binomialOptionsKernel() execution failed.\n");
-    checkCudaErrors(cudaMemcpyFromSymbol(callValue, d_CallValue, optN *sizeof(real)));
+    checkCudaErrors(cudaMemcpyFromSymbolAsync(callValue, d_CallValue,
+        optN *sizeof(real), 0, cudaMemcpyDeviceToHost, stream));
 }
