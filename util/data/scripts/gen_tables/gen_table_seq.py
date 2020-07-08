@@ -64,6 +64,19 @@ def calc_waves(row):
 
 df['waves'] = df.apply(calc_waves, axis=1)
 
+# PATCH for GPGPU-Sim not_selected_cycles
+df['not_selected_cycles'] = df['cycles_per_issue'] - \
+                            df['stall_mem_cycles'] - \
+                            df['stall_sfu_cycles'] - \
+                            df['stall_tensor_cycles'] - \
+                            df['stall_int_cycles'] - \
+                            df['stall_dp_cycles'] - \
+                            df['stall_sp_cycles'] - \
+                            df['scoreboard_cycles'] - \
+                            df['branch_cycles'] - \
+                            df['inst_empty_cycles'] - \
+                            df['barrier_cycles']
+
 # sort table based on benchmark name and kidx
 df.sort_values(['pair_str', '1_kidx'], inplace=True)
 

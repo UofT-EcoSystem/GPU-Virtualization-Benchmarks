@@ -101,6 +101,19 @@ def process_metrics(df_intra, multi):
     df_intra['usage'] = df_intra[['cta_ratio', 'thread_ratio', 'smem_ratio',
                                   'reg_ratio']].max(axis=1)
 
+    # PATCH for GPGPU-Sim not selected cycles
+    df_intra['not_selected_cycles'] = df_intra['cycles_per_issue'] - \
+                                      df_intra['stall_mem_cycles'] - \
+                                      df_intra['stall_sfu_cycles'] - \
+                                      df_intra['stall_tensor_cycles'] - \
+                                      df_intra['stall_int_cycles'] - \
+                                      df_intra['stall_dp_cycles'] - \
+                                      df_intra['stall_sp_cycles'] - \
+                                      df_intra['scoreboard_cycles'] - \
+                                      df_intra['branch_cycles'] - \
+                                      df_intra['inst_empty_cycles'] - \
+                                      df_intra['barrier_cycles']
+
 
 def normalize_over_seq(df_intra, df_seq, multi):
     df_intra = df_intra.copy()
