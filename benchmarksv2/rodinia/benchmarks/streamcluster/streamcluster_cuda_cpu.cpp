@@ -58,8 +58,8 @@ double time_gain_init;
 #endif 
 
 namespace streamcluster {
-  volatile int gpusim_uid;
-  volatile cudaStream_t gpusim_stream;
+  thread_local volatile int gpusim_uid;
+  thread_local volatile cudaStream_t gpusim_stream;
 }
 
 

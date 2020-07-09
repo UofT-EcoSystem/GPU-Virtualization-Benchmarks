@@ -18,8 +18,8 @@
 using namespace std;
 
 namespace streamcluster {
-  extern int gpusim_uid;
-  extern cudaStream_t gpusim_stream;
+  extern thread_local int gpusim_uid;
+  extern thread_local cudaStream_t gpusim_stream;
 }
 
 extern int set_and_check(int uid, bool start);

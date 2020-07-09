@@ -42,8 +42,8 @@ void run(int argc, char** argv);
 extern int set_and_check(int uid, bool start);
 
 namespace hotspot {
-  volatile int gpusim_uid;
-  volatile cudaStream_t gpusim_stream;
+  thread_local volatile int gpusim_uid;
+  thread_local volatile cudaStream_t gpusim_stream;
 }
 
 void writeoutput(float *vect, int grid_rows, int grid_cols, char *file){
