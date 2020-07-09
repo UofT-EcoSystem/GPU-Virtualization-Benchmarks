@@ -1,60 +1,60 @@
 syn-0:
 - cut_wmma-0
 - nvd_binomial-0
-- repeat
-- rod_heartwall-0
-- nvd_blackscholes-0
-syn-1:
-- cut_sgemm-0
-- repeat
-- rod_heartwall-0
-- cut_sgemm-1
-- nvd_binomial-0
-syn-2:
-- parb_cutcp-0
-- nvd_interval-0
-- repeat
-- repeat
-- nvd_fdtd3d-0
-syn-3:
-- parb_spmv-0
-- repeat
-- cut_sgemm-1
-- repeat
-- rod_hotspot3d-0
-syn-4:
-- parb_cutcp-0
-- repeat
-- repeat
-- parb_lbm-0
-- repeat
-syn-5:
-- nvd_blackscholes-0
-- rod_streamcluster-0
-- repeat
-- nvd_fdtd3d-0
-- repeat
-syn-6:
-- parb_lbm-0
-- rod_lavamd-0
-- rod_heartwall-0
+- rod_hotspot-0
 - rod_pathfinder-0
-- repeat
-syn-7:
-- rod_streamcluster-0
+- cut_sgemm-0
+syn-1:
+- cut_sgemm-1
+- rod_heartwall-0
+- cut_sgemm-0
+- nvd_binomial-0
+- nvd_sobol-0
+syn-2:
+- nvd_interval-0
+- cut_sgemm-1
 - nvd_fdtd3d-0
+- parb_cutcp-0
+- cut_sgemm-0
+syn-3:
+- parb_cutcp-0
+- rod_hotspot-0
+- cut_wmma-2
 - rod_hotspot3d-0
-- repeat
-- repeat
-syn-8:
+- cut_sgemm-1
+syn-4:
+- nvd_blackscholes-0
+- rod_streamcluster-0
+- nvd_sobol-0
+- cut_sgemm-0
+- rod_pathfinder-0
+syn-5:
+- rod_lavamd-0
+- parb_spmv-0
+- rod_pathfinder-0
+- rod_hotspot3d-0
+- nvd_fdtd3d-0
+syn-6:
+- rod_hotspot-0
+- cut_sgemm-1
 - nvd_blackscholes-0
 - cut_wmma-2
+- rod_lavamd-0
+syn-7:
 - rod_pathfinder-0
-- parb_lbm-0
-- rod_hotspot-0
-syn-9:
-- nvd_binomial-0
 - parb_spmv-0
+- nvd_blackscholes-0
+- parb_lbm-0
 - cut_sgemm-1
-- repeat
+syn-8:
+- cut_sgemm-1
 - nvd_sobol-0
+- parb_spmv-0
+- rod_hotspot3d-0
+- nvd_binomial-0
+syn-9:
+- rod_hotspot3d-0
+- parb_cutcp-0
+- nvd_sobol-0
+- rod_heartwall-0
+- rod_streamcluster-0
