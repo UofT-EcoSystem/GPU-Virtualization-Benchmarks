@@ -2,6 +2,7 @@ from random import seed
 from random import choices
 import os
 import oyaml
+import argparse
 
 import data.scripts.common.constants as const
 
@@ -9,8 +10,20 @@ REPEAT = 0
 FRESH = 1
 
 
+def parse_args():
+    parser = argparse.ArgumentParser('Synthesize workloads from '
+                                     'micro-benchmarks.')
+    parser.add_argument('--repeat',
+                        action="store_true",
+                        help='Make kernels repeat.')
+
+    results = parser.parse_args()
+    return results
+
+
 # Create 10 different multi-kernel synthetic workloads
-def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
+def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5,
+               repeat=False):
     seed(rseed)
     # Candidates are non multi-kernel benchmarks
     benchmarks = [benchmark for benchmark in const.kernel_yaml if benchmark
@@ -27,8 +40,9 @@ def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
                 app += choices(benchmarks)
             else:
                 # Figure out if we are repeating or selecting a fresh benchmark
-                if choices([REPEAT, FRESH], weights=[pRepeat, 1 - pRepeat])[0] \
-                        == REPEAT:
+                repeat_or_fresh = choices([REPEAT, FRESH],
+                                          weights=[pRepeat, 1 - pRepeat])[0]
+                if repeat and repeat_or_fresh == REPEAT:
                     app.append('repeat')
                 else:
                     # Make sure we don't pick the same benchmark again
@@ -50,7 +64,8 @@ def synthesize(rseed=1, num_apps=10, pRepeat=0.4, num_benchmarks=5):
 
 
 def main():
-    synthesize()
+    args = parse_args()
+    synthesize(repeat=args.repeat)
 
 
 if __name__ == '__main__':
