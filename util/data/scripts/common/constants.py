@@ -16,7 +16,7 @@ num_sm_volta = 80
 num_mem_channels_volta = 32
 
 base_config = "V100-PAE-CONCURRENT-SEP_RW"
-pair_base_config = base_config + "-LSRR"
+pair_base_config = base_config + "-LSRR" + "-PRINT_DEVICE_SYNC"
 
 l2d_bypass_threshold = 0.95
 
