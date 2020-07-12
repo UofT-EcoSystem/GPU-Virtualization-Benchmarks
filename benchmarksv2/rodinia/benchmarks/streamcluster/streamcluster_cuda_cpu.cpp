@@ -339,7 +339,9 @@ float pFL(Points *points, int *feasible, int numfeasible,
   change = cost;
   /* continue until we run iter iterations without improvement */
   /* stop instead if improvement is less than e */
-  while (change/cost > 1.0*e) {
+//  while (change/cost > 1.0*e) {
+  for (int j = 0; j < 1 ; j++) {
+
     change = 0.0;
     numberOfPoints = points->num;
     /* randomize order in which centers are considered */
@@ -351,7 +353,9 @@ float pFL(Points *points, int *feasible, int numfeasible,
     pthread_barrier_wait(barrier);
 #endif
 	
-    for (i=0;i<iter;i++) {
+//    for (i=0;i<iter;i++) {
+
+    for (i=0;i<1;i++) {
 	    x = i%numfeasible;
 	    change += pgain(feasible[x], points, z, k, kmax, is_center, center_table, switch_membership, isCoordChanged,
 						&serial_t, &cpu_to_gpu_t, &gpu_to_cpu_t, &alloc_t, &kernel_t, &free_t);
@@ -563,7 +567,8 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
   pthread_barrier_wait(barrier);
 #endif
 
-  while(1) {
+//  while(1) {
+  for (int i = 0; i < 1; i++) {
 
 #ifdef PRINTINFO
     if( pid==0 )
