@@ -61,6 +61,10 @@ def parse_args():
     parser.add_argument("--skip_hit_max", action="store_true",
                         help="Skip files that hit max cycles/instructions.")
 
+    parser.add_argument("--debugging", action="store_true",
+                        help="If debugging is turned on, failed logs will "
+                             "have the last line printed to the console.")
+
     args = parser.parse_args()
     return args
 
@@ -256,40 +260,42 @@ def parse_app_files(app, args, stats_to_pull):
         gpusim_logs = sorted(gpusim_logs, reverse=True, key=get_timestamp)
 
         found_valid_log = False
-        valid_log = ''
+        log = ''
         for latest_log in gpusim_logs:
+            log = latest_log
             # do a reverse pass to check whether simulation exited
-            if not has_exited(latest_log):
+            if not has_exited(log):
                 continue
             else:
                 found_valid_log = True
-                valid_log = latest_log
                 break
 
         if not found_valid_log:
             app_str = '+'.join(re.split(r'-(?=\D)', app))
 
-            if log_status == ASSERTION:
-                pretty_print("--app {0} --config {1} log zero cta assertion "
-                             "failed. Skip.".format
-                             (app_str, config))
+            found_failed_app = True
+            # Print the last line of log for debugging purposes
+            if args.debugging:
+                last_line = open(log).readlines()[-1]
+                pretty_print("({0}, {1}): {2}".format(app_str, config,
+                                                      last_line))
             else:
-                found_failed_app = True
-                pretty_print("--app {0} --config {1} log does not contain a "
-                             "terminating string from GPGPU-Sim. Skip.".format
-                             (app_str, config))
+                pretty_print(
+                    "--app {0} --config {1} log does not contain a "
+                    "terminating string from GPGPU-Sim. Skip.".format
+                    (app_str, config))
 
             # continue to the next config folder
             continue
 
         # get parameters from the file name and parent directory
-        gpusim_version, job_Id = parse_outputfile_name(valid_log, app,
+        gpusim_version, job_Id = parse_outputfile_name(log, app,
                                                        config)
         # build a csv string to be written to file from this output
         csv_str = app + ',' + config + ',' + \
                   gpusim_version + ',' + job_Id
 
-        hit_max, stat_map = collect_stats(valid_log, stats_to_pull)
+        hit_max, stat_map = collect_stats(log, stats_to_pull)
 
         if hit_max:
             hit_max_count += 1
