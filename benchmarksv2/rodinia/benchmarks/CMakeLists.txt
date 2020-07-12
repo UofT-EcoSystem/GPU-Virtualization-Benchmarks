@@ -16,7 +16,7 @@ if (rod_hotspot)
 endif()
 
 if (rod_streamcluster)
-  add_subdirectory(streamcluster)
+  add_subdirectory(streamcluster_new)
 endif()
 
 if (rod_pathfinder)
