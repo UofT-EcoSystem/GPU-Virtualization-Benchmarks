@@ -295,10 +295,36 @@ def process_inter(pair):
 
 def process_ctx(pair, base_config):
     apps = pair.split('+')
+    configs = []
 
-    step = 1.0 / args.num_slice
-    configs = [base_config + '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r) for r in
-               np.arange(step, 1.0, step)]
+    # CTX config
+    # Get max resource usage from each bench in each app
+    max_rsrc_usage = [const.get_dominant_usage(app) for app in apps]
+
+    # 1. Make sure we can at least launch one TB of each kernel in each app
+    max_usage_app = [max(app_usage, key=lambda x: x[1]) for app_usage in
+                     max_rsrc_usage]
+    # ctx does not care about which resource it is
+    max_usage_app = [usage_tuple[1] for usage_tuple in max_usage_app]
+
+    if sum(max_usage_app) > 1.0:
+        print("No feasible ctx config for {}".format_map(pair))
+        return 0
+
+    # Dice the remaining usage in multiple slices and check whether different
+    # slice size leads to different cta quota for kernels
+    remaining_usage = 1 - sum(max_usage_app)
+    step = remaining_usage / args.num_slice
+    previous_cta_setting = []
+
+    for r in np.arange(max_usage_app[0], 1 - max_usage_app[1] + step, step):
+        cta_setting = [const.get_cta_setting_from_ctx(max_rsrc_usage[0], r),
+                       const.get_cta_setting_from_ctx(max_rsrc_usage[1], 1 - r)]
+        if cta_setting != previous_cta_setting:
+            # Only launch another config if the cta setting differs
+            previous_cta_setting = cta_setting
+            configs.append(base_config +
+                           '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r))
 
     # Number of kernels config
     num_kernel = [const.get_num_kernels(app) for app in apps]
@@ -307,6 +333,7 @@ def process_ctx(pair, base_config):
 
     configs = [c + '-' + num_kernel_config for c in configs]
 
+    # Cycle cap config
     cap_config = get_cap_config(apps)
     configs = [c + '-' + cap_config for c in configs]
 

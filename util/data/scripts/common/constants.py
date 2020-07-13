@@ -184,6 +184,43 @@ def get_seq_cycles(app):
     return result
 
 
+def get_dominant_usage(app):
+    df_seq = get_pickle('seq.pkl')
+    df_seq.set_index(['pair_str'], inplace=True)
+
+    def get_seq_dominant_bench(bench, df_seq):
+        if bench in multi_kernel_app:
+            print("Unimplemented error: get_dominant_usage in constants.py")
+            sys.exit(1)
+
+        block_size = get_block_size(bench)
+        block_regs = df_seq.loc[bench, 'regs'] * block_size
+        block_smem = df_seq.loc[bench, 'smem']
+
+        usage = [("thread_ratio", block_size / max_thread_volta),
+                 ("regs_ratio", block_regs / max_register),
+                 ("smem_ratio", block_smem / max_smem),
+                 ("thread_block_ratio", 1 / max_cta_volta)]
+
+        return max(usage, key=lambda x: x[1])
+
+    if app in syn_yaml:
+        # Synthetic workloads
+        list_bench = syn_yaml[app]
+        list_usage = [get_seq_dominant_bench(bench, df_seq) for bench in
+                      list_bench]
+
+        return list_usage
+    else:
+        return [get_seq_dominant_bench(app, df_seq)]
+
+
+def get_cta_setting_from_ctx(rsrc_usage, ctx):
+    list_quota = [math.floor(ctx / usage[1]) for usage in rsrc_usage]
+
+    return list_quota
+
+
 # For kernels that simply repeat the primary kernel, return the kidx key of
 # the primary kernel
 # Input kidx starts at 0 (GPUSim output)
