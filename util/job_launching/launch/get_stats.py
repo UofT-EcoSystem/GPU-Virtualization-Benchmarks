@@ -65,6 +65,9 @@ def parse_args():
                         help="If debugging is turned on, failed logs will "
                              "have the last line printed to the console.")
 
+    parser.add_argument("--latest", action="store_true",
+                        help="Only parse the latest log in each folder.")
+
     args = parser.parse_args()
     return args
 
@@ -258,6 +261,9 @@ def parse_app_files(app, args, stats_to_pull):
         def get_timestamp(x):
             return os.path.getctime(x)
         gpusim_logs = sorted(gpusim_logs, reverse=True, key=get_timestamp)
+
+        if args.latest:
+            gpusim_logs = gpusim_logs[:1]
 
         found_valid_log = False
         log = ''
