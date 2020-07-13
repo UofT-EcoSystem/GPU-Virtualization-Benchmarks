@@ -7,4 +7,5 @@
 #SBATCH --partition=cpu
 #SBATCH --export=ALL
 #SBATCH --output=%x.%j.log
+#SBATCH --error=%x.%j.err
 
