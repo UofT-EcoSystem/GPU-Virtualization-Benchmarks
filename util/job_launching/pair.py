@@ -308,7 +308,7 @@ def process_ctx(pair, base_config):
     max_usage_app = [usage_tuple[1] for usage_tuple in max_usage_app]
 
     if sum(max_usage_app) > 1.0:
-        print("No feasible ctx config for {}".format_map(pair))
+        print("No feasible ctx config for {}".format(pair))
         return 0
 
     # Dice the remaining usage in multiple slices and check whether different
