@@ -8,6 +8,10 @@ import sys
 from joblib import Parallel, delayed
 
 import job_launching.launch.common as common
+import data.scripts.common.constants as const
+
+MAX_BREAK_TOKEN = r"GPGPU-Sim: \*\* break due to reaching " \
+                  r"the maximum cycles \(or instructions\) \*\*"
 
 
 def load_stats_yamls(filename):
@@ -43,6 +47,12 @@ def parse_args():
                              "app/config/..",
                         default="", required=True)
 
+    parser.add_argument("--format", choices=["stats", "timeline"],
+                        default="stats",
+                        help="Parsed file format. `stats` for csv files of "
+                             "gpusim stats. `timeline` for timestamps of "
+                             "kernel execution")
+
     parser.add_argument("--stats_yml", default="",
                         help="The yaml file that defines the stats "
                              "you want to collect", required=True)
@@ -56,7 +66,8 @@ def parse_args():
                              'Accept space separated list.')
 
     parser.add_argument("--output", default="result.csv",
-                        help="The logfile to save csv to.", required=True)
+                        help="If format is `stats`, "
+                             "the logfile to save csv to.")
 
     parser.add_argument("--skip_hit_max", action="store_true",
                         help="Skip files that hit max cycles/instructions.")
@@ -92,14 +103,12 @@ def process_yamls(args):
 # app_and_args, config, gpusim_version and jobid
 # pair_str is the name of the parent directory, it is 
 # used to identify where app_and_args ends and config begins
-def parse_outputfile_name(logfile, app, config):
+def parse_outputfile_name(logfile):
     logfile_name = os.path.basename(logfile)
 
     # naming convention:
     # gpusim_log = job_name.job_id.log
     # job_name = app-config-commit_id
-    logfile_name = logfile_name.replace(app+'-'+config+'-', '')
-
     dot_split = logfile_name.split(".")
     job_id = dot_split[1]
 
@@ -138,7 +147,22 @@ def has_exited(gpusim_logfile):
     return False
 
 
-def collect_stats(outputfile, stats_to_pull):
+def grep_timeline(log, config):
+    hit_max = False
+    result = []
+
+    with open(log, "r") as f:
+        for line in f:
+            if re.search(MAX_BREAK_TOKEN, line):
+                hit_max = True
+
+            if re.search(r"ended @", line):
+                result.append(line)
+
+    return hit_max, (config, "".join(result))
+
+
+def collect_stats(outputfile, stats_to_pull, app, config):
     hit_max = False
     stat_map = {}
 
@@ -154,14 +178,11 @@ def collect_stats(outputfile, stats_to_pull):
     should_parse = True
     kernel_uid_token = r"kernel_launch_uid\s=\s"
 
-    max_break_token = r"GPGPU-Sim: \*\* break due to reaching " \
-                      r"the maximum cycles \(or instructions\) \*\*"
-
     for line in lines:
         # If we ended simulation due to too many insn -
         # ignore the last kernel launch, as it is no complete.
         # Note: This only appies if we are doing kernel-by-kernel stats
-        if re.match(max_break_token, line):
+        if re.match(MAX_BREAK_TOKEN, line):
             # print("get_stats.py >>> Found Max Insn reached in {0}."
             #       .format(outputfile))
             hit_max = True
@@ -225,11 +246,40 @@ def collect_stats(outputfile, stats_to_pull):
 
     f.close()
 
-    return hit_max, stat_map
+    # get parameters from the file name and parent directory
+    gpusim_version, job_Id = parse_outputfile_name(outputfile)
+
+    # build a csv string to be written to file from this output
+    csv_str = app + ',' + config + ',' + \
+              gpusim_version + ',' + job_Id
+
+    for stat in stats_to_pull:
+        csv_str += ','
+        if stat in stat_map:
+            if stats_to_pull[stat][1] == 'scalar':
+                csv_str += stat_map[stat]
+            else:
+                if isinstance(stat_map[stat][0], list):
+                    # multi-dimensional array
+                    csv_str += '['
+
+                    for stream in stat_map[stat]:
+                        csv_str += '[' + ' '.join(stream) + '] '
+
+                    csv_str += ']'
+                else:
+                    csv_str += '[' + ' '.join(stat_map[stat]) + ']'
+        else:
+            if stats_to_pull[stat][1] == 'scalar':
+                csv_str += '0'
+            else:
+                csv_str += '[0]'
+
+    return hit_max, csv_str
 
 
 def parse_app_files(app, args, stats_to_pull):
-    csv_list = []
+    result_list = []
     found_failed_app = False
     file_count = 0
     hit_max_count = 0
@@ -294,14 +344,13 @@ def parse_app_files(app, args, stats_to_pull):
             # continue to the next config folder
             continue
 
-        # get parameters from the file name and parent directory
-        gpusim_version, job_Id = parse_outputfile_name(log, app,
-                                                       config)
-        # build a csv string to be written to file from this output
-        csv_str = app + ',' + config + ',' + \
-                  gpusim_version + ',' + job_Id
-
-        hit_max, stat_map = collect_stats(log, stats_to_pull)
+        if args.format == "stats":
+            hit_max, result_str = collect_stats(log, stats_to_pull, app, config)
+        elif args.format == "timeline":
+            hit_max, result_str = grep_timeline(log, config)
+        else:
+            print("Invalid format.")
+            sys.exit(1)
 
         if hit_max:
             hit_max_count += 1
@@ -310,32 +359,10 @@ def parse_app_files(app, args, stats_to_pull):
             # Do not print hit max results into csv
             continue
 
-        for stat in stats_list:
-            csv_str += ','
-            if stat in stat_map:
-                if stats_to_pull[stat][1] == 'scalar':
-                    csv_str += stat_map[stat]
-                else:
-                    if isinstance(stat_map[stat][0], list):
-                        # multi-dimensional array
-                        csv_str += '['
-
-                        for stream in stat_map[stat]:
-                            csv_str += '[' + ' '.join(stream) + '] '
-
-                        csv_str += ']'
-                    else:
-                        csv_str += '[' + ' '.join(stat_map[stat]) + ']'
-            else:
-                if stats_to_pull[stat][1] == 'scalar':
-                    csv_str += '0'
-                else:
-                    csv_str += '[0]'
-
-        csv_list.append(csv_str)
+        result_list.append(result_str)
         file_count += 1
 
-    return '\n'.join(csv_list), found_failed_app, file_count, hit_max_count
+    return result_list, found_failed_app, file_count, hit_max_count
 
 
 def main():
@@ -355,11 +382,6 @@ def main():
     if 'gpgpu-sim-builds' in apps:
         apps.remove('gpgpu-sim-builds')
 
-    f_csv = open(args.output, "w+")
-    f_csv.write(
-        'pair_str,config,gpusim_version,jobId,' + ','.join(
-            stats_to_pull.keys()) + '\n')
-
     # book keeping numbers:
     file_count = 0
     hit_max_count = 0
@@ -370,11 +392,23 @@ def main():
     results = Parallel(n_jobs=num_cores)(
         delayed(parse_app_files)(app, args, stats_to_pull) for app in apps)
 
+    csv_total = []
     for idx, app_result in enumerate(results):
-        # app_result: csv, failed, file_count, hit_max_count
+        # app_result: string, failed, file_count, hit_max_count
+
         if app_result[2] > 0:
-            f_csv.write(app_result[0])
-            f_csv.write('\n')
+            if args.format == "stats":
+                csv_total += app_result[0]
+            elif args.format == "timeline":
+                app_dir = os.path.join(const.DATA_HOME, 'timeline', apps[idx])
+                if not os.path.exists(app_dir):
+                    os.makedirs(app_dir)
+
+                for config, timeline_str in app_result[0]:
+                    timeline_path = os.path.join(app_dir,
+                                                 '{}.txt'.format(config))
+                    with open(timeline_path, "w") as f:
+                        f.write(timeline_str)
 
         if app_result[1]:
             failed_apps.add(apps[idx])
@@ -384,10 +418,20 @@ def main():
         file_count += app_result[2]
         hit_max_count += app_result[3]
 
-    f_csv.close()
+    if args.format == "stats":
+        f_csv = open(args.output, "w+")
+
+        f_csv.write(
+            'pair_str,config,gpusim_version,jobId,' + ','.join(
+                stats_to_pull.keys()) + '\n')
+        f_csv.write("\n".join(csv_total))
+
+        f_csv.close()
+
+        print(('-' * 100))
+        pretty_print("Write to file {0}".format(args.output))
 
     print(('-' * 100))
-    pretty_print("Write to file {0}".format(args.output))
     pretty_print("Successfully parsed {0} files".format(file_count))
     pretty_print("{0} files hit max cycle count.".format(hit_max_count))
     actual_failed = failed_apps - good_apps
