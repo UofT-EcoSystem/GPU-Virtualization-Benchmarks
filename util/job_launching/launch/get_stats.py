@@ -387,6 +387,7 @@ def main():
     hit_max_count = 0
     failed_apps = set()
     good_apps = set()
+    max_apps = set()
 
     num_cores = multiprocessing.cpu_count()
     results = Parallel(n_jobs=num_cores)(
@@ -415,6 +416,9 @@ def main():
         else:
             good_apps.add(apps[idx])
 
+        if app_result[3] > 0:
+            max_apps.add(apps[idx])
+
         file_count += app_result[2]
         hit_max_count += app_result[3]
 
@@ -437,6 +441,8 @@ def main():
     actual_failed = failed_apps - good_apps
     pretty_print("{0} failed simulation: {1}".format
                  (len(actual_failed), ','.join(list(actual_failed))))
+    pretty_print("{0} apps hit max cycles: {1}".format(
+        len(max_apps), ','.join(list(max_apps))))
 
     print(('-' * 100))
 
