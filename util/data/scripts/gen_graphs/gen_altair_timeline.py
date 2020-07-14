@@ -6,6 +6,7 @@ import re
 from itertools import cycle
 
 import data.scripts.common.constants as const
+import data.scripts.common.help_iso as hi
 
 
 def _prepare_gpusim_metrics(pair_series):
@@ -61,7 +62,7 @@ def _prepare_gpusim_metrics(pair_series):
     return data
 
 
-def _prepare_gpusim_console(pair_str, filename):
+def _prepare_gpusim_console(pair_str, filename, config_str):
     # Assuming the timeline file is in
     # util/data/timeline/pair_str/filename
     timeline_file = os.path.join(const.DATA_HOME,
@@ -69,8 +70,10 @@ def _prepare_gpusim_console(pair_str, filename):
                                                          filename))
 
     apps = re.split(r'-(?=\D)', pair_str)
-    seq_cycles = [cycle(const.get_seq_cycles(app)) for app in apps]
+    seq_cycles = [const.get_seq_cycles(app) for app in apps]
+    circular_seq_cycles = [cycle(c) for c in seq_cycles]
 
+    # Prepare dataframe for Altair
     data = []
     with open(timeline_file) as f:
         for line in f:
@@ -79,20 +82,56 @@ def _prepare_gpusim_console(pair_str, filename):
             start = int(re.search(r"started\s@\s(.*),", line).group(1))
             end = int(re.search(r"ended\s@\s(.*)\.", line).group(1))
             position = (start + end) / 2
+            runtime = end - start
 
-            isolated_duration = next(seq_cycles[stream_id-1])
-            norm = (isolated_duration / (end - start)).round(2)
+            isolated_duration = next(circular_seq_cycles[stream_id - 1])
+            norm = (isolated_duration / runtime).round(2)
 
-            entry = {'stream': "{}: {}".format(stream_id, apps[stream_id-1]),
+            entry = {'stream': "{}: {}".format(stream_id, apps[stream_id - 1]),
                      'kernel': kernel,
                      'start': start,
                      'end': end,
                      'norm': norm,
-                     'position': position}
+                     'position': position,
+                     'runtime': runtime
+                     }
             data.append(entry)
 
     data = pd.DataFrame(data)
-    return data
+
+    # Check if simulation hit max_cycles
+    config_cap = hi.check_config('cap', config_str, default=0)
+    if config_cap == data['end'].max():
+        print("Simulation hit max cycles ({}).".format(config_cap))
+
+        # Get rid of the final incomplete kernel
+        adjusted_data = data[data['end'] != config_cap]
+    else:
+        adjusted_data = data
+
+    # Make sure we get at least one iteration in each app
+    stream_tokens = sorted(adjusted_data['stream'].unique())
+    shared_runtime = [adjusted_data[adjusted_data['stream'] == token]
+                      ['runtime'] for token in stream_tokens]
+
+    at_least_one_iter = [(len(shared) >= len(isolated))
+                         for shared, isolated in zip(shared_runtime, seq_cycles)
+                         ]
+
+    if all(at_least_one_iter):
+        # calculate_sld_short needs the original copy of shared_runtime
+        shared_runtime = [data[data['stream'] == token].sort_values('start')
+                          ['runtime'] for token in stream_tokens]
+
+        sld = hi.calculate_sld_short(shared_runtime, seq_cycles)
+
+        print("Normalized IPC:", sld)
+        print("WS:", sum(sld))
+
+        return data, sum(sld)
+    else:
+        print("Some app did not finish at least one iteration. Skip.")
+        return pd.DataFrame(), 0
 
 
 def draw_altair(data, chart_title, width=900, xmax=None):
@@ -147,6 +186,18 @@ def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
 
 def draw_timeline_from_console(pair_str, filename, title=None,
                                width=900, xmax=None):
-    data = _prepare_gpusim_console(pair_str, filename)
+    config_str = os.path.basename(filename).split('.')[0]
+    data, ws = _prepare_gpusim_console(pair_str, filename, config_str)
+
+    if data.empty:
+        return None
+
+    if not title:
+        if hi.check_config('lut', config_str, default=False):
+            title = "LUT (3D Allocation)"
+        else:
+            ctx_1 = hi.check_config('1_ctx', config_str, default=0)
+            ctx_2 = hi.check_config('1_ctx', config_str, default=0)
+            title = "CTX-{}-{}".format(ctx_1, ctx_2)
 
     return draw_altair(data, title, width, xmax)
