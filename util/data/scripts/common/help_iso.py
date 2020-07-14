@@ -26,6 +26,7 @@ regex_table = {'intra': r'INTRA_0:(.*):[0-9]+_CTA',
                '2_l2': r'PARTITION_L2_0:[0-9|\.]+:([0-9|\.]+)',
                '2_kidx': r'MIX_0:[0-9]+:(.*)_KIDX',
                '2_ctx': r'INTRA_0:.*:(.*)_RATIO',
+               'cap': r'CAP_(.*)_CYCLE',
                }
 
 type_table = {'intra': int,
@@ -38,6 +39,7 @@ type_table = {'intra': int,
               '2_kidx': int,
               '1_ctx': float,
               '2_ctx': float,
+              'cap': int,
               }
 
 metric_label = {'intra': 'Concurrent TBs/SM',
