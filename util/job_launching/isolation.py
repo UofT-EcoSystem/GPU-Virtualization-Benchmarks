@@ -26,9 +26,9 @@ def parse_args():
                         help='Run mig experiments or not.')
     parser.add_argument('--mig_mem', action='store_true',
                         help='Run mig memory only experiments or not.')
-    parser.add_argument('--bypassl2', default=False,
-                        help='Do a bypass of l2 cache if l2 miss rate of the app
-                        is above the l2d_bypass_threshold parameter in constants.')
+    parser.add_argument('--bypassl2', action='store_true',
+                        help='Do a bypass of l2 cache if l2 miss rate of the \
+                        app is above the l2d_bypass_threshold.')
 
     parser.add_argument('--cta_configs', default=4, type=int,
                         help='Sweeping step of CTAs/SM for intra-SM sharing.')
