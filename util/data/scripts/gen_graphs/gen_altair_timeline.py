@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import re
+from itertools import cycle
 
 import data.scripts.common.constants as const
 
@@ -60,16 +61,15 @@ def _prepare_gpusim_metrics(pair_series):
     return data
 
 
-def _prepare_gpusim_console(apps, filename, df_baseline):
+def _prepare_gpusim_console(pair_str, filename):
     # Assuming the timeline file is in
-    # util/data/timeline/apps[0]-apps[1]/filename
+    # util/data/timeline/pair_str/filename
     timeline_file = os.path.join(const.DATA_HOME,
-                                 'timeline/{}-{}/{}'.format(apps[0],
-                                                            apps[1],
-                                                            filename))
+                                 'timeline/{}/{}'.format(pair_str,
+                                                         filename))
 
-    df_baseline = df_baseline.set_index(['pair_str', '1_kidx'], drop=True)
-    kidx = [1 for app in apps]
+    apps = re.split(r'-(?=\D)', pair_str)
+    seq_cycles = [cycle(const.get_seq_cycles(app)) for app in apps]
 
     data = []
     with open(timeline_file) as f:
@@ -80,15 +80,8 @@ def _prepare_gpusim_console(apps, filename, df_baseline):
             end = int(re.search(r"ended\s@\s(.*)\.", line).group(1))
             position = (start + end) / 2
 
-            isolated_duration = df_baseline.loc[(apps[stream_id - 1],
-                                                 kidx[stream_id - 1])][
-                'runtime']
+            isolated_duration = next(seq_cycles[stream_id-1])
             norm = (isolated_duration / (end - start)).round(2)
-
-            # Increment kernel index for the app
-            kidx[stream_id - 1] = (kidx[stream_id - 1] + 1)
-            if kidx[stream_id - 1] > const.get_num_kernels(apps[stream_id - 1]):
-                kidx[stream_id - 1] = 1
 
             entry = {'stream': "{}: {}".format(stream_id, apps[stream_id-1]),
                      'kernel': kernel,
@@ -152,8 +145,8 @@ def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
     return draw_altair(data, chart_title)
 
 
-def draw_timeline_from_console(apps, filename, df_baseline, title=None,
+def draw_timeline_from_console(pair_str, filename, title=None,
                                width=900, xmax=None):
-    data = _prepare_gpusim_console(apps, filename, df_baseline)
+    data = _prepare_gpusim_console(pair_str, filename)
 
     return draw_altair(data, title, width, xmax)

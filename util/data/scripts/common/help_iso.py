@@ -14,6 +14,7 @@ regex_table = {'intra': r'INTRA_0:(.*):[0-9]+_CTA',
                'inter': r'INTER_0:(.*):[0-9]+_SM',
                'kidx': r'MIX_(.*)_KIDX',
                'bypass_l2': r'BYPASS_L2D_S1',
+               'lut': r'INTRA_LUT',
                'l2': r'PARTITION_L2_0:(.*):[0-9|\.]+',
                '1_intra': r'INTRA_0:(.*):[0-9]+_CTA',
                '1_inter': r'INTER_0:(.*):[0-9]+_SM',
@@ -65,24 +66,25 @@ def std_array(s):
 
 
 def process_config_column(*configs, df, default=0):
-
     for c in configs:
-        def parse_cfg(str):
-            # split config string into trunks
-            list_config = str.split('-')
+        df[c] = df['config'].apply(lambda x: check_config(c, x, default))
 
-            # match config name
-            for substring in list_config:
-                match = re.search(regex_table[c], substring)
-                if match:
-                    if len(match.groups()) == 1:
-                        return match.group(1)
-                    else:
-                        return True
 
-            return default
+def check_config(config, config_str, default=0):
+    # split config string into trunks
+    list_config = config_str.split('-')
 
-        df[c] = df['config'].apply(parse_cfg).astype(type_table.get(c, float))
+    # match config name
+    for substring in list_config:
+        match = re.search(regex_table[config], substring)
+        if match:
+            if len(match.groups()) == 1:
+                convert = type_table.get(config, float)
+                return convert(match.group(1))
+            else:
+                return True
+
+    return default
 
 
 def normalize(df, index, metric, value, inverse):
