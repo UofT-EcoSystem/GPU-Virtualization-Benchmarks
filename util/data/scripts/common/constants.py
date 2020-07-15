@@ -194,7 +194,7 @@ def get_dominant_usage(app):
             sys.exit(1)
 
         block_size = get_block_size(bench)
-        block_regs = df_seq.loc[bench, 'regs'] * block_size
+        block_regs = ((df_seq.loc[bench, 'regs'] + 3) & ~3) * block_size
         block_smem = df_seq.loc[bench, 'smem']
 
         usage = [("thread_ratio", block_size / max_thread_volta),
