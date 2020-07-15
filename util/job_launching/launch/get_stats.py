@@ -335,7 +335,7 @@ def parse_app_files(app, args, stats_to_pull):
             found_failed_app = True
             # Print the last line of log for debugging purposes
             if args.debugging:
-                last_line = open(log).readlines()[-1]
+                last_line = open(log).readlines()[-3:]
                 pretty_print("({0}, {1}): {2}".format(app_str, config,
                                                       last_line))
             else:
