@@ -62,7 +62,7 @@ def _prepare_gpusim_metrics(pair_series):
     return data
 
 
-def _prepare_gpusim_console(pair_str, filename, config_str):
+def prepare_gpusim_console(pair_str, filename, config_str):
     # Assuming the timeline file is in
     # util/data/timeline/pair_str/filename
     timeline_file = os.path.join(const.DATA_HOME,
@@ -186,8 +186,8 @@ def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
 
 def draw_timeline_from_console(pair_str, filename, title=None,
                                width=900, xmax=None):
-    config_str = os.path.basename(filename).split('.')[0]
-    data, ws = _prepare_gpusim_console(pair_str, filename, config_str)
+    config_str = os.path.basename(filename).replace('.txt', '')
+    data, ws = prepare_gpusim_console(pair_str, filename, config_str)
 
     if data.empty:
         return None
