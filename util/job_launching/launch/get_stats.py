@@ -54,8 +54,8 @@ def parse_args():
                              "kernel execution")
 
     parser.add_argument("--stats_yml", default="",
-                        help="The yaml file that defines the stats "
-                             "you want to collect", required=True)
+                        help="If format is `stats`, the yaml file that defines "
+                             "the stats you want to collect")
 
     parser.add_argument("--exclude", default=[], nargs='+',
                         help="Exclude configs with these strings. "
@@ -88,15 +88,18 @@ def process_yamls(args):
     common.load_defined_yamls()
 
     this_directory = os.path.dirname(os.path.realpath(__file__))
-    args.stats_yml = common.file_option_test(args.stats_yml,
-                                             os.path.join(this_directory,
-                                                          "stats",
-                                                          "example_stats.yml"),
-                                             this_directory)
 
-    stats_to_pull = load_stats_yamls(args.stats_yml)
+    if args.format == "stats":
+        args.stats_yml = common.file_option_test(
+            args.stats_yml,
+            os.path.join(this_directory, "stats", "multi.yml"),
+            this_directory)
 
-    return stats_to_pull
+        stats_to_pull = load_stats_yamls(args.stats_yml)
+
+        return stats_to_pull
+    else:
+        return {}
 
 
 # Parse the filename of gpusim output file to get
