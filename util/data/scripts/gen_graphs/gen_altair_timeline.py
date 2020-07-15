@@ -62,7 +62,7 @@ def _prepare_gpusim_metrics(pair_series):
     return data
 
 
-def prepare_gpusim_console(pair_str, filename, config_str):
+def prepare_gpusim_console(pair_str, filename, config_str, console=True):
     # Assuming the timeline file is in
     # util/data/timeline/pair_str/filename
     timeline_file = os.path.join(const.DATA_HOME,
@@ -102,7 +102,8 @@ def prepare_gpusim_console(pair_str, filename, config_str):
     # Check if simulation hit max_cycles
     config_cap = hi.check_config('cap', config_str, default=0)
     if config_cap == data['end'].max():
-        print("Simulation hit max cycles ({}).".format(config_cap))
+        if console:
+            print("Simulation hit max cycles ({}).".format(config_cap))
 
         # Get rid of the final incomplete kernel
         adjusted_data = data[data['end'] != config_cap]
@@ -125,8 +126,9 @@ def prepare_gpusim_console(pair_str, filename, config_str):
 
         sld = hi.calculate_sld_short(shared_runtime, seq_cycles)
 
-        print("Normalized IPC:", sld)
-        print("WS:", sum(sld))
+        if console:
+            print("Normalized IPC:", sld)
+            print("WS:", sum(sld))
 
         return data, sum(sld)
     else:
