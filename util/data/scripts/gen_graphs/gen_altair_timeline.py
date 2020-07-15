@@ -197,7 +197,7 @@ def draw_timeline_from_console(pair_str, filename, title=None,
             title = "LUT (3D Allocation)"
         else:
             ctx_1 = hi.check_config('1_ctx', config_str, default=0)
-            ctx_2 = hi.check_config('1_ctx', config_str, default=0)
+            ctx_2 = hi.check_config('2_ctx', config_str, default=0)
             title = "CTX-{}-{}".format(ctx_1, ctx_2)
 
     return draw_altair(data, title, width, xmax)
