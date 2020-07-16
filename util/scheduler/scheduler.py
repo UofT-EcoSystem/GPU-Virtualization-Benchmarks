@@ -331,6 +331,7 @@ def calculate_qos(runtimes, scaled_runtimes, short=False,
 
     if short:
         # Only fetch the first iteration of the longer app
+        # FIXME: this function call is invalid. End timestamps required.
         qos_loss = hi.calculate_sld_short(scaled_runtimes, runtimes)
     else:
         iter_0 = len(scaled_runtimes[0]) / len(runtimes[0])

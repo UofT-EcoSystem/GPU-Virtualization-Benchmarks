@@ -166,7 +166,8 @@ def evaluate_app_wise(df_pair, df_baseline):
         return baseline
 
     def calculate_total_sld(row):
-        return hi.calculate_sld_short(row['runtime'], row['baseline'])
+        start, end = const.get_from_to(row['runtime'])
+        return hi.calculate_sld_short(end, row['baseline'])
 
     df_pair['norm_ipc'] = df_pair.apply(calc_norm_runtime, axis=1)
     df_pair['baseline'] = df_pair.apply(collect_baseline, axis=1)

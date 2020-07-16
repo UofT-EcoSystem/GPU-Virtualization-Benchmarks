@@ -236,3 +236,16 @@ def gen_kernel_headers(app):
               for idx in range(get_num_kernels(app))]
 
     return result
+
+
+# Assume kernels are launched back to back
+def get_from_to(duration):
+    time_series = [0]
+
+    for d in duration:
+        new_elem = time_series[-1] + d
+        time_series.append(new_elem)
+
+    time_series = np.array(time_series)
+    return time_series[0:-1], time_series[1:]
+

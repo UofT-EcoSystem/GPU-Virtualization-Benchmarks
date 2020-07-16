@@ -18,16 +18,6 @@ def _prepare_gpusim_metrics(pair_series):
     s1_norm = norm_runtime[-2]
     s2_norm = norm_runtime[-1]
 
-    def get_from_to(duration):
-        time_series = [0]
-
-        for d in duration:
-            new_elem = time_series[-1] + d
-            time_series.append(new_elem)
-
-        time_series = np.array(time_series)
-        return time_series[0:-1], time_series[1:]
-
     def get_kernels(stream_id, length):
         bench = stream_id + '_bench'
         kernels = np.arange(1, const.get_num_kernels(pair_series[bench]) + 1)
@@ -36,11 +26,11 @@ def _prepare_gpusim_metrics(pair_series):
 
         return kernels
 
-    s1_from, s1_to = get_from_to(s1_runtime)
+    s1_from, s1_to = const.get_from_to(s1_runtime)
     s1 = np.repeat('1: ' + pair_series['1_bench'], s1_from.shape[0])
     k1 = get_kernels('1', s1_from.shape[0])
 
-    s2_from, s2_to = get_from_to(s2_runtime)
+    s2_from, s2_to = const.get_from_to(s2_runtime)
     s2 = np.repeat('2: ' + pair_series['2_bench'], s2_from.shape[0])
     k2 = get_kernels('2', s2_from.shape[0])
 
@@ -122,10 +112,11 @@ def prepare_gpusim_console(pair_str, filename, config_str):
 
     if all(at_least_one_iter):
         # calculate_sld_short needs the original copy of shared_runtime
-        shared_runtime = [data[data['stream'] == token].sort_values('start')
-                          ['runtime'] for token in stream_tokens]
+        # shared runtime is also iteration based
+        shared_end_stamp = [data[data['stream'] == token].sort_values('start')
+                            ['end'] for token in stream_tokens]
 
-        sld = hi.calculate_sld_short(shared_runtime, seq_cycles)
+        sld = hi.calculate_sld_short(shared_end_stamp, seq_cycles)
 
         return data, sld
     else:
