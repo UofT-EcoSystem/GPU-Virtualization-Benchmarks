@@ -62,7 +62,7 @@ def _prepare_gpusim_metrics(pair_series):
     return data
 
 
-def prepare_gpusim_console(pair_str, filename, config_str, console=True):
+def prepare_gpusim_console(pair_str, filename, config_str):
     # Assuming the timeline file is in
     # util/data/timeline/pair_str/filename
     timeline_file = os.path.join(const.DATA_HOME,
@@ -102,8 +102,9 @@ def prepare_gpusim_console(pair_str, filename, config_str, console=True):
     # Check if simulation hit max_cycles
     config_cap = hi.check_config('cap', config_str, default=0)
     if config_cap == data['end'].max():
-        if console:
-            print("Simulation hit max cycles ({}).".format(config_cap))
+        print("{}, {} simulation hit max cycles ({}).".format(pair_str,
+                                                              config_str,
+                                                              config_cap))
 
         # Get rid of the final incomplete kernel
         adjusted_data = data[data['end'] != config_cap]
@@ -126,13 +127,10 @@ def prepare_gpusim_console(pair_str, filename, config_str, console=True):
 
         sld = hi.calculate_sld_short(shared_runtime, seq_cycles)
 
-        if console:
-            print("Normalized IPC:", sld)
-            print("WS:", sum(sld))
-
-        return data, sum(sld)
+        return data, sld
     else:
-        print("Some app did not finish at least one iteration. Skip.")
+        print("{}, {} did not finish at least one iteration. Skip.".format(
+            pair_str, config_str))
         return pd.DataFrame(), 0
 
 
@@ -189,7 +187,7 @@ def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
 def draw_timeline_from_console(pair_str, filename, title=None,
                                width=900, xmax=None):
     config_str = os.path.basename(filename).replace('.txt', '')
-    data, ws = prepare_gpusim_console(pair_str, filename, config_str)
+    data, sld = prepare_gpusim_console(pair_str, filename, config_str)
 
     if data.empty:
         return None
@@ -202,4 +200,4 @@ def draw_timeline_from_console(pair_str, filename, title=None,
             ctx_2 = hi.check_config('2_ctx', config_str, default=0)
             title = "CTX-{}-{}".format(ctx_1, ctx_2)
 
-    return draw_altair(data, title, width, xmax)
+    return draw_altair(data, title, width, xmax), sld
