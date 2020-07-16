@@ -12,11 +12,6 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
     num_rows = const.get_num_kernels(apps[1])
     matrix_size = (num_rows, num_cols)
 
-    configs = [np.zeros(matrix_size, dtype=int),
-               np.zeros(matrix_size, dtype=int)]
-    interference = [np.zeros(matrix_size),
-                    np.zeros(matrix_size)]
-
     # Calculate total runtime
     seq_cycles = [const.get_seq_cycles(app) for app in apps]
     importance = [[cycles / sum(app_cycles) for cycles in app_cycles]
@@ -26,9 +21,10 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
         print('Dimension mismatch between matrix size and importance array')
         sys.exit(1)
 
-    # return list_cta, list_sld
+    # return list_cta, list_sld, serial?
     def get_cta_sld(bench_idx):
         real_bench = []
+        serial = False
 
         for app, midx in zip(apps, bench_idx):
             if 'syn' in app:
@@ -48,8 +44,14 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
                                                    real_bench[0][1])
                 if df_bench['intra'].max() * 2 > max_cta:
                     cta_setting = max_cta // 2
-                    # Might be a bit pessimistic here:
-                    sld = 0.5
+
+                    if cta_setting == 0:
+                        cta_setting = 1
+                        serial = True
+                        sld = 1
+                    else:
+                        # Might be a bit pessimistic here:
+                        sld = 0.5
                 else:
                     cta_setting = df_bench.loc[idx_max['intra']]['intra']
                     sld = df_bench.loc[idx_max['intra']]['norm_ipc']
@@ -57,7 +59,7 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
                 cta_setting = df_bench.loc[idx_max['norm_ipc']]['intra'] // 2
                 sld = 0.5
 
-            return [cta_setting, cta_setting], [sld, sld]
+            return [cta_setting, cta_setting], [sld, sld], serial
 
         else:
             # Different benchmarks. Get settings from df_dynamic
@@ -78,31 +80,45 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
             df_pair = df_dynamic[idx_df].copy()
 
             if len(df_pair.index) == 0:
-                print("No feasible pair config for {}".format(
-                    sorted_real_bench)
+                # If no feasible pair dynamic config, let the kernels run
+                # serially using its best intra config
+                cta_setting = []
+                sld = []
+                serial = True
+                for bench in real_bench:
+                    best_idx = df_intra[(df_intra['pair_str'] == bench[0]) &
+                                        (df_intra['1_kidx'] == bench[1])
+                                        ]['norm_ipc'].idxmax(axis=0)
+                    cta_setting.append(df_intra.loc[best_idx]['intra'])
+                    sld.append(df_intra.loc[best_idx]['norm_ipc'])
+            else:
+                df_pair['sum_increase'] = df_pair['sld'].apply(
+                    lambda list_sld: bench_importance[0] / list_sld[1] +
+                                     bench_importance[1] / list_sld[2]
                 )
-                return [], []
 
-            df_pair['sum_increase'] = df_pair['sld'].apply(
-                lambda list_sld: bench_importance[0] / list_sld[1] +
-                                 bench_importance[1] / list_sld[2]
-            )
+                df_pair.sort_values('sum_increase', inplace=True,
+                                    ascending=True)
 
-            df_pair.sort_values('sum_increase', inplace=True, ascending=True)
+                series_best = df_pair.iloc[0]
+                cta_setting = [series_best['1_intra'], series_best['2_intra']]
+                sld = series_best['sld'][1:3]
 
-            series_best = df_pair.iloc[0]
-            cta_setting = [series_best['1_intra'], series_best['2_intra']]
-            sld = series_best['sld'][1:3]
+                if real_bench != sorted_real_bench:
+                    cta_setting.reverse()
+                    sld.reverse()
 
-            if real_bench != sorted_real_bench:
-                cta_setting.reverse()
-                sld.reverse()
+            return cta_setting, sld, serial
 
-            return cta_setting, sld
+    configs = [np.zeros(matrix_size, dtype=int),
+               np.zeros(matrix_size, dtype=int)]
+    interference = [np.zeros(matrix_size),
+                    np.zeros(matrix_size)]
+    serial_matrix = np.zeros(matrix_size, dtype=int)
 
     for row_idx in range(num_rows):
         for col_idx in range(num_cols):
-            list_cta, list_sld = get_cta_sld([col_idx, row_idx])
+            list_cta, list_sld, pair_serial = get_cta_sld([col_idx, row_idx])
 
             if len(list_cta) == 0:
                 print("LUT config does not exist for {}", apps)
@@ -116,7 +132,9 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
             interference[0][matrix_idx] = list_sld[0]
             interference[1][matrix_idx] = list_sld[1]
 
-    return configs, interference
+            serial_matrix[matrix_idx] = int(pair_serial)
+
+    return configs, interference, serial_matrix
 
 
 def get_ctx_matrix(apps, row, df_dynamic_index):
