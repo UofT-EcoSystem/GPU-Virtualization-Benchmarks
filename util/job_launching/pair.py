@@ -49,6 +49,9 @@ def parse_args():
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
                                           'inter', 'ctx', 'lut', 'custream'],
                         help='How to partition resources between benchmarks.')
+    parser.add_argument('--serial', action='store_true',
+                        help='If how is lut, only run pairs where '
+                             'kernel serialization is needed.')
     parser.add_argument('--num_slice', default=4, type=int,
                         help='If how is ctx, num_slice specifies how many '
                              'slice configs to sweep.')
@@ -245,10 +248,12 @@ def process_lut(pair, base_config):
     lut_matrix = lut_configs.get_lut_matrix(apps, df_pair_dynamic,
                                             df_intra)
 
-    if lut_matrix:
-        cta_configs = lut_matrix[0]
-        lut = []
+    cta_configs = lut_matrix[0]
+    serial = lut_matrix[2]
+    lut = []
 
+    if (args.serial and 1 in serial) or \
+            (not args.serial and np.all(serial == 0)):
         # Columns are kernels for apps[0] and rows are kernels for apps[1]
         for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
             entry = "0:{}:{}=0:{}:{}".format(col_idx + 1, row_idx + 1,

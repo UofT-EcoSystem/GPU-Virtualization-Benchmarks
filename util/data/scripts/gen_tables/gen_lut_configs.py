@@ -122,7 +122,7 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
 
             if len(list_cta) == 0:
                 print("LUT config does not exist for {}", apps)
-                return None
+                sys.exit(1)
 
             matrix_idx = (row_idx, col_idx)
 
