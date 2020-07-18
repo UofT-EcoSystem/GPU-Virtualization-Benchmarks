@@ -323,8 +323,9 @@ def process_ctx(pair, base_config):
     previous_cta_setting = []
 
     for r in np.arange(max_usage_app[0], 1 - max_usage_app[1] + step, step):
-        cta_setting = [const.get_cta_setting_from_ctx(max_rsrc_usage[0], r),
-                       const.get_cta_setting_from_ctx(max_rsrc_usage[1], 1 - r)]
+        cta_setting = [const.get_cta_from_ctx(max_rsrc_usage[0], r, apps[0]),
+                       const.get_cta_from_ctx(max_rsrc_usage[1], 1 - r,
+                                              apps[1])]
         if cta_setting != previous_cta_setting:
             # Only launch another config if the cta setting differs
             previous_cta_setting = cta_setting

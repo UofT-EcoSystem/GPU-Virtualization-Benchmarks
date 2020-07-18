@@ -5,6 +5,7 @@ from collections import OrderedDict
 import numpy as np
 import sys
 import pandas as pd
+import re
 
 DATA_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../')
 
@@ -215,8 +216,18 @@ def get_dominant_usage(app):
         return [get_seq_dominant_bench(app, df_seq)]
 
 
-def get_cta_setting_from_ctx(rsrc_usage, ctx):
-    list_quota = [math.floor(ctx / usage[1]) for usage in rsrc_usage]
+def get_cta_from_ctx(rsrc_usage, ctx, app):
+    if app in multi_kernel_app:
+        benchmarks = ["{}:{}".format(app, kidx)
+                      for kidx in multi_kernel_app[app]]
+    elif app in syn_yaml:
+        benchmarks = syn_yaml[app]
+    else:
+        benchmarks = [app]
+
+    list_quota = [min(math.floor(ctx / usage[1]),
+                      math.ceil(get_grid_size(bench)/num_sm_volta))
+                  for usage, bench in zip(rsrc_usage, benchmarks)]
 
     return list_quota
 
@@ -249,3 +260,6 @@ def get_from_to(duration):
     time_series = np.array(time_series)
     return time_series[0:-1], time_series[1:]
 
+
+def split_pair_str(pair_str):
+    return re.split(r'-(?=\D)', pair_str)

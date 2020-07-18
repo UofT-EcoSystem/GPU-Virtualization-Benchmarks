@@ -143,6 +143,7 @@ def calculate_sld_short(shared_end_stamp, isolated_runtime):
 
             while tot_time > min_runtime:
                 num_iters -= 1
+                assert(num_iters > 0)
                 tot_time = stream[num_iters * num_kernels - 1]
 
             if tot_time <= 0:
