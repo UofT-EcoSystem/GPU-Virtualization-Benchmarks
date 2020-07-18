@@ -7,6 +7,88 @@ import data.scripts.common.constants as const
 import scheduler.scheduler as scheduler
 
 
+# Assume we have the configuration matrix and we want to get the interference
+# matrix from dynamic or intra. Use interpolation to support "fuzzy logic" where
+# no exact dynamic pair exists.
+def get_interference_matrix(apps, configs, df_dynamic, df_intra):
+    benchmarks = []
+    for app in apps:
+        if app in const.syn_yaml:
+            benchmarks.append([(bench, 1) for bench in const.syn_yaml[app]])
+        elif app in const.multi_kernel_app:
+            benchmarks.append([(app, kidx)
+                               for kidx in const.multi_kernel_app[app]])
+        else:
+            benchmarks.append([(app, 1)])
+
+    num_cols = const.get_num_kernels(apps[0])
+    num_rows = const.get_num_kernels(apps[1])
+    matrix_size = (num_rows, num_cols)
+
+    interference = [np.zeros(matrix_size),
+                    np.zeros(matrix_size)]
+
+    kernel_columns = ['1_bench', '1_kidx', '2_bench', '2_kidx']
+
+    for row_idx in range(num_rows):
+        for col_idx in range(num_cols):
+            matrix_idx = (row_idx, col_idx)
+
+            bench = [benchmarks[0][col_idx], benchmarks[1][row_idx]]
+            kernel_configs = [c[matrix_idx] for c in configs]
+
+            if bench[0] == bench[1]:
+                # Look at df_intra
+                df_bench = df_intra[(df_intra['pair_str'] == bench[0][0]) &
+                                    (df_intra['1_kidx'] == bench[0][1])]
+                df_bench = df_bench.copy()
+                df_bench.sort_values('intra', inplace=True)
+
+                intra_total = sum(kernel_configs)
+                df_config = pd.DataFrame([{'intra': intra_total}])
+
+                df_merge = pd.merge_asof(df_config, df_bench,
+                                         on='intra',
+                                         direction='nearest')
+
+                weight = [intra / intra_total for intra in kernel_configs]
+                list_sld = [df_merge['norm_ipc'].iloc[0] * w for w in weight]
+            else:
+                # Look at dynamic
+                sorted_bench = bench.copy()
+                sorted_bench.sort(key=lambda x: x[0])
+
+                if sorted_bench != bench:
+                    kernel_configs.reverse()
+
+                value = sorted_bench[0] + sorted_bench[1]
+                df_bench = df_dynamic[df_dynamic[kernel_columns].isin(
+                    value).all(axis=1)].copy()
+
+                if df_bench.empty:
+                    # TODO: Need to handle kernel serialization...
+                    print("Unimplemented error.")
+                    sys.exit(1)
+
+                df_bench['distance'] = np.abs(df_bench['1_intra'] -
+                                              kernel_configs[0]) + \
+                                       np.abs(df_bench['2_intra'] -
+                                              kernel_configs[1])
+
+                df_bench.sort_values('distance', inplace=True, ascending=True)
+
+                list_sld = df_bench['sld'].iloc[0][1:]
+
+                # Flip it back
+                if sorted_bench != bench:
+                    list_sld.reverse()
+
+            interference[0][matrix_idx] = list_sld[0]
+            interference[1][matrix_idx] = list_sld[1]
+
+    return interference
+
+
 def get_lut_matrix(apps, df_dynamic, df_intra):
     num_cols = const.get_num_kernels(apps[0])
     num_rows = const.get_num_kernels(apps[1])
@@ -209,33 +291,28 @@ def print_rsrc_usage(configs, headers, df_intra_index):
     get_usage(max_intra_2, headers[1], 2)
 
 
-def predict_app(apps, interference, df_seq_index):
+# FIXME: this function should take serial matrix to handle kernel serialization
+def predict_app(apps, interference, at_least_one=True,
+                upper_lim=[math.inf, math.inf]):
     # Get seq runtimes
-    def get_runtime(app):
-        result = [
-            df_seq_index.loc[(app, const.translate_gpusim_kidx(app, kidx))]
-            ['runtime'] for kidx in range(const.get_num_kernels(app))]
-
-        return result
-
-    runtimes = [get_runtime(app) for app in apps]
-
-    tot_runtime = [sum(r) for r in runtimes]
-    if tot_runtime[0] < tot_runtime[1]:
-        iter_lim = [math.inf, 1]
-    else:
-        iter_lim = [1, math.inf]
-
-    sim_results = scheduler.simulate(runtimes, interference, iter_lim,
+    runtimes = [const.get_seq_cycles(app) for app in apps]
+    sim_results = scheduler.simulate(runtimes, interference,
+                                     upper_lim=upper_lim,
+                                     at_least_one=at_least_one,
                                      finish_remaining=False)
+
     scaled_runtime = [[int(t) for t in app] for app in sim_results[0]]
+    end_stamps = [const.get_from_to(scaled_app)[1] for scaled_app in
+                  scaled_runtime]
     #     print('Predicted runtime:', scaled_runtime)
 
     norm_ipc = scheduler.calculate_norm_ipc(runtimes, scaled_runtime)
-    #     print('Norm IPC:', norm_ipc)
+    print('Norm IPC:')
+    print('app 0: ', norm_ipc[0])
+    print('app 1: ', norm_ipc[1])
 
-    sld = scheduler.calculate_qos(runtimes, scaled_runtime, short=True,
+    sld = scheduler.calculate_qos(runtimes, end_stamps, short=True,
                                   revert=False)
     print('Predicted weighted speedup:', sum(sld))
 
-    return scaled_runtime, norm_ipc
+    return scaled_runtime, norm_ipc, sld
