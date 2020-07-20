@@ -63,7 +63,8 @@ def parse_args():
     parser.add_argument('--dynamic_pkl',
                         default=os.path.join(const.DATA_HOME,
                                              'pickles/pair_dynamic.pkl'),
-                        help='If how is lut, path to the pair dynamic pickle '
+                        help='If how is lut/dynamic, path to the pair dynamic '
+                             'pickle '
                              'file')
     parser.add_argument('--top',
                         action='store_true',
@@ -72,6 +73,9 @@ def parse_args():
                         type=float,
                         default=0.5,
                         help='If how is dynamic/inter, specify target qos.')
+    parser.add_argument('--check_existing', action='store_true',
+                        help='If how is dynamic, only launch pairs that do '
+                             'not exist in df_dynamic.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -214,6 +218,24 @@ def process_dynamic(pair):
     pair = '+'.join([split_kernels[0][0], split_kernels[1][0]])
 
     multi = any(len(sk) > 1 for sk in split_kernels)
+
+    if args.check_existing:
+        df_dynamic = pd.read_pickle(args.dynamic_pkl)
+
+        def found_in_pair_dynamic(_config):
+            intra_1 = help_iso.check_config('1_intra', _config, default=0)
+            intra_2 = help_iso.check_config('2_intra', _config, default=0)
+            df_found = df_dynamic[(df_dynamic['pair_str'] == '-'.join(apps)) &
+                                  (df_dynamic['1_intra'] == intra_1) &
+                                  (df_dynamic['2_intra'] == intra_2)
+                                  ]
+            if df_found.empty:
+                return False
+            else:
+                return True
+
+        # Filter out existing configs
+        configs = [c for c in configs if not found_in_pair_dynamic(c)]
 
     launch_job(*configs, pair=pair, multi=multi)
 

@@ -79,13 +79,15 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
         # If max CTAs/SM <= 16, granularity = 2
         # If max CTAs/SM <= 32, granularity = 4
         # Always include max config (baseline ipc)
-        max_intra = _df['intra'].max()
-        if 8 < max_intra <= 16:
-            # take rows that are factors of 2
-            _df = _df[(_df['intra'].mod(2) == 0) | (_df['intra'] == max_intra)]
-        elif 16 < max_intra <= 32:
-            # take rows that are factors of 4
-            _df = _df[(_df['intra'].mod(4) == 0) | (_df['intra'] == max_intra)]
+        # max_intra = _df['intra'].max()
+        # if 8 < max_intra <= 16:
+        #     # take rows that are factors of 2
+        #     _df =
+        #     _df[(_df['intra'].mod(2) == 0) | (_df['intra'] == max_intra)]
+        # elif 16 < max_intra <= 32:
+        #     # take rows that are factors of 4
+        #     _df =
+        #     _df[(_df['intra'].mod(4) == 0) | (_df['intra'] == max_intra)]
 
         df_app.append(_df)
 

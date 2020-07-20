@@ -346,7 +346,8 @@ def main():
         df_join = pd.merge(df_pair, df_profiled,
                            how='left',
                            left_on=pair_cols,
-                           right_on=profiled_cols)
+                           right_on=profiled_cols,
+                           suffixes=('_sim', '_prof'))
 
         # Output pickle
         df_join.to_pickle(args.output)
