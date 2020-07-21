@@ -320,8 +320,7 @@ def process_inter(pair):
     return len(configs)
 
 
-def process_ctx(pair, base_config):
-    apps = pair.split('+')
+def find_ctx_configs(apps, base_config, num_slice):
     configs = []
 
     # CTX config
@@ -335,13 +334,13 @@ def process_ctx(pair, base_config):
     max_usage_app = [usage_tuple[1] for usage_tuple in max_usage_app]
 
     if sum(max_usage_app) > 1.0:
-        print("No feasible ctx config for {}".format(pair))
-        return 0
+        print("No feasible ctx config for {}".format(apps))
+        return []
 
     # Dice the remaining usage in multiple slices and check whether different
     # slice size leads to different cta quota for kernels
     remaining_usage = 1 - sum(max_usage_app)
-    step = remaining_usage / args.num_slice
+    step = remaining_usage / num_slice
     previous_cta_setting = []
 
     for r in np.arange(max_usage_app[0], 1 - max_usage_app[1] + step, step):
@@ -351,8 +350,22 @@ def process_ctx(pair, base_config):
         if cta_setting != previous_cta_setting:
             # Only launch another config if the cta setting differs
             previous_cta_setting = cta_setting
-            configs.append(base_config +
-                           '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r))
+            configs.append('INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r))
+
+    return configs
+
+
+def process_ctx(pair, base_config):
+    apps = pair.split('+')
+
+    # Get ctx possible configs
+    configs = find_ctx_configs(apps, base_config, args.num_slice)
+
+    if len(configs) == 0:
+        return 0
+
+    # Add base config
+    configs = [base_config + '-' + c for c in configs]
 
     # Number of kernels config
     num_kernel = [const.get_num_kernels(app) for app in apps]
@@ -366,7 +379,6 @@ def process_ctx(pair, base_config):
     configs = [c + '-' + cap_config for c in configs]
 
     launch_job(*configs, pair=pair)
-
     return len(configs)
 
 

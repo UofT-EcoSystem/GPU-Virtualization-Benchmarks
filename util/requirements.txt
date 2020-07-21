@@ -1,3 +1,4 @@
+scipy
 graphviz
 scikit-learn
 oyaml

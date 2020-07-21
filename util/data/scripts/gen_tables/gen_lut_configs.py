@@ -89,6 +89,29 @@ def get_interference_matrix(apps, configs, df_dynamic, df_intra):
     return interference
 
 
+def get_config_matrix_from_ctx(apps, ctx_1):
+    ctx = [ctx_1, 1 - ctx_1]
+    quota = [const.get_cta_from_ctx(const.get_dominant_usage(app), app_ctx, app)
+             for app, app_ctx in zip(apps, ctx)]
+
+    # Build config matrix:
+    matrix_size = (const.get_num_kernels(apps[1]),
+                   const.get_num_kernels(apps[0]))
+    configs = [np.zeros(matrix_size), np.zeros(matrix_size)]
+
+    # config for app 0
+    for idx, kernel_quota in enumerate(quota[0]):
+        configs[0][:, idx] = kernel_quota
+
+    # config for app 1
+    for idx, kernel_quota in enumerate(quota[1]):
+        configs[1][idx, :] = kernel_quota
+
+    configs = [c.astype(int) for c in configs]
+
+    return quota, configs
+
+
 def get_lut_matrix(apps, df_dynamic, df_intra):
     num_cols = const.get_num_kernels(apps[0])
     num_rows = const.get_num_kernels(apps[1])
@@ -174,9 +197,14 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
                     cta_setting.append(df_intra.loc[best_idx]['intra'])
                     sld.append(df_intra.loc[best_idx]['norm_ipc'])
             else:
+                # df_pair['sum_increase'] = df_pair['sld'].apply(
+                #     lambda list_sld: bench_importance[0] / list_sld[1] +
+                #                      bench_importance[1] / list_sld[2]
+                # )
+
                 df_pair['sum_increase'] = df_pair['sld'].apply(
-                    lambda list_sld: bench_importance[0] / list_sld[1] +
-                                     bench_importance[1] / list_sld[2]
+                    lambda list_sld: 1 / list_sld[1] +
+                                     1 / list_sld[2]
                 )
 
                 df_pair.sort_values('sum_increase', inplace=True,
@@ -219,38 +247,38 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
     return configs, interference, serial_matrix
 
 
-def get_ctx_matrix(apps, row, df_dynamic_index):
-    # Show predicted timeline based on df_dynamic info
-    matrix_size = (const.get_num_kernels(apps[1]),
-                   const.get_num_kernels(apps[0]))
-    interference_1 = np.zeros(matrix_size)
-    interference_2 = np.zeros(matrix_size)
-
-    # Build interference matrix
-    for col_id in range(matrix_size[1]):
-        for row_id in range(matrix_size[0]):
-            cta_1 = row['cta_quota'][1][col_id]
-            cta_2 = row['cta_quota'][2][row_id]
-
-            kidx_1 = const.translate_gpusim_kidx(apps[0], col_id)
-            kidx_2 = const.translate_gpusim_kidx(apps[1], row_id)
-            dynamic_idx = (apps[0], kidx_1, int(cta_1),
-                           apps[1], kidx_2, int(cta_2))
-
-            if dynamic_idx not in df_dynamic_index.index:
-                # No prediction for this ctx config
-                return None
-
-            sld_1 = df_dynamic_index.loc[dynamic_idx, 'sld'][1]
-            sld_2 = df_dynamic_index.loc[dynamic_idx, 'sld'][2]
-
-            interference_1[row_id, col_id] = sld_1
-            interference_2[row_id, col_id] = sld_2
-
-    # Get baseline runtime
-    interference = [interference_1, interference_2]
-
-    return interference
+# def get_ctx_matrix(apps, row, df_dynamic_index):
+#     # Show predicted timeline based on df_dynamic info
+#     matrix_size = (const.get_num_kernels(apps[1]),
+#                    const.get_num_kernels(apps[0]))
+#     interference_1 = np.zeros(matrix_size)
+#     interference_2 = np.zeros(matrix_size)
+#
+#     # Build interference matrix
+#     for col_id in range(matrix_size[1]):
+#         for row_id in range(matrix_size[0]):
+#             cta_1 = row['cta_quota'][1][col_id]
+#             cta_2 = row['cta_quota'][2][row_id]
+#
+#             kidx_1 = const.translate_gpusim_kidx(apps[0], col_id)
+#             kidx_2 = const.translate_gpusim_kidx(apps[1], row_id)
+#             dynamic_idx = (apps[0], kidx_1, int(cta_1),
+#                            apps[1], kidx_2, int(cta_2))
+#
+#             if dynamic_idx not in df_dynamic_index.index:
+#                 # No prediction for this ctx config
+#                 return None
+#
+#             sld_1 = df_dynamic_index.loc[dynamic_idx, 'sld'][1]
+#             sld_2 = df_dynamic_index.loc[dynamic_idx, 'sld'][2]
+#
+#             interference_1[row_id, col_id] = sld_1
+#             interference_2[row_id, col_id] = sld_2
+#
+#     # Get baseline runtime
+#     interference = [interference_1, interference_2]
+#
+#     return interference
 
 
 def pretty_print_matrix(apps, title, data, headers):
@@ -293,7 +321,7 @@ def print_rsrc_usage(configs, headers, df_intra_index):
 
 # FIXME: this function should take serial matrix to handle kernel serialization
 def predict_app(apps, interference, at_least_one=True,
-                upper_lim=[math.inf, math.inf]):
+                upper_lim=[math.inf, math.inf], output=False):
     # Get seq runtimes
     runtimes = [const.get_seq_cycles(app) for app in apps]
     sim_results = scheduler.simulate(runtimes, interference,
@@ -302,17 +330,20 @@ def predict_app(apps, interference, at_least_one=True,
                                      finish_remaining=False)
 
     scaled_runtime = [[int(t) for t in app] for app in sim_results[0]]
-    end_stamps = [const.get_from_to(scaled_app)[1] for scaled_app in
-                  scaled_runtime]
+    time_stamps = np.array([const.get_from_to(scaled_app) for scaled_app in
+                            scaled_runtime])
+    end_stamps = time_stamps[:, 1]
     #     print('Predicted runtime:', scaled_runtime)
 
     norm_ipc = scheduler.calculate_norm_ipc(runtimes, scaled_runtime)
-    print('Norm IPC:')
-    print('app 0: ', norm_ipc[0])
-    print('app 1: ', norm_ipc[1])
 
     sld = scheduler.calculate_qos(runtimes, end_stamps, short=True,
                                   revert=False)
-    print('Predicted weighted speedup:', sum(sld))
 
-    return scaled_runtime, norm_ipc, sld
+    if output:
+        print('Norm IPC:')
+        print('app 0: ', norm_ipc[0])
+        print('app 1: ', norm_ipc[1])
+        print('Predicted weighted speedup:', sum(sld))
+
+    return time_stamps, norm_ipc, sld

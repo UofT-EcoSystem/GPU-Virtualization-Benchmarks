@@ -333,7 +333,7 @@ def simulate(runtimes, interference, upper_lim, at_least_one=False,
 
 
 def calculate_qos(runtimes, end_stamps, short=False,
-                  revert=True, print_info=print):
+                  revert=True, console=False):
     # print_info("=" * 35 + " Full Simulation QoS Info " + "=" * 35)
 
     if short:
@@ -349,7 +349,8 @@ def calculate_qos(runtimes, end_stamps, short=False,
     # print_info(
     #     "App0 has {} kernels, App1 has {} kernels".format(len(runtimes[0]),
     #                                                       len(runtimes[1])))
-    print_info("Actual calculated QOS losses are {}".format(qos_loss))
+    if console:
+        print("Actual calculated QOS losses are {}".format(qos_loss))
 
     if revert:
         final_pred = [1 / qos_loss[0], 1 / qos_loss[1]]
