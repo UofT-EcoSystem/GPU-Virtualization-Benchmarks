@@ -202,13 +202,9 @@ def get_lut_matrix(apps, df_dynamic, df_intra):
                 #                      bench_importance[1] / list_sld[2]
                 # )
 
-                df_pair['sum_increase'] = df_pair['sld'].apply(
-                    lambda list_sld: 1 / list_sld[1] +
-                                     1 / list_sld[2]
-                )
-
-                df_pair.sort_values('sum_increase', inplace=True,
-                                    ascending=True)
+                # df_pair.sort_values('sum_increase', inplace=True,
+                #                     ascending=True)
+                df_pair.sort_values('ws', inplace=True, ascending=False)
 
                 series_best = df_pair.iloc[0]
                 cta_setting = [series_best['1_intra'], series_best['2_intra']]
