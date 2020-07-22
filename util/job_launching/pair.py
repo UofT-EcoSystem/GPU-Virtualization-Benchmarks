@@ -320,7 +320,7 @@ def process_inter(pair):
     return len(configs)
 
 
-def find_ctx_configs(apps, base_config, num_slice):
+def find_ctx_configs(apps, num_slice):
     configs = []
 
     # CTX config

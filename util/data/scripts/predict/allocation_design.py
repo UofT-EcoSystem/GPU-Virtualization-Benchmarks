@@ -10,7 +10,7 @@ import data.scripts.gen_tables.gen_lut_configs as gen_lut
 
 
 def _predict_1d_best(apps, at_least_one, upper_limit, num_slice=4):
-    configs = run_pair.find_ctx_configs(apps, '', num_slice)
+    configs = run_pair.find_ctx_configs(apps, num_slice)
 
     if len(configs) == 0:
         return None
