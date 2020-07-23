@@ -73,11 +73,11 @@ def _predict_3d(apps, at_least_one, upper_limit, allow_serial=False):
 
 
 def build_df_predict(pairs, at_least_one, upper_limit=None):
-    if at_least_one:
-        upper_limit = [math.inf, math.inf]
-
     if not upper_limit:
         upper_limit = [100, 100]
+
+    if at_least_one:
+        upper_limit = [math.inf, math.inf]
 
     prediction = []
 

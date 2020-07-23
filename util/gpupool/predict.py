@@ -1,34 +1,52 @@
 import numpy as np
 import sys
 import pandas as pd
+from enum import Enum
 
-from gpupool.workload import *
 import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
+import data.scripts.common.constants as const
 
 
-ALLOCATION = ['1D', '2D', '3D']
-STAGE_ONE = ['GPUSIM', 'BOOST_TREE']
-STAGE_TWO = ['FULL', 'STEADY', 'WEIGHTED', 'GPUSIM']
+class Allocation(Enum):
+    One_D = 1
+    Two_D = 2
+    Three_D = 3
+
+
+class StageOne(Enum):
+    GPUSim = 1
+    BoostTree = 2
+
+
+class StageTwo(Enum):
+    Full = 1
+    Steady = 2
+    Weighted = 3
+    GPUSim = 4
 
 
 class Performance:
     def __init__(self):
-        self.timestamps = np.array()
-        self.norm_ipc = np.array()
-        self.sld = np.array()
+        self.timestamps = np.array([])
+        self.norm_ipc = np.array([])
+        self.sld = np.array([])
         self.steady_iter = -1
 
     def fill_with_duration(self, shared_runtimes, seq_runtimes):
         # This assumes kernels are run back to back
-        self.timestamps = const.get_from_to(shared_runtimes)
+        self.timestamps = np.array([const.get_from_to(shared)
+                                    for shared in shared_runtimes])
 
-        circular_runtimes = \
-            [np.resize(seq_runtimes[idx], len(app_time))
-             for idx, app_time in enumerate(shared_runtimes)
-             ]
+        circular_runtimes = [np.resize(seq, len(shared))
+                             for shared, seq in zip(shared_runtimes,
+                                                    seq_runtimes)
+                             ]
 
-        self.norm_ipc = np.divide(circular_runtimes, shared_runtimes)
+        self.norm_ipc = [np.divide(circular, shared) for
+                         circular, shared in zip(circular_runtimes,
+                                                 shared_runtimes)
+                         ]
         self.sld = hi.calculate_sld_short(self.timestamps[:, 1], seq_runtimes)
 
     def fill_with_slowdown(self, sld, steady_iter):
@@ -53,11 +71,11 @@ class RunOption:
 
     def __init__(self, jobs):
         self.jobs = jobs
-        self.job_names = [job.name() for job in self.jobs]
+        self.job_names = [job.name for job in self.jobs]
 
-        self.config_matrix = np.array()
-        self.interference_matrix = np.array()
-        self.serial = np.array()
+        self.config_matrix = np.array([])
+        self.interference_matrix = np.array([])
+        self.serial = np.array([])
 
     # Return Performance
     # FIXME: handle kernel serialization
@@ -194,17 +212,18 @@ class RunOption:
 
         iter_[remaining_app] += 1
 
-        # complete the rest of the required iterations of
-        # remaining app in isolation
-        remaining_iter = self.jobs[remaining_app].num_iters - iter_[
-            remaining_app]
-        isolated_runtime = np.resize(seq_runtimes[remaining_app],
-                                     remaining_iter)
-        shared_runtimes[remaining_app] += list(isolated_runtime)
+        if not at_least_one:
+            # complete the rest of the required iterations of
+            # remaining app in isolation
+            remaining_iter = self.jobs[remaining_app].num_iters - iter_[
+                remaining_app]
+            isolated_runtime = np.resize(seq_runtimes[remaining_app],
+                                         remaining_iter)
+            shared_runtimes[remaining_app] += list(isolated_runtime)
 
-        # Get rid of tailing zero
-        shared_runtimes = [array[0:-1] if array[-1] == 0 else array
-                           for array in shared_runtimes]
+            # Get rid of tailing zero
+            shared_runtimes = [array[0:-1] if array[-1] == 0 else array
+                               for array in shared_runtimes]
 
         # Build performance instances for full calculation and steady state
         full_perf = Performance()
@@ -231,7 +250,7 @@ class RunOption1D(RunOption):
         self.ctx = [ctx, 1 - ctx]
         self.quota = [const.get_cta_from_ctx(const.get_dominant_usage(job),
                                              job_ctx, job)
-                      for job, job_ctx in zip(self.job_names, ctx)]
+                      for job, job_ctx in zip(self.job_names, self.ctx)]
 
         # 1D config is fixed based on ctx value, calculate now
         # Build config matrix:
@@ -487,36 +506,45 @@ class PairJob:
     # FIXME: load model from pickle
     model = None
 
-    def __init__(self, jobs):
+    def __init__(self, jobs: list):
         self.jobs = jobs
-        self.job_names = [job.name() for job in self.jobs]
+        self.job_names = [job.name for job in self.jobs]
 
     # return RunOption, Performance
-    def get_performance(self, num_slices, alloc='1D',
-                        stage_1='GPUSIM', stage_2='FULL',
-                        at_least_once=False):
+    def get_performance(self, alloc,
+                        stage_1: StageOne, stage_2: StageTwo,
+                        num_slices,
+                        at_least_once):
+        combo_name = "{}-{}-{}-{}".format(alloc.name,
+                                          stage_1.name,
+                                          stage_2.name,
+                                          at_least_once)
+        option_col = combo_name + "-" + "option"
+        perf_col = combo_name + "-" + "perf"
+        result = {option_col: None, perf_col: None}
 
         # Create RunOptions for allocation design
-        if alloc == '1D':
+        if alloc.name == Allocation.One_D.name:
             # Find all possible 1D allocations
             configs = run_pair.find_ctx_configs(self.job_names, num_slices)
 
             if len(configs) == 0:
-                return None
+                return result
 
             ctx = [hi.check_config('1_ctx', c, default=0) for c in configs]
+            print('ctx', ctx)
             run_options = [RunOption1D(ctx_value, self.jobs)
                            for ctx_value in ctx]
-        elif alloc == '3D':
+        elif alloc.name == Allocation.Three_D.name:
             run_options = [RunOption3D(self.jobs)]
         else:
             # 2D is unimplemented
-            print("2D is unimplemented.")
+            print("PairJob: 2D is unimplemented.")
             sys.exit(1)
 
         # Run Stage 1 to get kernel-wise matrices
         for option in run_options:
-            if stage_1 == 'GPUSIM':
+            if stage_1.name == StageOne.GPUSim.name:
                 option.kernel_wise_gpusim(PairJob.df_dynamic, PairJob.df_intra)
             else:
                 # 'BOOST_TREE'
@@ -525,26 +553,28 @@ class PairJob:
         # Run Stage 2 to get app-wise matrices
         performance = []
         for option in run_options:
-            if stage_2 == 'FULL':
+            if stage_2.name == StageTwo.Full.name:
                 performance.append(
                     option.app_wise_full_and_steady(at_least_once)[0])
-            elif stage_2 == 'STEADY':
+            elif stage_2.name == StageTwo.Steady.name:
                 performance.append(
                     option.app_wise_full_and_steady(at_least_once)[1])
-            elif stage_2 == 'WEIGHTED':
+            elif stage_2.name == StageTwo.Weighted.name:
                 performance.append(option.app_wise_weighted())
             else:
                 performance.append(option.app_wise_gpusim())
 
-        if len(performance) > 1:
-            # only keep the best one
-            best_perf = max(performance)
-            best_idx = performance.index(best_perf)
-            best_option = run_options[best_idx]
+        # only keep the best one (only matter for 1D)
+        best_perf = max(performance)
+        best_idx = performance.index(best_perf)
+        best_option = run_options[best_idx]
 
-            return best_option, best_perf
-        else:
-            return run_options[0], performance[0]
+        result[option_col] = best_option
+        result[perf_col] = best_perf
+        return result
+
+    def name(self):
+        return "+".join(self.job_names)
 
 
 
