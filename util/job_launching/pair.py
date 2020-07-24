@@ -74,8 +74,8 @@ def parse_args():
                         default=0.5,
                         help='If how is dynamic/inter, specify target qos.')
     parser.add_argument('--check_existing', action='store_true',
-                        help='If how is dynamic, only launch pairs that do '
-                             'not exist in df_dynamic.')
+                        help='If how is dynamic/inter, only launch pairs that '
+                             'do not exist in df_dynamic/df_inter.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -314,6 +314,24 @@ def process_inter(pair):
     pair_config_args += ['--qos', str(args.qos)]
 
     configs = inter.main(pair_config_args)
+
+    if args.check_existing:
+        df_inter = const.get_pickle('pair_inter.pkl')
+
+        def found_in_pair_inter(_config):
+            inter_1 = help_iso.check_config('1_inter', _config, default=0)
+            inter_2 = help_iso.check_config('2_inter', _config, default=0)
+            df_found = df_inter[(df_inter['pair_str'] == '-'.join(apps)) &
+                                (df_inter['1_inter'] == inter_1) &
+                                (df_inter['2_inter'] == inter_2)
+                                ]
+            if df_found.empty:
+                return False
+            else:
+                return True
+
+        # Filter out existing configs
+        configs = [c for c in configs if not found_in_pair_inter(c)]
 
     launch_job(*configs, pair=pair)
 

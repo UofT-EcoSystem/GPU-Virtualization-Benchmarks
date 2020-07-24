@@ -403,6 +403,8 @@ def main():
     results = Parallel(n_jobs=num_cores)(
         delayed(parse_app_files)(app, args, stats_to_pull) for app in apps)
 
+    print("Done parsing files with multi-processing.")
+
     csv_total = []
     for idx, app_result in enumerate(results):
         if app_result['file_count'] > 0:
@@ -430,6 +432,8 @@ def main():
 
         file_count += app_result['file_count']
         hit_max_count += app_result['hit_max_count']
+
+    print("Done aggregating csv string.")
 
     if args.format == "stats":
         f_csv = open(args.output, "w+")
