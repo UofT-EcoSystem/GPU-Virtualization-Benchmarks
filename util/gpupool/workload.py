@@ -27,6 +27,7 @@ class ITER(Enum):
 
 class Job:
     count = 0
+    job_list = {}
 
     def __init__(self, qos: QOS, num_iters, benchmarks: list):
         self.qos = qos
@@ -40,12 +41,13 @@ class Job:
 
         self.name = "job-{}".format(self.id)
 
-        # Hack: append the list to syn_yaml list in const to keep using
-        # const
-        const.syn_yaml[self.name] = self.benchmarks
+        Job.job_list[self.name] = self.benchmarks
 
     def get_seq_cycles(self):
         return const.get_seq_cycles(self.name)
+
+    def get_num_benchmarks(self):
+        return len(self.benchmarks)
 
 
 class BatchJob:

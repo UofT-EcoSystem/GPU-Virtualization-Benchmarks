@@ -123,9 +123,7 @@ def get_num_kernels(app):
         else:
             return 1
 
-    if app in syn_yaml:
-        list_bench = syn_yaml[app]
-
+    def get_from_list(list_bench):
         # Replace "repeat" benchmark with previous benchmark in list
         for idx, bench in enumerate(list_bench):
             if bench == 'repeat':
@@ -133,6 +131,12 @@ def get_num_kernels(app):
 
         result = sum([get_num_kernels_bench(bench) for bench in list_bench])
         return result
+
+    from gpupool.workload import Job
+    if app in syn_yaml:
+        return get_from_list(syn_yaml[app])
+    elif app in Job.job_list:
+        return get_from_list(Job.job_list[app])
     else:
         return get_num_kernels_bench(app)
 
@@ -170,19 +174,23 @@ def get_seq_cycles(app):
 
         return cycles
 
-    result = []
-    if app in syn_yaml:
-        # Synthetic workloads
-        list_bench = syn_yaml[app]
+    def get_from_list(list_bench):
+        result = []
         for idx, benchmark in enumerate(list_bench):
             if benchmark == 'repeat':
                 result += get_seq_cycles_bench(list_bench[idx - 1])
             else:
                 result += get_seq_cycles_bench(benchmark)
-    else:
-        result += get_seq_cycles_bench(app)
+        return result
 
-    return result
+    from gpupool.workload import Job
+    if app in syn_yaml:
+        # Synthetic workloads
+        return get_from_list(syn_yaml[app])
+    elif app in Job.job_list:
+        return get_from_list(Job.job_list[app])
+    else:
+        return get_seq_cycles_bench(app)
 
 
 def get_dominant_usage(app):
@@ -205,23 +213,31 @@ def get_dominant_usage(app):
 
         return max(usage, key=lambda x: x[1])
 
-    if app in syn_yaml:
-        # Synthetic workloads
-        list_bench = syn_yaml[app]
+    def get_list_usage(list_bench):
         list_usage = [get_seq_dominant_bench(bench, df_seq) for bench in
                       list_bench]
 
         return list_usage
+
+    from gpupool.workload import Job
+    if app in syn_yaml:
+        # Synthetic workloads
+        return get_list_usage(syn_yaml[app])
+    elif app in Job.job_list:
+        return get_list_usage(Job.job_list[app])
     else:
         return [get_seq_dominant_bench(app, df_seq)]
 
 
 def get_cta_from_ctx(rsrc_usage, ctx, app):
+    from gpupool.workload import Job
     if app in multi_kernel_app:
         benchmarks = ["{}:{}".format(app, kidx)
                       for kidx in multi_kernel_app[app]]
     elif app in syn_yaml:
         benchmarks = syn_yaml[app]
+    elif app in Job.job_list:
+        benchmarks = Job.job_list[app]
     else:
         benchmarks = [app]
 

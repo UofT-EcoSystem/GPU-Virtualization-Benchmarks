@@ -2,10 +2,12 @@ import numpy as np
 import sys
 import pandas as pd
 from enum import Enum
+import math
 
 import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
+import data.scripts.gen_graphs.gen_altair_timeline as gen_altair
 
 
 class Allocation(Enum):
@@ -27,16 +29,21 @@ class StageTwo(Enum):
 
 
 class Performance:
-    def __init__(self):
-        self.timestamps = np.array([])
+    def __init__(self, jobs):
+        self.jobs = jobs
+
+        self.start_stamps = np.array([])
+        self.end_stamps = np.array([])
         self.norm_ipc = np.array([])
         self.sld = np.array([])
         self.steady_iter = -1
 
     def fill_with_duration(self, shared_runtimes, seq_runtimes):
         # This assumes kernels are run back to back
-        self.timestamps = np.array([const.get_from_to(shared)
+        timestamps = np.array([const.get_from_to(shared)
                                     for shared in shared_runtimes])
+        self.start_stamps = timestamps[:, 0]
+        self.end_stamps = timestamps[:, 1]
 
         circular_runtimes = [np.resize(seq, len(shared))
                              for shared, seq in zip(shared_runtimes,
@@ -47,21 +54,46 @@ class Performance:
                          circular, shared in zip(circular_runtimes,
                                                  shared_runtimes)
                          ]
-        self.sld = hi.calculate_sld_short(self.timestamps[:, 1], seq_runtimes)
+        self.sld = hi.calculate_sld_short(self.end_stamps, seq_runtimes)
 
     def fill_with_slowdown(self, sld, steady_iter):
         self.sld = sld
         self.steady_iter = steady_iter
 
-    def visualize(self):
-        # TODO: call gen altair to draw timeline
-        pass
+    def visualize(self, chart_title, width=900, xmax=None):
+        def get_kernels(idx):
+            kernels = np.arange(1,
+                                self.jobs[idx].get_num_benchmarks() + 1)
+            kernels = np.resize(kernels, len(self.start_stamps[idx]))
+            kernels = ['{}:{}'.format(idx + 1, k) for k in kernels]
+
+            return kernels
+
+        stream = [np.full_like(stamps, stream_id + 1)
+                  for stream_id, stamps in enumerate(self.start_stamps)]
+
+        kernel = [get_kernels(stream_id)
+                      for stream_id in range(len(self.jobs))]
+
+        data = pd.DataFrame()
+
+        data["start"] = np.concatenate(self.start_stamps)
+        data["end"] = np.concatenate(self.end_stamps)
+
+        data["stream"] = np.concatenate(stream).astype(int).astype('str')
+        data["kernel"] = np.concatenate(kernel)
+
+        data['position'] = (data['start'] + data['end']) / 2
+        data['norm'] = np.concatenate(self.norm_ipc)
+        data['norm'] = data['norm'].round(2)
+
+        return gen_altair.draw_altair(data, chart_title, width, xmax)
 
     def __eq__(self, other):
         return sum(self.sld) == sum(other.sld)
 
     def __gt__(self, other):
-        return sum(self.sld) > sum(self.sld)
+        return sum(self.sld) > sum(other.sld)
 
 
 class RunOption:
@@ -146,12 +178,14 @@ class RunOption:
 
             remaining_runtimes[app_idx] = seq_runtimes[app_idx][kidx[app_idx]]
 
-            if iter_[app_idx] < self.jobs[app_idx].num_iters:
-                shared_runtimes[app_idx].append(0)
+            shared_runtimes[app_idx].append(0)
+
+        limit = [job.num_iters for job in self.jobs]
+        if at_least_one:
+            limit = [math.inf, math.inf]
 
         # main loop of the simulation
-        while iter_[0] < self.jobs[0].num_iters \
-                and iter_[1] < self.jobs[1].num_iters:
+        while iter_[0] < limit[0] and iter_[1] < limit[1]:
             # figure out who finishes first by scaling the runtimes by the
             # slowdowns
             kidx_pair = (kidx[1], kidx[0])
@@ -221,15 +255,15 @@ class RunOption:
                                          remaining_iter)
             shared_runtimes[remaining_app] += list(isolated_runtime)
 
-            # Get rid of tailing zero
-            shared_runtimes = [array[0:-1] if array[-1] == 0 else array
-                               for array in shared_runtimes]
+        # Get rid of tailing zero
+        shared_runtimes = [array[0:-1] if array[-1] == 0 else array
+                           for array in shared_runtimes]
 
         # Build performance instances for full calculation and steady state
-        full_perf = Performance()
+        full_perf = Performance(self.jobs)
         full_perf.fill_with_duration(shared_runtimes, seq_runtimes)
 
-        steady_perf = Performance()
+        steady_perf = Performance(self.jobs)
         steady_perf.fill_with_slowdown(sld=steady_state_qos,
                                        steady_iter=steady_state_iter)
 
@@ -242,6 +276,28 @@ class RunOption:
     def app_wise_gpusim(self, df):
         # TODO
         pass
+
+    def kernel_wise_prediction(self, df_intra, model):
+        # Should be overridden
+        sys.exit(1)
+        pass
+
+    def kernel_wise_gpusim(self, df_dynamic, df_intra):
+        sys.exit(1)
+        pass
+
+    def _pretty_print_matrix(self, title, data):
+        for job, job_data in zip(self.jobs, data):
+            print(job.name, title)
+            print(pd.DataFrame(job_data, index=self.jobs[1].benchmarks,
+                               columns=self.jobs[0].benchmarks))
+            print('-' * 100)
+
+    def print_interference(self):
+        self._pretty_print_matrix("Interference", self.interference_matrix)
+
+    def print_config(self):
+        self._pretty_print_matrix("Config", self.config_matrix)
 
 
 class RunOption1D(RunOption):
@@ -273,15 +329,8 @@ class RunOption1D(RunOption):
         pass
 
     def kernel_wise_gpusim(self, df_dynamic, df_intra):
-        benchmarks = []
-        for app in self.job_names:
-            if app in const.syn_yaml:
-                benchmarks.append([(bench, 1) for bench in const.syn_yaml[app]])
-            elif app in const.multi_kernel_app:
-                benchmarks.append([(app, kidx)
-                                   for kidx in const.multi_kernel_app[app]])
-            else:
-                benchmarks.append([(app, 1)])
+        benchmarks = [[(bench, 1) for bench in job.benchmarks]
+                      for job in self.jobs]
 
         num_cols = const.get_num_kernels(self.job_names[0])
         num_rows = const.get_num_kernels(self.job_names[1])
@@ -333,6 +382,8 @@ class RunOption1D(RunOption):
                         print("Unimplemented error.")
                         sys.exit(1)
 
+                    # FIXME: this needs to be removed when all dynamic pairs
+                    #  are available
                     df_bench['distance'] = np.abs(df_bench['1_intra'] -
                                                   kernel_configs[0]) + \
                                            np.abs(df_bench['2_intra'] -
@@ -378,16 +429,10 @@ class RunOption3D(RunOption):
 
         # return list_cta, list_sld, serial?
         def get_cta_sld(bench_idx):
-            real_bench = []
             serial = False
 
-            for app, midx in zip(self.job_names, bench_idx):
-                if 'syn' in app:
-                    # FIXME: Here we assume we don't involve multi-kernel bench
-                    real_bench.append((const.syn_yaml[app][midx], 1))
-                else:
-                    real_bench.append(
-                        (app, const.translate_gpusim_kidx(app, midx)))
+            real_bench = [(job.benchmarks[idx], 1)
+                          for job, idx in zip(self.jobs, bench_idx)]
 
             if real_bench[0] == real_bench[1]:
                 # Identical benchmark pair. Get settings from df_intra
@@ -455,13 +500,8 @@ class RunOption3D(RunOption):
                     #                      bench_importance[1] / list_sld[2]
                     # )
 
-                    df_pair['sum_increase'] = df_pair['sld'].apply(
-                        lambda list_sld: 1 / list_sld[1] +
-                                         1 / list_sld[2]
-                    )
-
-                    df_pair.sort_values('sum_increase', inplace=True,
-                                        ascending=True)
+                    df_pair.sort_values('ws', inplace=True,
+                                        ascending=False)
 
                     series_best = df_pair.iloc[0]
                     cta_setting = [series_best['1_intra'],
@@ -532,7 +572,7 @@ class PairJob:
                 return result
 
             ctx = [hi.check_config('1_ctx', c, default=0) for c in configs]
-            print('ctx', ctx)
+
             run_options = [RunOption1D(ctx_value, self.jobs)
                            for ctx_value in ctx]
         elif alloc.name == Allocation.Three_D.name:
