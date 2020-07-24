@@ -105,9 +105,21 @@ bool set_and_check_iteration(unsigned uid) {
   } else {
     return true;
   }
-
 }
 
+// called by stream threads
+bool check_iteration(unsigned uid) {
+  std::lock_guard<std::mutex> guard(lock_flag);
+  if (synthetic_workload) {
+    for (auto & s : list_stream_ops) {
+      if (!s.done_iteration) return false;
+    }
+
+    return true;
+  } else {
+    return true;
+  }
+}
 
 app_t build_app(std::string kernel_arg) {
   app_t result = app_t();
@@ -347,6 +359,12 @@ void invoke(int uid)
       }
 
       stream_ops.increment_pos();
+
+      // Exit early if every workload has reached one iteration by now
+      // This is in effect for synthetic workloads
+      if (check_iteration(uid)) {
+        break;
+      }
     }
 
     can_stop_launching = set_and_check_iteration(uid);

@@ -54,8 +54,8 @@ def parse_args():
                              "kernel execution")
 
     parser.add_argument("--stats_yml", default="",
-                        help="The yaml file that defines the stats "
-                             "you want to collect", required=True)
+                        help="If format is `stats`, the yaml file that defines "
+                             "the stats you want to collect")
 
     parser.add_argument("--exclude", default=[], nargs='+',
                         help="Exclude configs with these strings. "
@@ -88,15 +88,18 @@ def process_yamls(args):
     common.load_defined_yamls()
 
     this_directory = os.path.dirname(os.path.realpath(__file__))
-    args.stats_yml = common.file_option_test(args.stats_yml,
-                                             os.path.join(this_directory,
-                                                          "stats",
-                                                          "example_stats.yml"),
-                                             this_directory)
 
-    stats_to_pull = load_stats_yamls(args.stats_yml)
+    if args.format == "stats":
+        args.stats_yml = common.file_option_test(
+            args.stats_yml,
+            os.path.join(this_directory, "stats", "multi.yml"),
+            this_directory)
 
-    return stats_to_pull
+        stats_to_pull = load_stats_yamls(args.stats_yml)
+
+        return stats_to_pull
+    else:
+        return {}
 
 
 # Parse the filename of gpusim output file to get
@@ -126,7 +129,7 @@ def has_exited(gpusim_logfile):
     exit_str = "GPGPU-Sim: \*\*\* exit detected \*\*\*"
 
     with open(gpusim_logfile, errors='ignore') as f:
-        bytes_to_read = int(256*1024*1024)
+        bytes_to_read = int(256*1024)
         file_size = int(os.stat(gpusim_logfile).st_size)
         if file_size > bytes_to_read:
             f.seek(0, os.SEEK_END)
@@ -280,9 +283,9 @@ def collect_stats(outputfile, stats_to_pull, app, config):
 
 def parse_app_files(app, args, stats_to_pull):
     result_list = []
-    found_failed_app = False
     file_count = 0
     hit_max_count = 0
+    failed_count = 0
 
     stats_list = list(stats_to_pull.keys())
     app_path = os.path.join(args.run_dir, app)
@@ -329,10 +332,9 @@ def parse_app_files(app, args, stats_to_pull):
         if not found_valid_log:
             app_str = '+'.join(re.split(r'-(?=\D)', app))
 
-            found_failed_app = True
             # Print the last line of log for debugging purposes
             if args.debugging:
-                last_line = open(log).readlines()[-1]
+                last_line = open(log).readlines()[-3:]
                 pretty_print("({0}, {1}): {2}".format(app_str, config,
                                                       last_line))
             else:
@@ -341,6 +343,7 @@ def parse_app_files(app, args, stats_to_pull):
                     "terminating string from GPGPU-Sim. Skip.".format
                     (app_str, config))
 
+            failed_count += 1
             # continue to the next config folder
             continue
 
@@ -362,7 +365,13 @@ def parse_app_files(app, args, stats_to_pull):
         result_list.append(result_str)
         file_count += 1
 
-    return result_list, found_failed_app, file_count, hit_max_count
+    result = {'output_list': result_list,
+              'file_count': file_count,
+              'hit_max_count': hit_max_count,
+              'failed_count': failed_count,
+              }
+
+    return result
 
 
 def main():
@@ -385,6 +394,7 @@ def main():
     # book keeping numbers:
     file_count = 0
     hit_max_count = 0
+    failed_file_count = 0
     failed_apps = set()
     good_apps = set()
     max_apps = set()
@@ -393,34 +403,37 @@ def main():
     results = Parallel(n_jobs=num_cores)(
         delayed(parse_app_files)(app, args, stats_to_pull) for app in apps)
 
+    print("Done parsing files with multi-processing.")
+
     csv_total = []
     for idx, app_result in enumerate(results):
-        # app_result: string, failed, file_count, hit_max_count
-
-        if app_result[2] > 0:
+        if app_result['file_count'] > 0:
             if args.format == "stats":
-                csv_total += app_result[0]
+                csv_total += app_result['output_list']
             elif args.format == "timeline":
                 app_dir = os.path.join(const.DATA_HOME, 'timeline', apps[idx])
                 if not os.path.exists(app_dir):
                     os.makedirs(app_dir)
 
-                for config, timeline_str in app_result[0]:
+                for config, timeline_str in app_result['output_list']:
                     timeline_path = os.path.join(app_dir,
                                                  '{}.txt'.format(config))
                     with open(timeline_path, "w") as f:
                         f.write(timeline_str)
 
-        if app_result[1]:
+        if app_result['failed_count'] > 0:
             failed_apps.add(apps[idx])
+            failed_file_count += app_result['failed_count']
         else:
             good_apps.add(apps[idx])
 
-        if app_result[3] > 0:
+        if app_result['hit_max_count'] > 0:
             max_apps.add(apps[idx])
 
-        file_count += app_result[2]
-        hit_max_count += app_result[3]
+        file_count += app_result['file_count']
+        hit_max_count += app_result['hit_max_count']
+
+    print("Done aggregating csv string.")
 
     if args.format == "stats":
         f_csv = open(args.output, "w+")
@@ -438,6 +451,8 @@ def main():
     print(('-' * 100))
     pretty_print("Successfully parsed {0} files".format(file_count))
     pretty_print("{0} files hit max cycle count.".format(hit_max_count))
+    pretty_print("{0} files failed.".format(failed_file_count))
+
     actual_failed = failed_apps - good_apps
     pretty_print("{0} failed simulation: {1}".format
                  (len(actual_failed), ','.join(list(actual_failed))))

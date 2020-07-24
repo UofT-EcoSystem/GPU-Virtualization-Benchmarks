@@ -95,7 +95,9 @@ def process_metrics(df_intra, multi):
     df_intra['smem_ratio'] = df_intra['intra'] * df_intra['smem'] \
                              / const.max_smem
 
-    df_intra['reg_ratio'] = threads * df_intra['regs'] / const.max_register
+    # To be consistent with gpusim calculations
+    adjusted_regs = (df_intra['regs'] + 3) & ~3
+    df_intra['reg_ratio'] = threads * adjusted_regs / const.max_register
 
     # Dominant usage
     df_intra['usage'] = df_intra[['cta_ratio', 'thread_ratio', 'smem_ratio',

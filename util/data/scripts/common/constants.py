@@ -5,6 +5,7 @@ from collections import OrderedDict
 import numpy as np
 import sys
 import pandas as pd
+import re
 
 DATA_HOME = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../')
 
@@ -122,9 +123,7 @@ def get_num_kernels(app):
         else:
             return 1
 
-    if app in syn_yaml:
-        list_bench = syn_yaml[app]
-
+    def get_from_list(list_bench):
         # Replace "repeat" benchmark with previous benchmark in list
         for idx, bench in enumerate(list_bench):
             if bench == 'repeat':
@@ -132,6 +131,12 @@ def get_num_kernels(app):
 
         result = sum([get_num_kernels_bench(bench) for bench in list_bench])
         return result
+
+    from gpupool.workload import Job
+    if app in syn_yaml:
+        return get_from_list(syn_yaml[app])
+    elif app in Job.job_list:
+        return get_from_list(Job.job_list[app])
     else:
         return get_num_kernels_bench(app)
 
@@ -169,19 +174,23 @@ def get_seq_cycles(app):
 
         return cycles
 
-    result = []
-    if app in syn_yaml:
-        # Synthetic workloads
-        list_bench = syn_yaml[app]
+    def get_from_list(list_bench):
+        result = []
         for idx, benchmark in enumerate(list_bench):
             if benchmark == 'repeat':
                 result += get_seq_cycles_bench(list_bench[idx - 1])
             else:
                 result += get_seq_cycles_bench(benchmark)
-    else:
-        result += get_seq_cycles_bench(app)
+        return result
 
-    return result
+    from gpupool.workload import Job
+    if app in syn_yaml:
+        # Synthetic workloads
+        return get_from_list(syn_yaml[app])
+    elif app in Job.job_list:
+        return get_from_list(Job.job_list[app])
+    else:
+        return get_seq_cycles_bench(app)
 
 
 def get_dominant_usage(app):
@@ -194,7 +203,7 @@ def get_dominant_usage(app):
             sys.exit(1)
 
         block_size = get_block_size(bench)
-        block_regs = df_seq.loc[bench, 'regs'] * block_size
+        block_regs = ((df_seq.loc[bench, 'regs'] + 3) & ~3) * block_size
         block_smem = df_seq.loc[bench, 'smem']
 
         usage = [("thread_ratio", block_size / max_thread_volta),
@@ -204,19 +213,37 @@ def get_dominant_usage(app):
 
         return max(usage, key=lambda x: x[1])
 
-    if app in syn_yaml:
-        # Synthetic workloads
-        list_bench = syn_yaml[app]
+    def get_list_usage(list_bench):
         list_usage = [get_seq_dominant_bench(bench, df_seq) for bench in
                       list_bench]
 
         return list_usage
+
+    from gpupool.workload import Job
+    if app in syn_yaml:
+        # Synthetic workloads
+        return get_list_usage(syn_yaml[app])
+    elif app in Job.job_list:
+        return get_list_usage(Job.job_list[app])
     else:
         return [get_seq_dominant_bench(app, df_seq)]
 
 
-def get_cta_setting_from_ctx(rsrc_usage, ctx):
-    list_quota = [math.floor(ctx / usage[1]) for usage in rsrc_usage]
+def get_cta_from_ctx(rsrc_usage, ctx, app):
+    from gpupool.workload import Job
+    if app in multi_kernel_app:
+        benchmarks = ["{}:{}".format(app, kidx)
+                      for kidx in multi_kernel_app[app]]
+    elif app in syn_yaml:
+        benchmarks = syn_yaml[app]
+    elif app in Job.job_list:
+        benchmarks = Job.job_list[app]
+    else:
+        benchmarks = [app]
+
+    list_quota = [min(math.floor(ctx / usage[1]),
+                      math.ceil(get_grid_size(bench)/num_sm_volta))
+                  for usage, bench in zip(rsrc_usage, benchmarks)]
 
     return list_quota
 
@@ -236,3 +263,19 @@ def gen_kernel_headers(app):
               for idx in range(get_num_kernels(app))]
 
     return result
+
+
+# Assume kernels are launched back to back
+def get_from_to(duration):
+    time_series = [0]
+
+    for d in duration:
+        new_elem = time_series[-1] + d
+        time_series.append(new_elem)
+
+    time_series = np.array(time_series)
+    return time_series[0:-1], time_series[1:]
+
+
+def split_pair_str(pair_str):
+    return re.split(r'-(?=\D)', pair_str)

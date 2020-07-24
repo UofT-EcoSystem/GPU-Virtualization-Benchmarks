@@ -49,6 +49,9 @@ def parse_args():
     parser.add_argument('--how', choices=['smk', 'static', 'dynamic',
                                           'inter', 'ctx', 'lut', 'custream'],
                         help='How to partition resources between benchmarks.')
+    parser.add_argument('--serial', action='store_true',
+                        help='If how is lut, only run pairs where '
+                             'kernel serialization is needed.')
     parser.add_argument('--num_slice', default=4, type=int,
                         help='If how is ctx, num_slice specifies how many '
                              'slice configs to sweep.')
@@ -60,7 +63,8 @@ def parse_args():
     parser.add_argument('--dynamic_pkl',
                         default=os.path.join(const.DATA_HOME,
                                              'pickles/pair_dynamic.pkl'),
-                        help='If how is lut, path to the pair dynamic pickle '
+                        help='If how is lut/dynamic, path to the pair dynamic '
+                             'pickle '
                              'file')
     parser.add_argument('--top',
                         action='store_true',
@@ -69,6 +73,9 @@ def parse_args():
                         type=float,
                         default=0.5,
                         help='If how is dynamic/inter, specify target qos.')
+    parser.add_argument('--check_existing', action='store_true',
+                        help='If how is dynamic/inter, only launch pairs that '
+                             'do not exist in df_dynamic/df_inter.')
     parser.add_argument('--cap',
                         type=float,
                         default=2.5,
@@ -212,6 +219,24 @@ def process_dynamic(pair):
 
     multi = any(len(sk) > 1 for sk in split_kernels)
 
+    if args.check_existing:
+        df_dynamic = pd.read_pickle(args.dynamic_pkl)
+
+        def found_in_pair_dynamic(_config):
+            intra_1 = help_iso.check_config('1_intra', _config, default=0)
+            intra_2 = help_iso.check_config('2_intra', _config, default=0)
+            df_found = df_dynamic[(df_dynamic['pair_str'] == '-'.join(apps)) &
+                                  (df_dynamic['1_intra'] == intra_1) &
+                                  (df_dynamic['2_intra'] == intra_2)
+                                  ]
+            if df_found.empty:
+                return False
+            else:
+                return True
+
+        # Filter out existing configs
+        configs = [c for c in configs if not found_in_pair_dynamic(c)]
+
     launch_job(*configs, pair=pair, multi=multi)
 
     return len(configs)
@@ -245,10 +270,12 @@ def process_lut(pair, base_config):
     lut_matrix = lut_configs.get_lut_matrix(apps, df_pair_dynamic,
                                             df_intra)
 
-    if lut_matrix:
-        cta_configs = lut_matrix[0]
-        lut = []
+    cta_configs = lut_matrix[0]
+    serial = lut_matrix[2]
+    lut = []
 
+    if (args.serial and 1 in serial) or \
+            (not args.serial and np.all(serial == 0)):
         # Columns are kernels for apps[0] and rows are kernels for apps[1]
         for row_idx, col_idx in np.ndindex(cta_configs[0].shape):
             entry = "0:{}:{}=0:{}:{}".format(col_idx + 1, row_idx + 1,
@@ -288,13 +315,30 @@ def process_inter(pair):
 
     configs = inter.main(pair_config_args)
 
+    if args.check_existing:
+        df_inter = const.get_pickle('pair_inter.pkl')
+
+        def found_in_pair_inter(_config):
+            inter_1 = help_iso.check_config('1_inter', _config, default=0)
+            inter_2 = help_iso.check_config('2_inter', _config, default=0)
+            df_found = df_inter[(df_inter['pair_str'] == '-'.join(apps)) &
+                                (df_inter['1_inter'] == inter_1) &
+                                (df_inter['2_inter'] == inter_2)
+                                ]
+            if df_found.empty:
+                return False
+            else:
+                return True
+
+        # Filter out existing configs
+        configs = [c for c in configs if not found_in_pair_inter(c)]
+
     launch_job(*configs, pair=pair)
 
     return len(configs)
 
 
-def process_ctx(pair, base_config):
-    apps = pair.split('+')
+def find_ctx_configs(apps, num_slice):
     configs = []
 
     # CTX config
@@ -308,23 +352,38 @@ def process_ctx(pair, base_config):
     max_usage_app = [usage_tuple[1] for usage_tuple in max_usage_app]
 
     if sum(max_usage_app) > 1.0:
-        print("No feasible ctx config for {}".format(pair))
-        return 0
+        print("No feasible ctx config for {}".format(apps))
+        return []
 
     # Dice the remaining usage in multiple slices and check whether different
     # slice size leads to different cta quota for kernels
     remaining_usage = 1 - sum(max_usage_app)
-    step = remaining_usage / args.num_slice
+    step = remaining_usage / num_slice
     previous_cta_setting = []
 
     for r in np.arange(max_usage_app[0], 1 - max_usage_app[1] + step, step):
-        cta_setting = [const.get_cta_setting_from_ctx(max_rsrc_usage[0], r),
-                       const.get_cta_setting_from_ctx(max_rsrc_usage[1], 1 - r)]
+        cta_setting = [const.get_cta_from_ctx(max_rsrc_usage[0], r, apps[0]),
+                       const.get_cta_from_ctx(max_rsrc_usage[1], 1 - r,
+                                              apps[1])]
         if cta_setting != previous_cta_setting:
             # Only launch another config if the cta setting differs
             previous_cta_setting = cta_setting
-            configs.append(base_config +
-                           '-INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r))
+            configs.append('INTRA_0:{0}:{1}_RATIO'.format(r, 1 - r))
+
+    return configs
+
+
+def process_ctx(pair, base_config):
+    apps = pair.split('+')
+
+    # Get ctx possible configs
+    configs = find_ctx_configs(apps, base_config, args.num_slice)
+
+    if len(configs) == 0:
+        return 0
+
+    # Add base config
+    configs = [base_config + '-' + c for c in configs]
 
     # Number of kernels config
     num_kernel = [const.get_num_kernels(app) for app in apps]
@@ -338,7 +397,6 @@ def process_ctx(pair, base_config):
     configs = [c + '-' + cap_config for c in configs]
 
     launch_job(*configs, pair=pair)
-
     return len(configs)
 
 

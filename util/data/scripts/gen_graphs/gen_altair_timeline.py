@@ -9,46 +9,25 @@ import data.scripts.common.constants as const
 import data.scripts.common.help_iso as hi
 
 
-def _prepare_gpusim_metrics(pair_series):
-    runtime = pair_series['runtime']
-    s1_runtime = runtime[-2]
-    s2_runtime = runtime[-1]
-
-    norm_runtime = pair_series['norm_ipc']
-    s1_norm = norm_runtime[-2]
-    s2_norm = norm_runtime[-1]
-
-    def get_from_to(duration):
-        time_series = [0]
-
-        for d in duration:
-            new_elem = time_series[-1] + d
-            time_series.append(new_elem)
-
-        time_series = np.array(time_series)
-        return time_series[0:-1], time_series[1:]
-
+def _prepare_data_from_timestamps(timestamps, norm_ipc, apps):
     def get_kernels(stream_id, length):
-        bench = stream_id + '_bench'
-        kernels = np.arange(1, const.get_num_kernels(pair_series[bench]) + 1)
+        kernels = np.arange(1, const.get_num_kernels(apps[stream_id-1]) + 1)
         kernels = np.resize(kernels, length)
         kernels = ['{}:{}'.format(stream_id, k) for k in kernels]
 
         return kernels
 
-    s1_from, s1_to = get_from_to(s1_runtime)
-    s1 = np.repeat('1: ' + pair_series['1_bench'], s1_from.shape[0])
-    k1 = get_kernels('1', s1_from.shape[0])
+    s1 = np.repeat('1: ' + apps[0], timestamps[0][0].shape[0])
+    k1 = get_kernels(1, timestamps[0][0].shape[0])
 
-    s2_from, s2_to = get_from_to(s2_runtime)
-    s2 = np.repeat('2: ' + pair_series['2_bench'], s2_from.shape[0])
-    k2 = get_kernels('2', s2_from.shape[0])
+    s2 = np.repeat('2: ' + apps[1], timestamps[1][0].shape[0])
+    k2 = get_kernels(2, timestamps[1][0].shape[0])
 
-    col_from = np.concatenate((s1_from, s2_from))
-    col_to = np.concatenate((s1_to, s2_to))
+    col_from = np.concatenate(timestamps[:, 0])
+    col_to = np.concatenate(timestamps[:, 1])
     col_stream = np.concatenate((s1, s2))
     col_kernel = np.concatenate((k1, k2))
-    col_norm = np.concatenate((s1_norm, s2_norm))
+    col_norm = np.concatenate(norm_ipc)
 
     data = pd.DataFrame()
     data["start"] = col_from
@@ -62,7 +41,29 @@ def _prepare_gpusim_metrics(pair_series):
     return data
 
 
-def _prepare_gpusim_console(pair_str, filename, config_str):
+def _prepare_gpusim_metrics(pair_series):
+    runtime = pair_series['runtime']
+    s1_runtime = runtime[-2]
+    s2_runtime = runtime[-1]
+
+    norm_runtime = pair_series['norm_ipc']
+    s1_norm = norm_runtime[-2]
+    s2_norm = norm_runtime[-1]
+
+
+    s1_from, s1_to = const.get_from_to(s1_runtime)
+    s2_from, s2_to = const.get_from_to(s2_runtime)
+
+    timestamps = [[s1_from, s1_to], [s2_from, s2_to]]
+    apps = [pair_series['1_bench'], pair_series['2_bench']]
+    norm_ipc = [s1_norm, s2_norm]
+
+    data = _prepare_data_from_timestamps(timestamps, apps, norm_ipc)
+
+    return data
+
+
+def prepare_gpusim_console(pair_str, filename, config_str):
     # Assuming the timeline file is in
     # util/data/timeline/pair_str/filename
     timeline_file = os.path.join(const.DATA_HOME,
@@ -92,8 +93,8 @@ def _prepare_gpusim_console(pair_str, filename, config_str):
                      'start': start,
                      'end': end,
                      'norm': norm,
+                     'runtime': runtime,
                      'position': position,
-                     'runtime': runtime
                      }
             data.append(entry)
 
@@ -102,7 +103,9 @@ def _prepare_gpusim_console(pair_str, filename, config_str):
     # Check if simulation hit max_cycles
     config_cap = hi.check_config('cap', config_str, default=0)
     if config_cap == data['end'].max():
-        print("Simulation hit max cycles ({}).".format(config_cap))
+        print("{}, {} simulation hit max cycles ({}).".format(pair_str,
+                                                              config_str,
+                                                              config_cap))
 
         # Get rid of the final incomplete kernel
         adjusted_data = data[data['end'] != config_cap]
@@ -120,17 +123,16 @@ def _prepare_gpusim_console(pair_str, filename, config_str):
 
     if all(at_least_one_iter):
         # calculate_sld_short needs the original copy of shared_runtime
-        shared_runtime = [data[data['stream'] == token].sort_values('start')
-                          ['runtime'] for token in stream_tokens]
+        # shared runtime is also iteration based
+        shared_end_stamp = [data[data['stream'] == token].sort_values('start')
+                            ['end'] for token in stream_tokens]
 
-        sld = hi.calculate_sld_short(shared_runtime, seq_cycles)
+        sld = hi.calculate_sld_short(shared_end_stamp, seq_cycles)
 
-        print("Normalized IPC:", sld)
-        print("WS:", sum(sld))
-
-        return data, sum(sld)
+        return data, sld
     else:
-        print("Some app did not finish at least one iteration. Skip.")
+        print("{}, {} did not finish at least one iteration. Skip.".format(
+            pair_str, config_str))
         return pd.DataFrame(), 0
 
 
@@ -168,6 +170,7 @@ def draw_altair(data, chart_title, width=900, xmax=None):
     )
 
 
+# Assume kernels are launched back to back
 # Required fields in pair_series: 1_bench, 2_bench, runtime, norm_ipc
 def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
     # 1. Prepare data
@@ -186,8 +189,8 @@ def draw_timeline_from_metrics(pair_series, col_title=None, title=None):
 
 def draw_timeline_from_console(pair_str, filename, title=None,
                                width=900, xmax=None):
-    config_str = os.path.basename(filename).split('.')[0]
-    data, ws = _prepare_gpusim_console(pair_str, filename, config_str)
+    config_str = os.path.basename(filename).replace('.txt', '')
+    data, sld = prepare_gpusim_console(pair_str, filename, config_str)
 
     if data.empty:
         return None
@@ -197,7 +200,18 @@ def draw_timeline_from_console(pair_str, filename, title=None,
             title = "LUT (3D Allocation)"
         else:
             ctx_1 = hi.check_config('1_ctx', config_str, default=0)
-            ctx_2 = hi.check_config('1_ctx', config_str, default=0)
+            ctx_2 = hi.check_config('2_ctx', config_str, default=0)
             title = "CTX-{}-{}".format(ctx_1, ctx_2)
 
+    return draw_altair(data, title, width, xmax), sld
+
+
+def draw_timeline_from_prediction(timestamps, apps, norm_ipc,
+                                  title, width=900, xmax=None):
+
+    data = _prepare_data_from_timestamps(timestamps=timestamps,
+                                         norm_ipc=norm_ipc,
+                                         apps=apps)
+
     return draw_altair(data, title, width, xmax)
+

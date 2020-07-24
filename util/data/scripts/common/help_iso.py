@@ -122,28 +122,29 @@ def multi_array_col_seq(df):
              )
 
 
-def calculate_sld_short(shared_runtime, isolated_runtime):
-    runtime = np.array(shared_runtime)
+def calculate_sld_short(shared_end_stamp, isolated_runtime):
+    shared_end_stamp = [np.array(arr_end) for arr_end in shared_end_stamp]
     sld = []
 
     # 1. Find out which stream has a shorter runtime (single iteration)
-    sum_runtime = np.array([sum(arr_run) for arr_run in runtime])
+    sum_runtime = np.array([arr_end[-1] for arr_end in shared_end_stamp])
     min_runtime = np.min(sum_runtime[sum_runtime > 0])
 
     # 2. For every stream, find the max number of full iterations
     # executed before the shortest stream ended
-    for stream_id, stream in enumerate(runtime):
+    for stream_id, stream in enumerate(shared_end_stamp):
         sld_stream = 0
         stream = np.array(stream)
 
         if len(stream) > 0:
             num_kernels = len(isolated_runtime[stream_id])
             num_iters = int(len(stream) / num_kernels)
-            tot_time = sum(stream[0:num_iters * num_kernels])
+            tot_time = stream[num_iters * num_kernels - 1]
 
             while tot_time > min_runtime:
                 num_iters -= 1
-                tot_time = sum(stream[0:num_iters * num_kernels])
+                assert(num_iters > 0)
+                tot_time = stream[num_iters * num_kernels - 1]
 
             if tot_time <= 0:
                 print("calculate_sld_short: tot_time is invalid.")

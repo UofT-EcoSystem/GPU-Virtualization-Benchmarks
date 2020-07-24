@@ -196,7 +196,8 @@ def find_qos_loss(scaled_runtime, num_iter, isolated_runtime):
     return sum(scaled_runtime) / (sum(isolated_runtime) * num_iter)
 
 
-def simulate(runtimes, interference, iter_lim,
+# FIXME: handle kernel serialization
+def simulate(runtimes, interference, upper_lim, at_least_one=False,
              finish_remaining=True,
              offset=0, offset_app=0):
     # to keep track of iterations completed by apps
@@ -259,11 +260,11 @@ def simulate(runtimes, interference, iter_lim,
 
         remaining_runtimes[app_idx] = runtimes[app_idx][kidx[app_idx]]
 
-        if iter_[app_idx] < iter_lim[app_idx]:
+        if iter_[app_idx] < upper_lim[app_idx]:
             scaled_runtimes[app_idx].append(0)
 
     # main loop of the simulation
-    while iter_[0] < iter_lim[0] and iter_[1] < iter_lim[1]:
+    while iter_[0] < upper_lim[0] and iter_[1] < upper_lim[1]:
         # figure out who finishes first by scaling the runtimes by the slowdowns
         kidx_pair = (kidx[1], kidx[0])
         app0_ker_scaled = remaining_runtimes[0] / interference[0][kidx_pair]
@@ -305,6 +306,8 @@ def simulate(runtimes, interference, iter_lim,
 
             handle_completed_kernel(1)
 
+        if at_least_one and iter_[0] >= 1 and iter_[1] >= 1:
+            break
     # end of loop
 
     # finish off the last iteration of remaining app in isolation
@@ -318,31 +321,36 @@ def simulate(runtimes, interference, iter_lim,
     if finish_remaining:
         # complete the rest of the required iterations of
         # remaining app in isolation
-        remaining_iter = iter_lim[remaining_app] - iter_[remaining_app]
+        remaining_iter = upper_lim[remaining_app] - iter_[remaining_app]
         isolated_runtime = np.resize(runtimes[remaining_app], remaining_iter)
         scaled_runtimes[remaining_app] += list(isolated_runtime)
+
+    # Get rid of tailing zero
+    scaled_runtimes = [array[0:-1] if array[-1] == 0 else array
+                       for array in scaled_runtimes]
 
     return scaled_runtimes, steady_state_iter, steady_state_qos
 
 
-def calculate_qos(runtimes, scaled_runtimes, short=False,
-                  revert=True, print_info=print):
-    print_info("=" * 35 + " Full Simulation QoS Info " + "=" * 35)
+def calculate_qos(runtimes, end_stamps, short=False,
+                  revert=True, console=False):
+    # print_info("=" * 35 + " Full Simulation QoS Info " + "=" * 35)
 
     if short:
         # Only fetch the first iteration of the longer app
-        qos_loss = hi.calculate_sld_short(scaled_runtimes, runtimes)
+        qos_loss = hi.calculate_sld_short(end_stamps, runtimes)
     else:
-        iter_0 = len(scaled_runtimes[0]) / len(runtimes[0])
-        iter_1 = len(scaled_runtimes[1]) / len(runtimes[1])
+        iter_0 = len(end_stamps[0]) / len(runtimes[0])
+        iter_1 = len(end_stamps[1]) / len(runtimes[1])
 
-        qos_loss = [find_qos_loss(scaled_runtimes[0], iter_0, runtimes[0]),
-                    find_qos_loss(scaled_runtimes[1], iter_1, runtimes[1])]
+        qos_loss = [end_stamps[0][-1] / (iter_0 * sum(runtimes[0])),
+                    end_stamps[1][-1] / (iter_1 * sum(runtimes[1]))]
 
-    print_info(
-        "App0 has {} kernels, App1 has {} kernels".format(len(runtimes[0]),
-                                                          len(runtimes[1])))
-    print_info("Actual calculated QOS losses are {}".format(qos_loss))
+    # print_info(
+    #     "App0 has {} kernels, App1 has {} kernels".format(len(runtimes[0]),
+    #                                                       len(runtimes[1])))
+    if console:
+        print("Actual calculated QOS losses are {}".format(qos_loss))
 
     if revert:
         final_pred = [1 / qos_loss[0], 1 / qos_loss[1]]
@@ -396,7 +404,8 @@ def main():
         # testing random sizes:
         app0_size = random.randrange(1, 30)
         app1_size = random.randrange(1, 30)
-        # logger.info("App0 has {} kernels, App1 has {} kernels".format(app0_size, app1_size))
+        # logger.info("App0 has {} kernels, App1 has {} kernels".format(
+        # app0_size, app1_size))
 
         # generated random test data
         interference_0 = np.random.rand(app1_size, app0_size)
@@ -410,9 +419,9 @@ def main():
 
         logger.debug("app_lengths are {}".format(app_lengths))
 
-        # # hand-crafted data
-        # interference_matrix = [np.array([[1.3, 2.1, 1.5], [1.8, 1.4, 1.7]]), np.array([[1.7, 1.7, 2.5], [1.3, 1.9, 1.1]])]
-        # app_lengths = [np.array([4, 3, 8]), np.array([2, 8])]
+        # # hand-crafted data interference_matrix = [np.array([[1.3, 2.1,
+        # 1.5], [1.8, 1.4, 1.7]]), np.array([[1.7, 1.7, 2.5], [1.3, 1.9,
+        # 1.1]])] app_lengths = [np.array([4, 3, 8]), np.array([2, 8])]
 
         # interference matrix for kernels of two apps
 
@@ -420,9 +429,11 @@ def main():
         iter_limits = [10000, 10000]
 
         # # get an estimate of the QOS for both kernels
-        # predictions_arith_mean = estimate_weigh_arith_mean(app_lengths, interference_matrix, iter_limits)
-        # predictions_geom_mean = estimate_weigh_geom_mean(app_lengths, interference_matrix, iter_limits)
-        # predictions_harm_mean = estimate_weigh_harm_mean(app_lengths, interference_matrix, iter_limits)
+        # predictions_arith_mean = estimate_weigh_arith_mean(app_lengths,
+        # interference_matrix, iter_limits) predictions_geom_mean =
+        # estimate_weigh_geom_mean(app_lengths, interference_matrix,
+        # iter_limits) predictions_harm_mean = estimate_weigh_harm_mean(
+        # app_lengths, interference_matrix, iter_limits)
 
         # simulate and obtain actual QOS for both kernels
         scaled_runtimes, steady_state_iter, steady_state_qos = \
@@ -438,33 +449,38 @@ def main():
         perc_error_steady = [((qos[0] - predictions_steady[0]) / qos[0]),
                              (qos[1] - predictions_steady[1]) / qos[1]]
 
-        # # compute error for this prediction
-        # perc_errors_arith = [((qos[0] - predictions_arith_mean[0]) / qos[0]), (qos[1] - predictions_arith_mean[1]) / qos[1]]
-        # perc_errors_geom = [((qos[0] - predictions_geom_mean[0]) / qos[0]), (qos[1] - predictions_geom_mean[1]) / qos[1]]
-        # perc_errors_harm = [((qos[0] - predictions_harm_mean[0]) / qos[0]), (qos[1] - predictions_harm_mean[1]) / qos[1]]
+        # # compute error for this prediction perc_errors_arith = [((qos[0] -
+        # predictions_arith_mean[0]) / qos[0]), (qos[1] -
+        # predictions_arith_mean[1]) / qos[1]] perc_errors_geom = [((qos[0] -
+        # predictions_geom_mean[0]) / qos[0]), (qos[1] -
+        # predictions_geom_mean[1]) / qos[1]] perc_errors_harm = [((qos[0] -
+        # predictions_harm_mean[0]) / qos[0]), (qos[1] -
+        # predictions_harm_mean[1]) / qos[1]]
         #
         # # multiply error values by 100 to look nice
         errors_steady = np.append(errors_steady,
                                   [100 * x for x in perc_error_steady])
-        # errors_arith_mean = np.append(errors_arith_mean, [100 * x for x in perc_errors_arith])
-        # errors_geom_mean = np.append(errors_geom_mean, [100 * x for x in perc_errors_geom])
-        # errors_harm_mean = np.append(errors_harm_mean, [100 * x for x in perc_errors_harm])
-        # if min(errors_harm_mean) <= -10:
-        #     logger.info("=======================================================================")
-        #     logger.info("App0 has {} kernels, App1 has {} kernels".format(app0_size, app1_size))
-        #     logger.info(interference_matrix)
-        #     logger.info(app_lengths)
+        # errors_arith_mean = np.append(errors_arith_mean, [100 * x for x in
+        # perc_errors_arith]) errors_geom_mean = np.append(errors_geom_mean,
+        # [100 * x for x in perc_errors_geom]) errors_harm_mean = np.append(
+        # errors_harm_mean, [100 * x for x in perc_errors_harm]) if min(
+        # errors_harm_mean) <= -10: logger.info(
+        # "==============================================================
+        # =========") logger.info("App0 has {} kernels, App1
+        # has {} kernels".format(app0_size, app1_size))
+        # logger.info(interference_matrix) logger.info(app_lengths)
 
-    # # arithmetic mean errors_arith_mean reporting
-    # logger.info("=============== Arithmetic mean ===============")
-    # max_arith_error = max(errors_arith_mean)
-    # max_arith_index = np.where(errors_arith_mean == max_arith_error)
-    # min_arith_error = min(errors_arith_mean)
+    # # arithmetic mean errors_arith_mean reporting logger.info(
+    # "=============== Arithmetic mean ===============") max_arith_error =
+    # max(errors_arith_mean) max_arith_index = np.where(errors_arith_mean ==
+    # max_arith_error) min_arith_error = min(errors_arith_mean)
     # min_arith_index = np.where(errors_arith_mean == min_arith_error)
-    # logger.info("Max is {} % at index {}".format(max_arith_error, max_arith_index))
-    # logger.info("Min is {} % at index {}".format(min_arith_error, min_arith_index))
-    # logger.info("Average estimate error is {} %".format(np.average(np.absolute(errors_arith_mean))))
-    # logger.info("Standard deviation is {} %".format(np.std(errors_arith_mean)))
+    # logger.info("Max is {} % at index {}".format(max_arith_error,
+    # max_arith_index)) logger.info("Min is {} % at index {}".format(
+    # min_arith_error, min_arith_index)) logger.info("Average estimate error
+    # is {} %".format(np.average(np.absolute(errors_arith_mean))))
+    # logger.info("Standard deviation is {} %".format(np.std(
+    # errors_arith_mean)))
     #
     # logger.info("=============== Geometric mean ===============")
     # max_geom_error = max(errors_geom_mean)
@@ -473,7 +489,8 @@ def main():
     # min_geom_index = np.where(errors_geom_mean == min_geom_error)
     # logger.info("Max is {} % at index {}".format(max_geom_error, max_geom_index))
     # logger.info("Min is {} % at index {}".format(min_geom_error, min_geom_index))
-    # logger.info("Average estimate error is {} %".format(np.average(np.absolute(errors_geom_mean))))
+    # logger.info("Average estimate error is {} %".format(np.average(
+    # np.absolute(errors_geom_mean))))
     # logger.info("Standard deviation is {} %".format(np.std(errors_geom_mean)))
     #
     # logger.info("=============== Harmonic mean ===============")
@@ -483,7 +500,8 @@ def main():
     # min_harm_index = np.where(errors_harm_mean == min_harm_error)
     # logger.info("Max is {} % at index {}".format(max_harm_error, max_harm_index))
     # logger.info("Min is {} % at index {}".format(min_harm_error, min_harm_index))
-    # logger.info("Average estimate error is {} %".format(np.average(np.absolute(errors_harm_mean))))
+    # logger.info("Average estimate error is {} %".format(np.average(
+    # np.absolute(errors_harm_mean))))
     # logger.info("Standard deviation is {} %".format(np.std(errors_harm_mean)))
 
     logger.info("=============== Steady Prediction ===============")
@@ -501,8 +519,8 @@ def main():
 
     # TODO: set up to simulate on real data
 
-    # See if averaging predictions from all 3 predictors will produce lower errors (in case max errors are
-    # occuring on different samples).
+    # See if averaging predictions from all 3 predictors will produce lower
+    # errors (in case max errors are occuring on different samples).
 
 
 if __name__ == '__main__':
