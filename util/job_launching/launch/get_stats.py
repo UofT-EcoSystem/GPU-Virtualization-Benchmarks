@@ -129,7 +129,7 @@ def has_exited(gpusim_logfile):
     exit_str = "GPGPU-Sim: \*\*\* exit detected \*\*\*"
 
     with open(gpusim_logfile, errors='ignore') as f:
-        bytes_to_read = int(256*1024*1024)
+        bytes_to_read = int(256*1024)
         file_size = int(os.stat(gpusim_logfile).st_size)
         if file_size > bytes_to_read:
             f.seek(0, os.SEEK_END)
@@ -400,7 +400,7 @@ def main():
     max_apps = set()
 
     num_cores = multiprocessing.cpu_count()
-    results = Parallel(n_jobs=num_cores)(
+    results = Parallel(n_jobs=num_cores, prefer="threads")(
         delayed(parse_app_files)(app, args, stats_to_pull) for app in apps)
 
     csv_total = []
