@@ -49,6 +49,10 @@ class Job:
     def get_num_benchmarks(self):
         return len(self.benchmarks)
 
+    def calculate_static_partition(self):
+        # TODO: @Pavel
+        pass
+
 
 class BatchJob:
     REPEAT = 0
@@ -137,3 +141,11 @@ class BatchJob:
         self.df_pair['pair_job'] = pairs
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
+
+    def calculate_gpu_count_mig(self):
+        # TODO: @Pavel
+        pass
+
+    def calculate_gpu_count_gpupool(self):
+        # TODO: @Pavel
+        pass
