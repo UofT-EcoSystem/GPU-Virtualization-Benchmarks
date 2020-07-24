@@ -400,7 +400,7 @@ def main():
     max_apps = set()
 
     num_cores = multiprocessing.cpu_count()
-    results = Parallel(n_jobs=num_cores, prefer="threads")(
+    results = Parallel(n_jobs=num_cores)(
         delayed(parse_app_files)(app, args, stats_to_pull) for app in apps)
 
     csv_total = []
