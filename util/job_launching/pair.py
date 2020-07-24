@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument('--count', type=int, default=20,
                         help='Max number of simulations to launch.')
 
-    parser.add_argument('--app_match', default='',
+    parser.add_argument('--app_match', default=[], nargs='+',
                         help='Select all pairs that include this app. Only '
                              'checked when all is passed to --pair.')
     parser.add_argument('--app_exclude', default=[], nargs='+',
@@ -343,13 +343,15 @@ def process_ctx(pair, base_config):
 
 
 def process_pairs():
+    print("processing pairs")
     global args
 
     def pair_up(candidates):
         pairs = []
         for bench0 in candidates:
             for bench1 in candidates:
-                if bench0 < bench1:
+                if bench0 < bench1 and (bench0 in args.app_match or bench1 in
+                        args.app_match):
                     # Make sure we don't pair up the same benchmarks with
                     # different inputs, except for synthetic workloads
                     # bench0_name = bench0.split('-')[0]
@@ -357,6 +359,7 @@ def process_pairs():
                     # if bench0_name != bench1_name or bench0_name == 'syn':
                     pairs.append('+'.join([bench0, bench1]))
 
+        print(pairs)
         if not args.id_start < len(pairs):
             print('Length of all pairs is {0} but id_start is {1}'
                   .format(len(pairs), args.id_start))
@@ -368,10 +371,7 @@ def process_pairs():
 
         args.pair = pairs[args.id_start:id_end]
 
-        # Drop pairs that do not include app match
-        if args.app_match != '':
-            args.pair = [p for p in args.pair if args.app_match in p]
-
+        # Remove all pairs in app_exclude list
         if len(args.app_exclude) > 0:
             for excl in args.app_exclude:
                 args.pair = [p for p in args.pair if excl not in p]
