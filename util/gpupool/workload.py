@@ -3,10 +3,14 @@ from random import choices
 from enum import Enum
 import pandas as pd
 import sys
+import pickle
+import os
+import subprocess
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
 
+THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
 class QOS(Enum):
     PCT_50 = 0.5
@@ -50,8 +54,22 @@ class Job:
         return len(self.benchmarks)
 
     def calculate_static_partition(self):
-        # TODO: @Pavel
-        pass
+        mig_pickles = os.path.join(THIS_DIR, '../data/pickles/mig_ipcs')
+        mig_ipcs = pickle.load( open(mig_pickles, 'rb'))
+        cycle_lengths = self.get_seq_cycles()
+
+        full_runtime = sum(cycle_lengths)
+        for resources in range(8):
+            # calculate qos with i static partitions available
+            restricted_runtime = 0
+            for bm_index in range(len(self.benchmarks)):
+                # calculate how much time will be added by restricting this benchmark
+                restricted_runtime += cycle_lengths[bm_index] / mig_ipcs[self.benchmarks[bm_index]][resources]
+            # use restricted runtime to estimate qos at this static partition
+            attained_qos = full_runtime / restricted_runtime
+            if (attained_qos >= self.qos):
+                break
+        return (resources + 1) / 8
 
 
 class BatchJob:
@@ -147,5 +165,66 @@ class BatchJob:
         pass
 
     def calculate_gpu_count_gpupool(self):
-        # TODO: @Pavel
-        pass
+        f = open("input.txt", "a")
+        f.write(str(self.num_jobs) + '\n')
+        f.write(str(((self.num_jobs * (self.num_jobs - 1)) // 2)) + '\n')
+
+        # iterate over rows and read off the weighted speedups
+        for index, row in self.df_pair.iterrows():
+            string_pair = row['pair_str']
+            job_indeces = string_pair.split('+')
+            first_job_index = string_pair.split('+')[0].split('-')[1]
+            second_job_index = string_pair.split('+')[1].split('-')[1]
+            pair_weighted_speedup = row[-1]
+            input_line = str(first_job_index) + ' ' + str(second_job_index) + \
+                    ' ' + str(round((1 / pair_weighted_speedup), 3)) + '\n'
+            f.write(input_line)
+                
+
+        f.close()
+        print('Resulting input file is:')
+        print('')
+        os.system('cat input.txt')
+        print('')
+        os.system('./matcher -f input.txt --minweight > output.txt')
+        num_gpus = subprocess.getoutput("tail -n +3 output.txt | wc -l")
+        os.system('rm input.txt')
+        return num_gpus
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
