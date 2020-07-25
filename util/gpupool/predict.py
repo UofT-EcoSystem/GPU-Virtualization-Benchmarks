@@ -89,6 +89,9 @@ class Performance:
 
         return gen_altair.draw_altair(data, chart_title, width, xmax)
 
+    def weighted_speedup(self):
+        return sum(self.sld)
+
     def __eq__(self, other):
         return sum(self.sld) == sum(other.sld)
 
@@ -299,6 +302,9 @@ class RunOption:
     def print_config(self):
         self._pretty_print_matrix("Config", self.config_matrix)
 
+    def serial_required(self):
+        return 1 in self.serial
+
 
 class RunOption1D(RunOption):
     def __init__(self, ctx, jobs):
@@ -379,20 +385,24 @@ class RunOption1D(RunOption):
 
                     if df_bench.empty:
                         # TODO: Need to handle kernel serialization...
-                        print("Unimplemented error.")
-                        sys.exit(1)
+                        # FIXME: time multiplexing for now
+                        # print("RunOption1D unimplemented error.")
+                        # print(bench)
+                        # sys.exit(1)
+                        list_sld = [0.5, 0.5]
 
-                    # FIXME: this needs to be removed when all dynamic pairs
-                    #  are available
-                    df_bench['distance'] = np.abs(df_bench['1_intra'] -
-                                                  kernel_configs[0]) + \
-                                           np.abs(df_bench['2_intra'] -
-                                                  kernel_configs[1])
+                    else:
+                        # FIXME: this needs to be removed when all dynamic pairs
+                        #  are available
+                        df_bench['distance'] = np.abs(df_bench['1_intra'] -
+                                                      kernel_configs[0]) + \
+                                               np.abs(df_bench['2_intra'] -
+                                                      kernel_configs[1])
 
-                    df_bench.sort_values('distance', inplace=True,
-                                         ascending=True)
+                        df_bench.sort_values('distance', inplace=True,
+                                             ascending=True)
 
-                    list_sld = df_bench['sld'].iloc[0][1:]
+                        list_sld = df_bench['sld'].iloc[0][1:]
 
                     # Flip it back
                     if sorted_bench != bench:
@@ -449,8 +459,9 @@ class RunOption3D(RunOption):
 
                         if cta_setting == 0:
                             cta_setting = 1
-                            serial = True
-                            sld = 1
+                            # serial = True
+                            # sld = 1
+                            sld = 0.5
                         else:
                             # Might be a bit pessimistic here:
                             sld = 0.5
@@ -487,13 +498,15 @@ class RunOption3D(RunOption):
                     # serially using its best intra config
                     cta_setting = []
                     sld = []
-                    serial = True
+                    # FIXME: get rid of serial
+                    # serial = True
                     for bench in real_bench:
                         best_idx = df_intra[(df_intra['pair_str'] == bench[0]) &
                                             (df_intra['1_kidx'] == bench[1])
                                             ]['norm_ipc'].idxmax(axis=0)
                         cta_setting.append(df_intra.loc[best_idx]['intra'])
                         sld.append(df_intra.loc[best_idx]['norm_ipc'])
+                        sld.append(0.5)
                 else:
                     # df_pair['sum_increase'] = df_pair['sld'].apply(
                     #     lambda list_sld: bench_importance[0] / list_sld[1] +
@@ -550,7 +563,7 @@ class PairJob:
         self.jobs = jobs
         self.job_names = [job.name for job in self.jobs]
 
-    # return RunOption, Performance
+    # return RunOption, Performance, ws
     def get_performance(self, alloc,
                         stage_1: StageOne, stage_2: StageTwo,
                         num_slices,
@@ -561,7 +574,8 @@ class PairJob:
                                           at_least_once)
         option_col = combo_name + "-" + "option"
         perf_col = combo_name + "-" + "perf"
-        result = {option_col: None, perf_col: None}
+        ws_col = combo_name + "-" + "ws"
+        result = {option_col: None, perf_col: None, ws_col: 0}
 
         # Create RunOptions for allocation design
         if alloc.name == Allocation.One_D.name:
@@ -611,6 +625,7 @@ class PairJob:
 
         result[option_col] = best_option
         result[perf_col] = best_perf
+        result[ws_col] = best_perf.weighted_speedup()
         return result
 
     def name(self):
