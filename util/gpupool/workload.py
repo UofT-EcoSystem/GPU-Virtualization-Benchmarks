@@ -90,6 +90,12 @@ class BatchJob:
                                                                 num_slices,
                                                                 at_least_once))
         )
+
+        # Drop the same columns
+        drop_col = [col for col in self.df_pair.columns
+                    if col in df_performance.columns]
+        self.df_pair.drop(columns=drop_col, inplace=True)
+
         self.df_pair = self.df_pair.merge(df_performance,
                                           left_index=True, right_index=True)
 
