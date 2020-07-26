@@ -10,6 +10,11 @@ import data.scripts.common.constants as const
 import data.scripts.gen_graphs.gen_altair_timeline as gen_altair
 
 
+def debug_print(text, condition):
+    if condition:
+        print(text)
+
+
 class Allocation(Enum):
     One_D = 1
     Two_D = 2
@@ -38,10 +43,11 @@ class Performance:
         self.sld = np.array([])
         self.steady_iter = -1
 
-    def fill_with_duration(self, shared_runtimes, seq_runtimes):
+    def fill_with_duration(self, shared_runtimes, seq_runtimes, offset_times):
         # This assumes kernels are run back to back
-        timestamps = np.array([const.get_from_to(shared)
-                                    for shared in shared_runtimes])
+        timestamps = np.array([const.get_from_to(shared, offset)
+                               for shared, offset in zip(shared_runtimes,
+                                                         offset_times)])
         self.start_stamps = timestamps[:, 0]
         self.end_stamps = timestamps[:, 1]
 
@@ -54,7 +60,26 @@ class Performance:
                          circular, shared in zip(circular_runtimes,
                                                  shared_runtimes)
                          ]
-        self.sld = hi.calculate_sld_short(self.end_stamps, seq_runtimes)
+
+        # Slowdown calculation should exclude the initial offset period
+        # The excluded list should be the one that didn't get delayed
+        offset_times.reverse()
+        adjusted_end_stamps = []
+        start = []
+        for start_stamps, end_stamps, offset, seq in \
+                zip(self.start_stamps, self.end_stamps, offset_times,
+                    seq_runtimes):
+            if offset > 0:
+                # Get rid of the first iteration
+                num_kernels = len(seq)
+                adjusted_end_stamps.append(end_stamps[num_kernels:])
+                start.append(start_stamps[num_kernels])
+            else:
+                adjusted_end_stamps.append(end_stamps)
+                start.append(0)
+
+        self.sld = hi.calculate_sld_short(adjusted_end_stamps, seq_runtimes,
+                                          start)
 
     def fill_with_slowdown(self, sld, steady_iter):
         self.sld = sld
@@ -104,16 +129,16 @@ class RunOption:
     STEADY_STEP = 20
     QOS_LOSS_ERROR = 0.01
 
-    def __init__(self, jobs):
+    def __init__(self, jobs, offset_ratio=0):
         self.jobs = jobs
         self.job_names = [job.name for job in self.jobs]
+        self.offset_ratio = offset_ratio
 
         self.config_matrix = np.array([])
         self.interference_matrix = np.array([])
         self.serial = np.array([])
 
     # Return Performance
-    # FIXME: handle kernel serialization
     def app_wise_full_and_steady(self, at_least_one=False):
         seq_runtimes = [job.get_seq_cycles() for job in self.jobs]
 
@@ -125,13 +150,12 @@ class RunOption:
         # indeces of kernels for two apps - by default 0 and 0
         kidx = [0, 0]
         # by default the two kernels launch simultaneously
-        remaining_runtimes = [seq_runtimes[0][kidx[0]], seq_runtimes[1][kidx[1]]]
+        remaining_runtimes = [seq_runtimes[0][kidx[0]],
+                              seq_runtimes[1][kidx[1]]]
         # app that has remaining kernels after the other app finished
         remaining_app = 0
         # index of current kernel in remaining app
         remaining_app_kidx = 0
-        # variable to keep track of offsets - used to detect completed period
-        offsets = []
 
         # past and total accumulated runtimes of apps
         past_qos_loss = [0, 0]
@@ -139,12 +163,25 @@ class RunOption:
         steady_state_qos = [-1, -1]
         steady_state_iter = [0, 0]
 
-        # initialize starting offset
-        # start_offset(apps, rem_runtimes, ker, scaled_runtimes,
-        # offsets, offset, offset_app)
+        # initialize starting offset by fast forward app 0
+        forward_cycles = self.offset_ratio * sum(seq_runtimes[0])
+        remaining_cycles = forward_cycles
+        while True:
+            if seq_runtimes[0][kidx[0]] <= remaining_cycles:
+                shared_runtimes[0][-1] += seq_runtimes[0][kidx[0]]
+                remaining_cycles -= seq_runtimes[0][kidx[0]]
 
-        def find_qos_loss(scaled_runtime, num_iter, isolated_runtime):
-            return sum(scaled_runtime) / (sum(isolated_runtime) * num_iter)
+                # advance to the next kernel
+                kidx[0] = (kidx[0] + 1) % len(seq_runtimes[0])
+                remaining_runtimes[0] = seq_runtimes[0][kidx[0]]
+                shared_runtimes[0].append(0)
+            else:
+                shared_runtimes[0][-1] += remaining_cycles
+                remaining_runtimes[0] -= remaining_cycles
+                break
+
+        def find_qos_loss(scaled_runtime, num_iter, _isolated_runtime):
+            return sum(scaled_runtime) / (sum(_isolated_runtime) * num_iter)
 
         def handle_completed_kernel(app_idx):
             other_app_idx = (app_idx + 1) % len(self.jobs)
@@ -164,7 +201,7 @@ class RunOption:
                 iter_[app_idx] += 1
 
             # evaluate steady state
-            if iter_[app_idx] % RunOption.STEADY_STEP == 0:
+            if iter_[app_idx] and iter_[app_idx] % RunOption.STEADY_STEP == 0:
                 # compare qos to the past qos
                 qos_loss = find_qos_loss(shared_runtimes[app_idx],
                                          iter_[app_idx],
@@ -235,8 +272,13 @@ class RunOption:
 
                 handle_completed_kernel(1)
 
-            if at_least_one and iter_[0] >= 1 and iter_[1] >= 1:
-                break
+            if at_least_one:
+                if self.offset_ratio == 0:
+                    if iter_[0] >= 1 and iter_[1] >= 1:
+                        break
+                else:
+                    if iter_[0] >= 2 and iter_[1] >= 1:
+                        break
         # end of loop
 
         # finish off the last iteration of remaining app in isolation
@@ -264,7 +306,8 @@ class RunOption:
 
         # Build performance instances for full calculation and steady state
         full_perf = Performance(self.jobs)
-        full_perf.fill_with_duration(shared_runtimes, seq_runtimes)
+        full_perf.fill_with_duration(shared_runtimes, seq_runtimes,
+                                     offset_times=[0, forward_cycles])
 
         steady_perf = Performance(self.jobs)
         steady_perf.fill_with_slowdown(sld=steady_state_qos,
@@ -415,8 +458,8 @@ class RunOption1D(RunOption):
 
 
 class RunOption3D(RunOption):
-    def __init__(self, job):
-        super(RunOption3D, self).__init__(job)
+    def __init__(self, job, offset_ratio):
+        super(RunOption3D, self).__init__(job, offset_ratio)
 
     def kernel_wise_prediction(self, df_intra, model):
         # TODO
@@ -590,7 +633,9 @@ class PairJob:
             run_options = [RunOption1D(ctx_value, self.jobs)
                            for ctx_value in ctx]
         elif alloc.name == Allocation.Three_D.name:
-            run_options = [RunOption3D(self.jobs)]
+            step = 1.0 / num_slices
+            run_options = [RunOption3D(self.jobs, ratio)
+                           for ratio in np.arange(0, 1, step)]
         else:
             # 2D is unimplemented
             print("PairJob: 2D is unimplemented.")

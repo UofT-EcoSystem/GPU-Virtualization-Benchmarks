@@ -266,8 +266,8 @@ def gen_kernel_headers(app):
 
 
 # Assume kernels are launched back to back
-def get_from_to(duration):
-    time_series = [0]
+def get_from_to(duration, offset=0):
+    time_series = [offset]
 
     for d in duration:
         new_elem = time_series[-1] + d

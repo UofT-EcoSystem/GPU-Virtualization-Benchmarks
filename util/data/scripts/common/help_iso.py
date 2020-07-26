@@ -129,7 +129,7 @@ def multi_array_col_seq(df):
              )
 
 
-def calculate_sld_short(shared_end_stamp, isolated_runtime):
+def calculate_sld_short(shared_end_stamp, isolated_runtime, start=None):
     shared_end_stamp = [np.array(arr_end) for arr_end in shared_end_stamp]
     sld = []
 
@@ -158,7 +158,11 @@ def calculate_sld_short(shared_end_stamp, isolated_runtime):
                 sys.exit(1)
 
             iter_time = sum(isolated_runtime[stream_id])
-            sld_stream = num_iters * iter_time / tot_time
+
+            if start:
+                relative_start = start[stream_id]
+
+            sld_stream = num_iters * iter_time / (tot_time - relative_start)
 
         sld.append(sld_stream)
 
