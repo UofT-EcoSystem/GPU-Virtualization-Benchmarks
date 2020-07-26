@@ -101,7 +101,14 @@ def parse_multi_array(text):
 
     # In case there's any inf and ast literal_eval will fail
     text = text.replace('inf', '-1')
-    arr = ast.literal_eval(text)
+    text = text.replace('-nan', '0')
+    text = text.replace('nan', '0')
+
+    try:
+        arr = ast.literal_eval(text)
+    except:
+        print("parse_multi_array error: ", text)
+        sys.exit()
 
     return arr
 
