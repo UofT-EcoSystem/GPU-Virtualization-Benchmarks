@@ -308,7 +308,7 @@ def process_inter(pair):
     apps = pair.split('+')
     # inter-SM sharing
     pair_config_args = ['--apps'] + apps
-    pair_config_args.append('--print')
+    # pair_config_args.append('--print')
     pair_config_args += ['--cap', str(args.cap)]
     pair_config_args += ['--top']
     pair_config_args += ['--qos', str(args.qos)]
@@ -408,8 +408,7 @@ def process_pairs():
         pairs = []
         for bench0 in candidates:
             for bench1 in candidates:
-                if bench0 < bench1 and (bench0 in args.app_match or bench1 in
-                        args.app_match):
+                if bench0 < bench1:
                     # Make sure we don't pair up the same benchmarks with
                     # different inputs, except for synthetic workloads
                     # bench0_name = bench0.split('-')[0]
@@ -417,7 +416,6 @@ def process_pairs():
                     # if bench0_name != bench1_name or bench0_name == 'syn':
                     pairs.append('+'.join([bench0, bench1]))
 
-        print(pairs)
         if not args.id_start < len(pairs):
             print('Length of all pairs is {0} but id_start is {1}'
                   .format(len(pairs), args.id_start))
@@ -433,6 +431,14 @@ def process_pairs():
         if len(args.app_exclude) > 0:
             for excl in args.app_exclude:
                 args.pair = [p for p in args.pair if excl not in p]
+
+        # Only keep apps that have app_match
+        if len(args.app_match) > 0:
+            match_pairs = []
+            for match in args.app_match:
+                match_pairs += [p for p in args.pair if match in p]
+
+            args.pair = match_pairs
 
     # Determine what app pairs to launch
     if args.pair[0] == 'single':
