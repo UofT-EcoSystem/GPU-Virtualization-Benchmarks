@@ -274,7 +274,7 @@ def get_from_to(duration, offset=0):
         time_series.append(new_elem)
 
     time_series = np.array(time_series)
-    return time_series[0:-1], time_series[1:]
+    return [time_series[0:-1], time_series[1:]]
 
 
 def split_pair_str(pair_str):
