@@ -63,8 +63,10 @@ class Job:
             # calculate qos with i static partitions available
             restricted_runtime = 0
             for bm_index in range(len(self.benchmarks)):
-                # calculate how much time will be added by restricting this benchmark
-                restricted_runtime += cycle_lengths[bm_index] / mig_ipcs[self.benchmarks[bm_index]][resources]
+                # calculate how much time will be added by restricting this 
+                # benchmark
+                restricted_runtime += cycle_lengths[bm_index] / \
+                        mig_ipcs[self.benchmarks[bm_index]][resources]
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
             if (attained_qos >= self.qos):
@@ -170,32 +172,53 @@ class BatchJob:
         # TODO: @Pavel
         pass
 
-    def calculate_gpu_count_gpupool(self):
-        f = open("input.txt", "a")
-        f.write(str(self.num_jobs) + '\n')
-        f.write(str(((self.num_jobs * (self.num_jobs - 1)) // 2)) + '\n')
+    def calculate_gpu_count_gpupool(self, alloc, stage_1: StageOne, 
+                        stage_2: StageTwo,
+                        at_least_once):
+        combo_name = "{}-{}-{}-{}".format(alloc.name,
+                                          stage_1.name,
+                                          stage_2.name,
+                                          at_least_once)
+        option_col = combo_name + "-" + "option"
+        perf_col = combo_name + "-" + "perf"
+        ws_col = combo_name + "-" + "ws"
+        f = open("input.js", "a")
+        f.write("var blossom = require('./edmonds-blossom');" + "\n")
+        f.write("var data = [" + "\n")
 
         # iterate over rows and read off the weighted speedups
         for index, row in self.df_pair.iterrows():
+            # determine if we include this pair as an edge or not based on if the 
+            # qos of each job in pair is satisfied
+            if ((row['pair_job'].jobs[0].qos.value > row[perf_col].sld[0]) or
+                    (row['pair_job'].jobs[1].qos.value > row[perf_col].sld[1])):
+                continue
             string_pair = row['pair_str']
             job_indeces = string_pair.split('+')
             first_job_index = string_pair.split('+')[0].split('-')[1]
             second_job_index = string_pair.split('+')[1].split('-')[1]
-            pair_weighted_speedup = row[-1]
-            input_line = str(first_job_index) + ' ' + str(second_job_index) + \
-                    ' ' + str(round((1 / pair_weighted_speedup), 3)) + '\n'
+            pair_weighted_speedup = row[ws_col]
+            input_line = "      [" + str(first_job_index) + ', ' +  \
+                    str(second_job_index) + ', ' \
+                    + str(round(pair_weighted_speedup, 3)) + '],\n'
             f.write(input_line)
                 
-
+        f.write("    ];\n")
+        f.write("var results = blossom(data);\n")
+        f.write("console.log(results);\n")
         f.close()
         print('Resulting input file is:')
         print('')
-        os.system('cat input.txt')
+        os.system('cat input.js')
         print('')
-        os.system('./matcher -f input.txt --minweight > output.txt')
-        num_gpus = subprocess.getoutput("tail -n +3 output.txt | wc -l")
-        os.system('rm input.txt')
-        return num_gpus
+        matching = subprocess.getoutput("node input.js")
+        matching = matching.replace(" ", "").replace("]", "").replace("[", "")
+        matching = matching.split(",")
+        matching = [int(x) for x in matching]
+        num_pairs = len([x for x in matching if x >= 0]) // 2
+        num_isolated = len([x for x in matching if x == -1])
+        os.system('rm input.js')
+        return num_pairs + num_isolated
 
 
 
