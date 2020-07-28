@@ -136,6 +136,7 @@ class RunOption:
 
         self.config_matrix = np.array([])
         self.interference_matrix = np.array([])
+        self.interference_hit = np.array([])
         self.serial = np.array([])
 
     # Return Performance
@@ -229,10 +230,9 @@ class RunOption:
             # figure out who finishes first by scaling the runtimes by the
             # slowdowns
             kidx_pair = (kidx[1], kidx[0])
+            self.interference_hit[kidx_pair] = 1
             app0_ker_scaled = \
                 remaining_runtimes[0] / self.interference_matrix[0][kidx_pair]
-            # logger.debug("app0 kernel scaled runtime is: {}".format(
-            # app0_ker_scaled))
             app1_ker_scaled = \
                 remaining_runtimes[1] / self.interference_matrix[1][kidx_pair]
             # logger.debug("app1 kernel scaled runtime is: {}".format(
@@ -313,6 +313,7 @@ class RunOption:
         steady_perf.fill_with_slowdown(sld=steady_state_qos,
                                        steady_iter=steady_state_iter)
 
+        print("Finish stage two for", self.job_names)
         return full_perf, steady_perf
 
     def app_wise_weighted(self):
@@ -347,6 +348,10 @@ class RunOption:
 
     def serial_required(self):
         return 1 in self.serial
+
+    def interference_hit_percentage(self):
+        return np.count_nonzero(self.interference_hit) / \
+               self.interference_hit.size
 
 
 class RunOption1D(RunOption):
@@ -455,6 +460,7 @@ class RunOption1D(RunOption):
                 interference[1][matrix_idx] = list_sld[1]
 
         self.interference_matrix = interference
+        self.interference_hit = np.zeros(matrix_size)
 
 
 class RunOption3D(RunOption):
@@ -574,6 +580,7 @@ class RunOption3D(RunOption):
                               np.zeros(matrix_size, dtype=int)]
         self.interference_matrix = [np.zeros(matrix_size),
                                     np.zeros(matrix_size)]
+        self.interference_hit = np.zeros(matrix_size)
         self.serial = np.zeros(matrix_size, dtype=int)
 
         for row_idx in range(num_rows):
