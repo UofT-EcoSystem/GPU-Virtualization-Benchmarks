@@ -344,7 +344,7 @@ def main():
         df_profiled = pd.concat(df_profiled, axis=0, ignore_index=True)
 
         df_join = pd.merge(df_pair, df_profiled,
-                           how='left',
+                           how='inner',
                            left_on=pair_cols,
                            right_on=profiled_cols,
                            suffixes=('_sim', '_prof'))
