@@ -1,0 +1,78 @@
+{
+  "_args": [
+    [
+      "edmonds-blossom",
+      "/mnt"
+    ]
+  ],
+  "_from": "edmonds-blossom@latest",
+  "_id": "edmonds-blossom@1.0.0",
+  "_inCache": true,
+  "_installable": true,
+  "_location": "/edmonds-blossom",
+  "_nodeVersion": "0.12.4",
+  "_npmUser": {
+    "email": "matt.krick@gmail.com",
+    "name": "mattkrick"
+  },
+  "_npmVersion": "2.10.1",
+  "_phantomChildren": {},
+  "_requested": {
+    "name": "edmonds-blossom",
+    "raw": "edmonds-blossom",
+    "rawSpec": "",
+    "scope": null,
+    "spec": "latest",
+    "type": "tag"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/edmonds-blossom/-/edmonds-blossom-1.0.0.tgz",
+  "_shasum": "e937273bd3cbe12710b66846e1e5b5086bdf1f97",
+  "_shrinkwrap": null,
+  "_spec": "edmonds-blossom",
+  "_where": "/mnt",
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/mattkrick/EdmondsBlossom/issues"
+  },
+  "dependencies": {},
+  "description": "Edmond's weighted maximum matching algorithm (Blossom algorithm) ported from http://jorisvr.nl/maximummatching.html",
+  "devDependencies": {
+    "jasmine-node": "^1.14.5"
+  },
+  "directories": {},
+  "dist": {
+    "shasum": "e937273bd3cbe12710b66846e1e5b5086bdf1f97",
+    "tarball": "https://registry.npmjs.org/edmonds-blossom/-/edmonds-blossom-1.0.0.tgz"
+  },
+  "gitHead": "908190d2e7dbc86c3a8dd43238e7782a2a25f65f",
+  "homepage": "https://github.com/mattkrick/EdmondsBlossom#readme",
+  "keywords": [
+    "blossom",
+    "directional graph",
+    "edmonds",
+    "graph",
+    "maximum matching"
+  ],
+  "license": "MIT",
+  "main": "app/blossom.js",
+  "maintainers": [
+    {
+      "name": "mattkrick",
+      "email": "matt.krick@gmail.com"
+    }
+  ],
+  "name": "edmonds-blossom",
+  "optionalDependencies": {},
+  "readme": "ERROR: No README data found!",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattkrick/EdmondsBlossom.git"
+  },
+  "scripts": {
+    "test": "jasmine-node spec"
+  },
+  "version": "1.0.0"
+}
