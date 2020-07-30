@@ -13,6 +13,7 @@ from gpupool.predict import Allocation, StageOne, StageTwo
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
+
 class QOS(Enum):
     PCT_50 = 0.5
     PCT_60 = 0.6
