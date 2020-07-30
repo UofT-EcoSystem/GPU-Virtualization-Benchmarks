@@ -6,6 +6,7 @@ import sys
 import pickle
 import os
 import subprocess
+import numpy as np
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -69,9 +70,9 @@ class Job:
                         mig_ipcs[self.benchmarks[bm_index]][resources]
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
-            if (attained_qos >= self.qos):
+            if (attained_qos >= self.qos.value):
                 break
-        return (resources + 1) / 8
+        return resources + 1
 
 
 class BatchJob:
@@ -169,8 +170,68 @@ class BatchJob:
                                                                   x.name())
 
     def calculate_gpu_count_mig(self):
-        # TODO: @Pavel
-        pass
+        # convert jobs to size slices 
+        jobs = [x.calculate_static_partition() for x in self.list_jobs]
+        indeces = np.argsort(jobs)[::-1]
+        jobs = np.sort(jobs)[::-1]
+        if np.where(jobs <= 3)[0].size != 0:
+            print("There are jobs that require less than 4 slices of GPU")
+        num_gpus = 0
+        f = open("mig_sched.out", "a")
+
+
+        # returns the index of the element that is to fill the remaining slice
+        def best_fill(jobs: list, rem_slice: int) -> int:
+            # find elements that can fill the spot
+            suitable_indeces = np.where(jobs <= rem_slice) 
+            suitable_values = np.take(jobs, suitable_indeces)
+            if suitable_values[0].size != 0:
+                return np.argmax(suitable_values) 
+            return -1
+
+        # fill the machine as much as possible with suitable slices
+        def fill_machine(jobs: list, indeces: list, rem_slice: int):
+            #print("inside fill machine, rem_slice is ", rem_slice)
+            # check if there are suitable jobs in the array and fill
+            while np.where(jobs <= rem_slice)[0].size != 0:
+                #print("suitable jobs are ", np.where(jobs <= rem_slice)[0])
+                fill_index = best_fill(jobs, rem_slice)
+                #print("fill_index is ", fill_index)
+                if fill_index == -1:
+                    break
+                
+                # remove element at fill_index and update jobs and indeces
+                job_number = indeces[fill_index]
+                job_slice = jobs[fill_index]
+                job_line = str(job_number) + " "
+                f.write(job_line)
+                indeces = np.delete(indeces, fill_index)
+                jobs = np.delete(jobs, fill_index)
+                rem_slice -= job_slice
+                #print("remaining slice on this gpu is ", rem_slice)
+            return jobs, indeces
+
+
+        job_sizes = "Job sizes   " + np.array_str(jobs) + "\n"
+        job_indeces = "Job indeces " + np.array_str(indeces) + "\n" + "\n"
+        f.write(job_sizes)
+        f.write(job_indeces)
+
+        # main algo loop where we fill machines with jobs
+        while len(jobs) > 0:
+
+            #fill next machine
+            num_gpus += 1
+            gpu_line = "GPU " + str(num_gpus) + ": Jobs "
+            f.write(gpu_line)
+            jobs, indeces = fill_machine(jobs, indeces, 8)
+            #print("after gpu is filled we have ", jobs, indeces, num_gpus)
+            f.write("\n")
+
+        
+        f.close()
+        return num_gpus
+
 
     def calculate_gpu_count_gpupool(self, alloc, stage_1: StageOne, 
                         stage_2: StageTwo,
