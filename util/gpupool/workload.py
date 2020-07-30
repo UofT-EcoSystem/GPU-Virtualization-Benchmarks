@@ -12,6 +12,7 @@ from gpupool.predict import Allocation, StageOne, StageTwo
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
+
 class QOS(Enum):
     PCT_50 = 0.5
     PCT_60 = 0.6
@@ -69,7 +70,7 @@ class Job:
                         mig_ipcs[self.benchmarks[bm_index]][resources]
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
-            if (attained_qos >= self.qos):
+            if attained_qos >= self.qos:
                 break
         return (resources + 1) / 8
 

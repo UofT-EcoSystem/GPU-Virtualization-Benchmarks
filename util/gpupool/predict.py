@@ -41,7 +41,7 @@ class Performance:
         self.end_stamps = np.array([])
         self.norm_ipc = np.array([])
         self.sld = np.array([])
-        self.steady_iter = -1
+        self.steady_iter = None
 
     def fill_with_duration(self, shared_runtimes, seq_runtimes, offset_times):
         # This assumes kernels are run back to back
@@ -81,9 +81,11 @@ class Performance:
         self.sld = hi.calculate_sld_short(adjusted_end_stamps, seq_runtimes,
                                           start)
 
-    def fill_with_slowdown(self, sld, steady_iter):
+    def fill_with_slowdown(self, sld, steady_iter=None):
         self.sld = sld
-        self.steady_iter = steady_iter
+
+        if steady_iter:
+            self.steady_iter = np.array(steady_iter)
 
     def visualize(self, chart_title, width=900, xmax=None):
         def get_kernels(idx):
@@ -128,6 +130,9 @@ class RunOption:
     EQUALITY_ERROR = 0.0001
     STEADY_STEP = 20
     QOS_LOSS_ERROR = 0.01
+
+    df_dynamic = const.get_pickle('pair_dynamic.pkl')
+    df_intra = const.get_pickle('intra.pkl')
 
     def __init__(self, jobs, offset_ratio=0):
         self.jobs = jobs
@@ -182,14 +187,14 @@ class RunOption:
                 break
 
         def find_qos_loss(scaled_runtime, num_iter, _isolated_runtime):
-            return sum(scaled_runtime) / (sum(_isolated_runtime) * num_iter)
+            return (sum(_isolated_runtime) * num_iter) / sum(scaled_runtime)
 
         def handle_completed_kernel(app_idx):
             other_app_idx = (app_idx + 1) % len(self.jobs)
 
             kidx[app_idx] += 1
 
-            # if app0 has finished an iteration
+            # if app has finished an iteration
             if kidx[app_idx] == len(seq_runtimes[app_idx]):
                 # re-assignment of outer scope variables
                 nonlocal remaining_app, remaining_app_kidx
@@ -198,24 +203,24 @@ class RunOption:
 
                 kidx[app_idx] = 0
 
-                # app0 has completed an iteration of all kernels
+                # app has completed an iteration of all kernels
                 iter_[app_idx] += 1
 
-            # evaluate steady state
-            if iter_[app_idx] and iter_[app_idx] % RunOption.STEADY_STEP == 0:
-                # compare qos to the past qos
-                qos_loss = find_qos_loss(shared_runtimes[app_idx],
-                                         iter_[app_idx],
-                                         seq_runtimes[app_idx])
+                # evaluate steady state
+                if iter_[app_idx] % RunOption.STEADY_STEP == 0:
+                    # compare qos to the past qos
+                    qos_loss = find_qos_loss(shared_runtimes[app_idx],
+                                             iter_[app_idx],
+                                             seq_runtimes[app_idx])
 
-                if abs(past_qos_loss[app_idx] - qos_loss) \
-                        < RunOption.QOS_LOSS_ERROR \
-                        and steady_state_qos[app_idx] == -1:
-                    steady_state_qos[app_idx] = qos_loss
-                    steady_state_iter[app_idx] = iter_[app_idx]
+                    if abs(past_qos_loss[app_idx] - qos_loss) \
+                            < RunOption.QOS_LOSS_ERROR \
+                            and steady_state_qos[app_idx] == -1:
+                        steady_state_qos[app_idx] = qos_loss
+                        steady_state_iter[app_idx] = iter_[app_idx]
 
-                # update past qos loss to the current qos loss
-                past_qos_loss[app_idx] = qos_loss
+                    # update past qos loss to the current qos loss
+                    past_qos_loss[app_idx] = qos_loss
 
             remaining_runtimes[app_idx] = seq_runtimes[app_idx][kidx[app_idx]]
 
@@ -291,6 +296,14 @@ class RunOption:
 
         iter_[remaining_app] += 1
 
+        # Handle app that did not get a steady state estimation
+        for app_idx in range(len(self.jobs)):
+            if steady_state_iter[app_idx] == 0:
+                steady_state_iter[app_idx] = iter_[app_idx]
+                steady_state_qos[app_idx] = find_qos_loss(
+                    shared_runtimes[app_idx], iter_[app_idx],
+                    seq_runtimes[app_idx])
+
         if not at_least_one:
             # complete the rest of the required iterations of
             # remaining app in isolation
@@ -313,23 +326,70 @@ class RunOption:
         steady_perf.fill_with_slowdown(sld=steady_state_qos,
                                        steady_iter=steady_state_iter)
 
-        print("Finish stage two for", self.job_names)
         return full_perf, steady_perf
 
     def app_wise_weighted(self):
+        seq_cycles = [job.get_seq_cycles() for job in self.jobs]
+        kernel_weight = [seq_cycles[0] / np.sum(seq_cycles[0]),
+                         seq_cycles[1] / np.sum(seq_cycles[1])]
+
+        qos_loss = [0, 0]
+
+        def weight_geom_mean(weights, data):
+            exponent = 1 / sum(weights)
+            prod = 1
+            for weight_idx in range(weights.size):
+                prod = prod * (data[weight_idx] ** weights[weight_idx])
+
+            return prod ** exponent
+
+        # find initial prediction for app0
+        # weighted geom mean collapse to a vector (wrt app0)
+        vector_app0 = []
+        for idx in range(kernel_weight[0].size):
+            vector_app0.append(
+                weight_geom_mean(kernel_weight[0],
+                                 self.interference_matrix[0][idx, :]))
+        # collapse the vector wrt app1
+        qos_loss[0] = weight_geom_mean(kernel_weight[1], vector_app0)
+
+        # find initial prediction for app1
+        # weighted geom mean collapse to a vector (wrt app0)
+        vector_app1 = []
+        for idx in range(kernel_weight[1].size):
+            vector_app1.append(
+                weight_geom_mean(kernel_weight[1],
+                                 self.interference_matrix[1][:, idx]))
+        # collapse the vector wrt app0
+        qos_loss[1] = weight_geom_mean(kernel_weight[0], vector_app1)
+
+        # This is commented out because we only calculate QoS short
+        # find out which app finished first
+        # tot_est_runtimes = [qos_loss[0] * sum(seq_cycles[0]) * iter_lim[0],
+        #                     qos_loss[1] * sum(seq_cycles[1]) * iter_lim[1]]
+        # longer_app = tot_est_runtimes.index(max(tot_est_runtimes))
+        # # find how long rem app was executing in isolation
+        # rem_app_isol_runtime = max(tot_est_runtimes) - min(tot_est_runtimes)
+        # rem_app_isol_ratio = rem_app_isol_runtime /
+        # tot_est_runtimes[longer_app]
+        # # computed new QOS knowing the ratio of isolated runtime
+        # qos_loss[longer_app] = rem_app_isol_ratio * 1 + (
+        #             1 - rem_app_isol_ratio) * qos_loss[longer_app]
+
+        perf = Performance(self.jobs)
+        perf.fill_with_slowdown(qos_loss)
+
+        return perf
+
+    def app_wise_gpusim(self):
         # TODO
         pass
 
-    def app_wise_gpusim(self, df):
-        # TODO
-        pass
-
-    def kernel_wise_prediction(self, df_intra, model):
+    def kernel_wise_prediction(self):
         # Should be overridden
-        sys.exit(1)
         pass
 
-    def kernel_wise_gpusim(self, df_dynamic, df_intra):
+    def kernel_wise_gpusim(self):
         sys.exit(1)
         pass
 
@@ -378,11 +438,7 @@ class RunOption1D(RunOption):
 
         self.config_matrix = [c.astype(int) for c in configs]
 
-    def kernel_wise_prediction(self, df_intra, model):
-        # TODO
-        pass
-
-    def kernel_wise_gpusim(self, df_dynamic, df_intra):
+    def kernel_wise_gpusim(self):
         benchmarks = [[(bench, 1) for bench in job.benchmarks]
                       for job in self.jobs]
 
@@ -404,8 +460,10 @@ class RunOption1D(RunOption):
 
                 if bench[0] == bench[1]:
                     # Look at df_intra
-                    df_bench = df_intra[(df_intra['pair_str'] == bench[0][0]) &
-                                        (df_intra['1_kidx'] == bench[0][1])]
+                    df_bench = self.df_intra[
+                        (self.df_intra['pair_str'] == bench[0][0]) &
+                        (self.df_intra['1_kidx'] == bench[0][1])]
+
                     df_bench = df_bench.copy()
                     df_bench.sort_values('intra', inplace=True)
 
@@ -428,7 +486,8 @@ class RunOption1D(RunOption):
                         kernel_configs.reverse()
 
                     value = sorted_bench[0] + sorted_bench[1]
-                    df_bench = df_dynamic[df_dynamic[kernel_columns].isin(
+                    df_bench = self.df_dynamic[
+                        self.df_dynamic[kernel_columns].isin(
                         value).all(axis=1)].copy()
 
                     if df_bench.empty:
@@ -467,11 +526,7 @@ class RunOption3D(RunOption):
     def __init__(self, job, offset_ratio):
         super(RunOption3D, self).__init__(job, offset_ratio)
 
-    def kernel_wise_prediction(self, df_intra, model):
-        # TODO
-        pass
-
-    def kernel_wise_gpusim(self, df_dynamic, df_intra):
+    def kernel_wise_gpusim(self):
         # Generate both config and interference matrices
         num_cols = const.get_num_kernels(self.job_names[0])
         num_rows = const.get_num_kernels(self.job_names[1])
@@ -495,9 +550,10 @@ class RunOption3D(RunOption):
 
             if real_bench[0] == real_bench[1]:
                 # Identical benchmark pair. Get settings from df_intra
-                df_bench = df_intra[(df_intra['pair_str'] == real_bench[0][0]) &
-                                    (df_intra['1_kidx'] == real_bench[0][
-                                        1])].copy()
+                df_bench = self.df_intra[
+                    (self.df_intra['pair_str'] == real_bench[0][0]) &
+                    (self.df_intra['1_kidx'] == real_bench[0][1])].copy()
+
                 idx_max = df_bench[['intra', 'norm_ipc']].idxmax(axis=0)
                 if idx_max['intra'] == idx_max['norm_ipc']:
                     # Max setting is the max allowed setting
@@ -535,12 +591,16 @@ class RunOption3D(RunOption):
                 if real_bench != sorted_real_bench:
                     bench_importance.reverse()
 
-                idx_df = (df_dynamic['1_bench'] == sorted_real_bench[0][0]) & \
-                         (df_dynamic['1_kidx'] == sorted_real_bench[0][1]) & \
-                         (df_dynamic['2_bench'] == sorted_real_bench[1][0]) & \
-                         (df_dynamic['2_kidx'] == sorted_real_bench[1][1])
+                idx_df = (self.df_dynamic['1_bench'] ==
+                          sorted_real_bench[0][0]) & \
+                         (self.df_dynamic['1_kidx'] ==
+                          sorted_real_bench[0][1]) & \
+                         (self.df_dynamic['2_bench'] ==
+                          sorted_real_bench[1][0]) & \
+                         (self.df_dynamic['2_kidx'] ==
+                          sorted_real_bench[1][1])
 
-                df_pair = df_dynamic[idx_df].copy()
+                df_pair = self.df_dynamic[idx_df].copy()
 
                 if len(df_pair.index) == 0:
                     # If no feasible pair dynamic config, let the kernels run
@@ -550,11 +610,13 @@ class RunOption3D(RunOption):
                     # FIXME: get rid of serial
                     # serial = True
                     for bench in real_bench:
-                        best_idx = df_intra[(df_intra['pair_str'] == bench[0]) &
-                                            (df_intra['1_kidx'] == bench[1])
-                                            ]['norm_ipc'].idxmax(axis=0)
-                        cta_setting.append(df_intra.loc[best_idx]['intra'])
-                        sld.append(df_intra.loc[best_idx]['norm_ipc'])
+                        best_idx = self.df_intra[
+                            (self.df_intra['pair_str'] == bench[0]) &
+                            (self.df_intra['1_kidx'] == bench[1])]['norm_ipc']\
+                            .idxmax(axis=0)
+                        cta_setting.append(
+                            self.df_intra.loc[best_idx]['intra'])
+                        sld.append(self.df_intra.loc[best_idx]['norm_ipc'])
                         sld.append(0.5)
                 else:
                     # df_pair['sum_increase'] = df_pair['sld'].apply(
@@ -604,10 +666,6 @@ class RunOption3D(RunOption):
 
 
 class PairJob:
-    df_dynamic = const.get_pickle('pair_dynamic.pkl')
-    df_intra = const.get_pickle('intra.pkl')
-    # FIXME: load model from pickle
-    model = None
 
     def __init__(self, jobs: list):
         self.jobs = jobs
@@ -651,10 +709,10 @@ class PairJob:
         # Run Stage 1 to get kernel-wise matrices
         for option in run_options:
             if stage_1.name == StageOne.GPUSim.name:
-                option.kernel_wise_gpusim(PairJob.df_dynamic, PairJob.df_intra)
+                option.kernel_wise_gpusim()
             else:
                 # 'BOOST_TREE'
-                option.kernel_wise_prediction(PairJob.df_intra, PairJob.model)
+                option.kernel_wise_prediction()
 
         # Run Stage 2 to get app-wise matrices
         performance = []
