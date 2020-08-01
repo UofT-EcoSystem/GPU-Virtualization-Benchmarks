@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from gpupool.workload import BatchJob
+from gpupool.workload import BatchJob, GpuPoolConfig
 from gpupool.predict import Allocation, StageOne, StageTwo
 
 
@@ -39,17 +39,25 @@ def main():
         # Generic experiment
         num_batches = 1
         for batch_id in range(num_batches):
-            batch = BatchJob(rand_seed=batch_id, num_jobs=100)
-            gpupool = batch.calculate_gpu_count_gpupool(Allocation.Three_D,
-                                                        StageOne[args.stage1],
-                                                        StageTwo[args.stage2],
-                                                        at_least_once=False,
+            batch = BatchJob(rand_seed=batch_id, num_jobs=10)
+            gpupool_config = GpuPoolConfig(Allocation.Three_D,
+                                           StageOne[args.stage1],
+                                           StageTwo[args.stage2],
+                                           at_least_once=False)
+
+            gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
                                                         save=args.save)
-            # mig = batch.calculate_gpu_count_mig()
+            mig = batch.calculate_gpu_count_mig()
 
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
             print("GPUPool: {} GPUs".format(gpupool))
-            # print("MIG: {} GPUs", mig)
+            print("MIG: {} GPUs", mig)
+
+            print("Profiling info:")
+            for time_name in batch.time_gpupool:
+                print(time_name, batch.time_gpupool[time_name], "sec")
+
+            print("MIG time", batch.time_mig, "sec")
 
     else:
         print("Unimplemented Error.")

@@ -7,6 +7,7 @@ import os
 import subprocess
 import numpy as np
 import multiprocessing as mp
+import time
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -47,6 +48,12 @@ class GpuPoolConfig:
 
     def get_option(self):
         return self.to_string() + '-option'
+
+    def get_time_prediction(self):
+        return self.to_string() + '-time-prediction'
+
+    def get_time_matching(self):
+        return self.to_string() + '-time-matching'
 
 
 def get_perf(df, option: GpuPoolConfig):
@@ -129,6 +136,10 @@ class BatchJob:
 
         self.df_pair = pd.DataFrame()
         self._create_pairs()
+
+        # In seconds
+        self.time_gpupool = {}
+        self.time_mig = 0
 
     def _calculate_gpupool_performance(self, config: GpuPoolConfig):
         def parallelize(df, func):
@@ -257,6 +268,9 @@ class BatchJob:
         f.write(job_sizes)
         f.write(job_indeces)
 
+        # Profiling
+        start_fill = time.perf_counter()
+
         # main algo loop where we fill machines with jobs
         while len(jobs) > 0:
             # fill next machine
@@ -268,18 +282,27 @@ class BatchJob:
             f.write("\n")
 
         f.close()
+
+        self.time_mig = time.perf_counter() - start_fill
+
         return num_gpus
 
-    def calculate_gpu_count_gpupool(self, alloc, stage_1: StageOne,
-                                    stage_2: StageTwo,
-                                    at_least_once,
-                                    save=False):
+    def calculate_gpu_count_gpupool(self, gpupool_config, save=False):
         print("Running GPUPool predictor... ")
+        # Profiling
+        start_prediction = time.perf_counter()
+
         # Call two-stage predictor
-        gpupool_config = GpuPoolConfig(alloc, stage_1, stage_2, at_least_once)
         self._calculate_gpupool_performance(gpupool_config)
 
+        # Profiling
+        self.time_gpupool[gpupool_config.get_time_prediction()] = \
+            time.perf_counter() - start_prediction
+
         print("Running max weight matching solver...")
+
+        # Profiling
+        start_matching = time.perf_counter()
 
         # Call max weight matching solver
         perf_col = gpupool_config.get_perf()
@@ -320,6 +343,9 @@ class BatchJob:
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
         os.system('rm input.js')
+
+        self.time_gpupool[gpupool_config.get_time_matching()] = \
+            time.perf_counter() - start_matching
 
         # Save df_pair
         if save:
