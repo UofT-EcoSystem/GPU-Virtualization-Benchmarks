@@ -23,6 +23,9 @@ def parse_args():
                         choices=[s2.name for s2 in StageTwo],
                         help='Stage 2 predictor: Full or Steady or Weighted '
                              'or GPUSim.')
+    parser.add_argument('--save', action='store_true',
+                        help='Whether to save df_pair into pickles for each '
+                             'simulated batch job.')
 
     results = parser.parse_args()
 
@@ -36,16 +39,17 @@ def main():
         # Generic experiment
         num_batches = 1
         for batch_id in range(num_batches):
-            batch = BatchJob(rand_seed=batch_id)
+            batch = BatchJob(rand_seed=batch_id, num_jobs=100)
             gpupool = batch.calculate_gpu_count_gpupool(Allocation.Three_D,
                                                         StageOne[args.stage1],
                                                         StageTwo[args.stage2],
-                                                        at_least_once=False)
-            mig = batch.calculate_gpu_count_mig()
+                                                        at_least_once=False,
+                                                        save=args.save)
+            # mig = batch.calculate_gpu_count_mig()
 
             print("Batch {}:".format(batch_id))
             print("GPUPool: {} GPUs", gpupool)
-            print("MIG: {} GPUs", mig)
+            # print("MIG: {} GPUs", mig)
 
     else:
         print("Unimplemented Error.")

@@ -237,7 +237,8 @@ class BatchJob:
 
     def calculate_gpu_count_gpupool(self, alloc, stage_1: StageOne,
                                     stage_2: StageTwo,
-                                    at_least_once):
+                                    at_least_once,
+                                    save=False):
         print("Running GPUPool predictor... ")
         # Call two-stage predictor
         self._calculate_gpupool_performance(alloc, stage_1, stage_2,
@@ -285,6 +286,10 @@ class BatchJob:
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
         os.system('rm input.js')
+
+        # Save df_pair
+        if save:
+            self.df_pair.to_pickle("BatchJob-{}.pkl".format(self.id))
 
         return num_pairs + num_isolated
 
