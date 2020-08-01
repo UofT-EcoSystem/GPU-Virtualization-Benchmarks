@@ -43,6 +43,7 @@ class Performance:
         self.norm_ipc = np.array([])
         self.sld = np.array([])
         self.steady_iter = None
+        self.delta = 0
 
     def fill_with_duration(self, shared_runtimes, seq_runtimes, offset_times):
         # This assumes kernels are run back to back
@@ -101,7 +102,7 @@ class Performance:
                   for stream_id, stamps in enumerate(self.start_stamps)]
 
         kernel = [get_kernels(stream_id)
-                      for stream_id in range(len(self.jobs))]
+                  for stream_id in range(len(self.jobs))]
 
         data = pd.DataFrame()
 
@@ -146,7 +147,7 @@ class RunOption:
         self.serial = np.array([])
 
     # Return Performance
-    def app_wise_full_and_steady(self, at_least_one=False):
+    def app_wise_full_and_steady(self, steady=False, at_least_once=False):
         seq_runtimes = [job.get_seq_cycles() for job in self.jobs]
 
         # to keep track of iterations completed by apps
@@ -191,6 +192,7 @@ class RunOption:
             return (sum(_isolated_runtime) * num_iter) / sum(scaled_runtime)
 
         def handle_completed_kernel(app_idx):
+            can_exit = False
             other_app_idx = (app_idx + 1) % len(self.jobs)
 
             kidx[app_idx] += 1
@@ -220,15 +222,19 @@ class RunOption:
                         steady_state_qos[app_idx] = qos_loss
                         steady_state_iter[app_idx] = iter_[app_idx]
 
+                        # Check if we reach steady state for all apps
+                        can_exit = all([qos != -1 for qos in steady_state_qos])
+
                     # update past qos loss to the current qos loss
                     past_qos_loss[app_idx] = qos_loss
 
             remaining_runtimes[app_idx] = seq_runtimes[app_idx][kidx[app_idx]]
 
             shared_runtimes[app_idx].append(0)
+            return can_exit
 
         limit = [job.num_iters for job in self.jobs]
-        if at_least_one:
+        if at_least_once:
             limit = [math.inf, math.inf]
 
         # main loop of the simulation
@@ -251,12 +257,13 @@ class RunOption:
 
             diff_scaled = abs(app0_ker_scaled - app1_ker_scaled)
 
+            steady_exit = False
             if diff_scaled <= RunOption.EQUALITY_ERROR:
                 # both kernels finished at the same time update the total
                 # runtime of both kernels to either kernel runtime since they
                 # have finished together
-                handle_completed_kernel(0)
-                handle_completed_kernel(1)
+                steady_exit |= handle_completed_kernel(0)
+                steady_exit |= handle_completed_kernel(1)
             elif app0_ker_scaled < app1_ker_scaled:
                 # app0 kernel will finish before app1 kernel update the total
                 # runtime of both kernels to app0 kernel runtime since it
@@ -266,7 +273,7 @@ class RunOption:
                 remaining_runtimes[1] = diff_scaled * \
                                         self.interference_matrix[1][kidx_pair]
 
-                handle_completed_kernel(0)
+                steady_exit |= handle_completed_kernel(0)
             else:
                 # app1 kernel will finish before app0 kernel update the total
                 # runtime of both kernels to app1 kernel runtime since it
@@ -276,9 +283,12 @@ class RunOption:
                 remaining_runtimes[0] = diff_scaled * \
                                         self.interference_matrix[0][kidx_pair]
 
-                handle_completed_kernel(1)
+                steady_exit |= handle_completed_kernel(1)
 
-            if at_least_one:
+            if steady and steady_exit:
+                break
+
+            if at_least_once:
                 if self.offset_ratio == 0:
                     if iter_[0] >= 1 and iter_[1] >= 1:
                         break
@@ -305,31 +315,33 @@ class RunOption:
                     shared_runtimes[app_idx], iter_[app_idx],
                     seq_runtimes[app_idx])
 
-        if not at_least_one:
-            # complete the rest of the required iterations of
-            # remaining app in isolation
-            remaining_iter = self.jobs[remaining_app].num_iters - iter_[
-                remaining_app]
-            isolated_runtime = np.resize(
-                seq_runtimes[remaining_app],
-                remaining_iter * len(seq_runtimes[remaining_app])
-            )
-            shared_runtimes[remaining_app] += list(isolated_runtime)
+        if steady:
+            steady_perf = Performance(self.jobs)
+            steady_perf.fill_with_slowdown(sld=steady_state_qos,
+                                           steady_iter=steady_state_iter)
+            return steady_perf
+        else:
+            if not at_least_once:
+                # complete the rest of the required iterations of
+                # remaining app in isolation
+                remaining_iter = self.jobs[remaining_app].num_iters - iter_[
+                    remaining_app]
+                isolated_runtime = np.resize(
+                    seq_runtimes[remaining_app],
+                    remaining_iter * len(seq_runtimes[remaining_app])
+                )
+                shared_runtimes[remaining_app] += list(isolated_runtime)
 
-        # Get rid of tailing zero
-        shared_runtimes = [array[0:-1] if array[-1] == 0 else array
-                           for array in shared_runtimes]
+            # Get rid of tailing zero
+            shared_runtimes = [array[0:-1] if array[-1] == 0 else array
+                               for array in shared_runtimes]
 
-        # Build performance instances for full calculation and steady state
-        full_perf = Performance(self.jobs)
-        full_perf.fill_with_duration(shared_runtimes, seq_runtimes,
-                                     offset_times=[0, forward_cycles])
+            # Build performance instances for full calculation and steady state
+            full_perf = Performance(self.jobs)
+            full_perf.fill_with_duration(shared_runtimes, seq_runtimes,
+                                         offset_times=[0, forward_cycles])
 
-        steady_perf = Performance(self.jobs)
-        steady_perf.fill_with_slowdown(sld=steady_state_qos,
-                                       steady_iter=steady_state_iter)
-
-        return full_perf, steady_perf
+            return full_perf
 
     def app_wise_weighted(self):
         seq_cycles = [job.get_seq_cycles() for job in self.jobs]
@@ -721,10 +733,15 @@ class PairJob:
         for option in run_options:
             if stage_2.name == StageTwo.Full.name:
                 performance.append(
-                    option.app_wise_full_and_steady(at_least_once)[0])
+                    option.app_wise_full_and_steady(
+                        at_least_once=at_least_once)
+                )
             elif stage_2.name == StageTwo.Steady.name:
                 performance.append(
-                    option.app_wise_full_and_steady(at_least_once)[1])
+                    option.app_wise_full_and_steady(
+                        steady=True,
+                        at_least_once=at_least_once)
+                )
             elif stage_2.name == StageTwo.Weighted.name:
                 performance.append(option.app_wise_weighted())
             else:
@@ -732,6 +749,9 @@ class PairJob:
 
         # only keep the best one (only matter for 1D)
         best_perf = max(performance)
+        best_perf.delta = max(performance).weighted_speedup() - \
+                          min(performance).weighted_speedup()
+
         best_idx = performance.index(best_perf)
         best_option = run_options[best_idx]
 
@@ -742,10 +762,3 @@ class PairJob:
 
     def name(self):
         return "+".join(self.job_names)
-
-
-
-
-
-
-
