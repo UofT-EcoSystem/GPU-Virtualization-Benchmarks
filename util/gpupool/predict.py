@@ -361,7 +361,7 @@ class RunOption:
         # find initial prediction for app0
         # weighted geom mean collapse to a vector (wrt app0)
         vector_app0 = []
-        for idx in range(kernel_weight[0].size):
+        for idx in range(kernel_weight[1].size):
             vector_app0.append(
                 weight_geom_mean(kernel_weight[0],
                                  self.interference_matrix[0][idx, :]))
@@ -371,7 +371,7 @@ class RunOption:
         # find initial prediction for app1
         # weighted geom mean collapse to a vector (wrt app0)
         vector_app1 = []
-        for idx in range(kernel_weight[1].size):
+        for idx in range(kernel_weight[0].size):
             vector_app1.append(
                 weight_geom_mean(kernel_weight[1],
                                  self.interference_matrix[1][:, idx]))
@@ -503,7 +503,7 @@ class RunOption1D(RunOption):
                     value = sorted_bench[0] + sorted_bench[1]
                     df_bench = self.df_dynamic[
                         self.df_dynamic[kernel_columns].isin(
-                        value).all(axis=1)].copy()
+                            value).all(axis=1)].copy()
 
                     if df_bench.empty:
                         # TODO: Need to handle kernel serialization...
@@ -627,7 +627,7 @@ class RunOption3D(RunOption):
                     for bench in real_bench:
                         best_idx = self.df_intra[
                             (self.df_intra['pair_str'] == bench[0]) &
-                            (self.df_intra['1_kidx'] == bench[1])]['norm_ipc']\
+                            (self.df_intra['1_kidx'] == bench[1])]['norm_ipc'] \
                             .idxmax(axis=0)
                         cta_setting.append(
                             self.df_intra.loc[best_idx]['intra'])
