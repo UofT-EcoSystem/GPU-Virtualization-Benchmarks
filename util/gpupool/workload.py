@@ -10,8 +10,11 @@ import numpy as np
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
+import gpupool.helper as helper
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
+
+MAX_PARTITIONS = 8
 
 
 class QOS(Enum):
@@ -20,15 +23,6 @@ class QOS(Enum):
     PCT_70 = 0.7
     PCT_80 = 0.8
     PCT_90 = 0.9
-
-
-class ITER(Enum):
-    I_50 = 50
-    I_100 = 100
-    I_200 = 200
-    I_400 = 400
-    I_800 = 800
-    I_1600 = 1600
 
 
 class Job:
@@ -57,34 +51,37 @@ class Job:
 
     def calculate_static_partition(self):
         mig_pickles = os.path.join(THIS_DIR, '../data/pickles/mig_ipcs')
-        mig_ipcs = pickle.load( open(mig_pickles, 'rb'))
+        mig_ipcs = pickle.load(open(mig_pickles, 'rb'))
         cycle_lengths = self.get_seq_cycles()
 
         full_runtime = sum(cycle_lengths)
-        for resources in range(8):
+        for resources in range(MAX_PARTITIONS):
             # calculate qos with i static partitions available
             restricted_runtime = 0
             for bm_index in range(len(self.benchmarks)):
-                # calculate how much time will be added by restricting this 
+                # calculate how much time will be added by restricting this
                 # benchmark
                 restricted_runtime += cycle_lengths[bm_index] / \
                         mig_ipcs[self.benchmarks[bm_index]][resources]
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
-            if (attained_qos >= self.qos.value):
-                break
-        return resources + 1
+            if attained_qos >= self.qos.value:
+                return resources + 1
+
+        return MAX_PARTITIONS
 
 
 class BatchJob:
     REPEAT = 0
     FRESH = 1
 
-    ITER_CHOICES = [50, 100, 200, 400, 800, 1600]
+    ITER_CHOICES = [400, 800, 1200, 1600, 2000, 2400, 2800]
+    NUM_JOB_CHOICES = [100, 200, 300, 400]
+    NUM_BENCH_CHOICES = [4, 8, 12, 16]
 
     count = 0
 
-    def __init__(self, rand_seed, num_benchmarks_per_job, num_jobs,
+    def __init__(self, rand_seed, num_benchmarks_per_job=-1, num_jobs=-1,
                  allow_repeat=False, p_repeat=0.2):
         self.rand_seed = rand_seed
         self.num_benchmarks_per_job = num_benchmarks_per_job
@@ -101,10 +98,10 @@ class BatchJob:
         self.df_pair = pd.DataFrame()
         self._create_pairs()
 
-    def calculate_gpupool_performance(self, alloc: Allocation,
-                                      stage_1: StageOne, stage_2: StageTwo,
-                                      num_slices=4,
-                                      at_least_once=False):
+    def _calculate_gpupool_performance(self, alloc: Allocation,
+                                       stage_1: StageOne, stage_2: StageTwo,
+                                       num_slices=4,
+                                       at_least_once=False):
         df_performance = self.df_pair['pair_job'].apply(
             lambda pair_job: pd.Series(pair_job.get_performance(alloc,
                                                                 stage_1,
@@ -129,6 +126,11 @@ class BatchJob:
         benchmarks = [benchmark for benchmark in const.kernel_yaml if benchmark
                       not in const.multi_kernel_app]
 
+        if self.num_jobs == -1:
+            self.num_jobs = choices(BatchJob.NUM_JOB_CHOICES)[0]
+
+        print("BatchJob {} synthesizes {} jobs.".format(self.id, self.num_jobs))
+
         for app_idx in range(self.num_jobs):
             list_benchmarks = []
 
@@ -139,7 +141,11 @@ class BatchJob:
             num_iters = choices(BatchJob.ITER_CHOICES)[0]
 
             # Generate benchmarks within the job
-            for bench_idx in range(self.num_benchmarks_per_job):
+            num_benchmarks = self.num_benchmarks_per_job
+            if num_benchmarks == -1:
+                num_benchmarks = choices(BatchJob.NUM_BENCH_CHOICES)[0]
+
+            for bench_idx in range(num_benchmarks):
                 if bench_idx == 0:
                     # The first one cannot be repeat
                     list_benchmarks += choices(benchmarks)
@@ -180,7 +186,6 @@ class BatchJob:
         num_gpus = 0
         f = open("mig_sched.out", "a")
 
-
         # returns the index of the element that is to fill the remaining slice
         def best_fill(jobs: list, rem_slice: int) -> int:
             # find elements that can fill the spot
@@ -192,12 +197,12 @@ class BatchJob:
 
         # fill the machine as much as possible with suitable slices
         def fill_machine(jobs: list, indeces: list, rem_slice: int):
-            #print("inside fill machine, rem_slice is ", rem_slice)
+            # print("inside fill machine, rem_slice is ", rem_slice)
             # check if there are suitable jobs in the array and fill
             while np.where(jobs <= rem_slice)[0].size != 0:
-                #print("suitable jobs are ", np.where(jobs <= rem_slice)[0])
+                # print("suitable jobs are ", np.where(jobs <= rem_slice)[0])
                 fill_index = best_fill(jobs, rem_slice)
-                #print("fill_index is ", fill_index)
+                # print("fill_index is ", fill_index)
                 if fill_index == -1:
                     break
                 
@@ -209,9 +214,8 @@ class BatchJob:
                 indeces = np.delete(indeces, fill_index)
                 jobs = np.delete(jobs, fill_index)
                 rem_slice -= job_slice
-                #print("remaining slice on this gpu is ", rem_slice)
+                # print("remaining slice on this gpu is ", rem_slice)
             return jobs, indeces
-
 
         job_sizes = "Job sizes   " + np.array_str(jobs) + "\n"
         job_indeces = "Job indeces " + np.array_str(indeces) + "\n" + "\n"
@@ -220,43 +224,44 @@ class BatchJob:
 
         # main algo loop where we fill machines with jobs
         while len(jobs) > 0:
-
-            #fill next machine
+            # fill next machine
             num_gpus += 1
             gpu_line = "GPU " + str(num_gpus) + ": Jobs "
             f.write(gpu_line)
             jobs, indeces = fill_machine(jobs, indeces, 8)
-            #print("after gpu is filled we have ", jobs, indeces, num_gpus)
+            # print("after gpu is filled we have ", jobs, indeces, num_gpus)
             f.write("\n")
 
-        
         f.close()
         return num_gpus
 
+    def calculate_gpu_count_gpupool(self, alloc, stage_1: StageOne,
+                                    stage_2: StageTwo,
+                                    at_least_once):
+        print("Running GPUPool predictor... ")
+        # Call two-stage predictor
+        self._calculate_gpupool_performance(alloc, stage_1, stage_2,
+                                            at_least_once=at_least_once)
 
-    def calculate_gpu_count_gpupool(self, alloc, stage_1: StageOne, 
-                        stage_2: StageTwo,
-                        at_least_once):
-        combo_name = "{}-{}-{}-{}".format(alloc.name,
-                                          stage_1.name,
-                                          stage_2.name,
-                                          at_least_once)
-        option_col = combo_name + "-" + "option"
-        perf_col = combo_name + "-" + "perf"
-        ws_col = combo_name + "-" + "ws"
+        print("Running max weight matching solver...")
+
+        # Call max weight matching solver
+        predictor_config = (alloc, stage_1, stage_2, at_least_once)
+        perf_col = helper.get_perf(*predictor_config)
+        ws_col = helper.get_ws(*predictor_config)
+
         f = open("input.js", "a")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
 
         # iterate over rows and read off the weighted speedups
         for index, row in self.df_pair.iterrows():
-            # determine if we include this pair as an edge or not based on if the 
-            # qos of each job in pair is satisfied
+            # determine if we include this pair as an edge or not based on if
+            # the qos of each job in pair is satisfied
             if ((row['pair_job'].jobs[0].qos.value > row[perf_col].sld[0]) or
                     (row['pair_job'].jobs[1].qos.value > row[perf_col].sld[1])):
                 continue
             string_pair = row['pair_str']
-            job_indeces = string_pair.split('+')
             first_job_index = string_pair.split('+')[0].split('-')[1]
             second_job_index = string_pair.split('+')[1].split('-')[1]
             pair_weighted_speedup = row[ws_col]
@@ -280,6 +285,7 @@ class BatchJob:
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
         os.system('rm input.js')
+
         return num_pairs + num_isolated
 
 

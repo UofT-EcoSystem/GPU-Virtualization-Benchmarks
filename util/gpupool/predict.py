@@ -8,6 +8,7 @@ import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
 import data.scripts.gen_graphs.gen_altair_timeline as gen_altair
+import gpupool.helper as helper
 
 
 def debug_print(text, condition):
@@ -309,8 +310,10 @@ class RunOption:
             # remaining app in isolation
             remaining_iter = self.jobs[remaining_app].num_iters - iter_[
                 remaining_app]
-            isolated_runtime = np.resize(seq_runtimes[remaining_app],
-                                         remaining_iter)
+            isolated_runtime = np.resize(
+                seq_runtimes[remaining_app],
+                remaining_iter * len(seq_runtimes[remaining_app])
+            )
             shared_runtimes[remaining_app] += list(isolated_runtime)
 
         # Get rid of tailing zero
@@ -676,13 +679,12 @@ class PairJob:
                         stage_1: StageOne, stage_2: StageTwo,
                         num_slices,
                         at_least_once):
-        combo_name = "{}-{}-{}-{}".format(alloc.name,
-                                          stage_1.name,
-                                          stage_2.name,
-                                          at_least_once)
-        option_col = combo_name + "-" + "option"
-        perf_col = combo_name + "-" + "perf"
-        ws_col = combo_name + "-" + "ws"
+        print("Getting performance for", self.job_names)
+
+        predictor_config = (alloc, stage_1, stage_2, at_least_once)
+        option_col = helper.get_option(*predictor_config)
+        perf_col = helper.get_perf(*predictor_config)
+        ws_col = helper.get_ws(*predictor_config)
         result = {option_col: None, perf_col: None, ws_col: 0}
 
         # Create RunOptions for allocation design
