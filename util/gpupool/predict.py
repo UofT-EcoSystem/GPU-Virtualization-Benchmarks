@@ -712,9 +712,10 @@ class PairJob:
             run_options = [RunOption1D(ctx_value, self.jobs)
                            for ctx_value in ctx]
         elif alloc.name == Allocation.Three_D.name:
-            step = 1.0 / num_slices
-            run_options = [RunOption3D(self.jobs, ratio)
-                           for ratio in np.arange(0, 1, step)]
+            # step = 1.0 / num_slices
+            # run_options = [RunOption3D(self.jobs, ratio)
+            #                for ratio in np.arange(0, 1, step)]
+            run_options = [RunOption3D(self.jobs, 0)]
         else:
             # 2D is unimplemented
             print("PairJob: 2D is unimplemented.")
