@@ -47,8 +47,8 @@ def main():
                                                         save=args.save)
             # mig = batch.calculate_gpu_count_mig()
 
-            print("Batch {}:".format(batch_id))
-            print("GPUPool: {} GPUs", gpupool)
+            print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
+            print("GPUPool: {} GPUs".format(gpupool))
             # print("MIG: {} GPUs", mig)
 
     else:

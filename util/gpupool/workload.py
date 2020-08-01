@@ -2,15 +2,14 @@ from random import seed
 from random import choices
 from enum import Enum
 import pandas as pd
-import sys
 import pickle
 import os
 import subprocess
 import numpy as np
+import multiprocessing as mp
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
-import gpupool.helper as helper
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -23,6 +22,39 @@ class QOS(Enum):
     PCT_70 = 0.7
     PCT_80 = 0.8
     PCT_90 = 0.9
+
+
+class GpuPoolConfig:
+    def __init__(self, alloc: Allocation, stage_1: StageOne, stage_2: StageTwo,
+                 at_least_once):
+        self.alloc = alloc
+        self.stage_1 = stage_1
+        self.stage_2 = stage_2
+        self.at_least_once = at_least_once
+
+    def to_string(self):
+        combo_name = "{}-{}-{}-{}".format(self.alloc.name,
+                                          self.stage_1.name,
+                                          self.stage_2.name,
+                                          self.at_least_once)
+        return combo_name
+
+    def get_ws(self):
+        return self.to_string() + '-ws'
+
+    def get_perf(self):
+        return self.to_string() + '-perf'
+
+    def get_option(self):
+        return self.to_string() + '-option'
+
+
+def get_perf(df, option: GpuPoolConfig):
+    _df_performance = df['pair_job'].apply(
+        lambda pair_job:
+        pd.Series(pair_job.get_gpupool_performance(option))
+    )
+    return _df_performance
 
 
 class Job:
@@ -98,17 +130,20 @@ class BatchJob:
         self.df_pair = pd.DataFrame()
         self._create_pairs()
 
-    def _calculate_gpupool_performance(self, alloc: Allocation,
-                                       stage_1: StageOne, stage_2: StageTwo,
-                                       num_slices=4,
-                                       at_least_once=False):
-        df_performance = self.df_pair['pair_job'].apply(
-            lambda pair_job: pd.Series(pair_job.get_performance(alloc,
-                                                                stage_1,
-                                                                stage_2,
-                                                                num_slices,
-                                                                at_least_once))
-        )
+    def _calculate_gpupool_performance(self, config: GpuPoolConfig):
+        def parallelize(df, func):
+            cores = mp.cpu_count()
+            data_split = np.array_split(df, cores)
+            pool = mp.Pool(cores)
+            data = pd.concat(
+                pool.starmap(func, [(ds, config) for ds in data_split])
+            )
+            pool.close()
+            pool.join()
+
+            return data
+
+        df_performance = parallelize(self.df_pair, get_perf)
 
         # Drop the same columns
         drop_col = [col for col in self.df_pair.columns
@@ -241,15 +276,14 @@ class BatchJob:
                                     save=False):
         print("Running GPUPool predictor... ")
         # Call two-stage predictor
-        self._calculate_gpupool_performance(alloc, stage_1, stage_2,
-                                            at_least_once=at_least_once)
+        gpupool_config = GpuPoolConfig(alloc, stage_1, stage_2, at_least_once)
+        self._calculate_gpupool_performance(gpupool_config)
 
         print("Running max weight matching solver...")
 
         # Call max weight matching solver
-        predictor_config = (alloc, stage_1, stage_2, at_least_once)
-        perf_col = helper.get_perf(*predictor_config)
-        ws_col = helper.get_ws(*predictor_config)
+        perf_col = gpupool_config.get_perf()
+        ws_col = gpupool_config.get_ws()
 
         f = open("input.js", "a")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")

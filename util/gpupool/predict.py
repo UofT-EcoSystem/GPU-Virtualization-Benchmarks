@@ -8,7 +8,6 @@ import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
 import data.scripts.gen_graphs.gen_altair_timeline as gen_altair
-import gpupool.helper as helper
 
 
 def debug_print(text, condition):
@@ -681,28 +680,26 @@ class RunOption3D(RunOption):
 
 
 class PairJob:
+    NUM_SLICES_1D = 4
 
     def __init__(self, jobs: list):
         self.jobs = jobs
         self.job_names = [job.name for job in self.jobs]
 
     # return RunOption, Performance, ws
-    def get_performance(self, alloc,
-                        stage_1: StageOne, stage_2: StageTwo,
-                        num_slices,
-                        at_least_once):
+    def get_gpupool_performance(self, predictor_config):
         print("Getting performance for", self.job_names)
 
-        predictor_config = (alloc, stage_1, stage_2, at_least_once)
-        option_col = helper.get_option(*predictor_config)
-        perf_col = helper.get_perf(*predictor_config)
-        ws_col = helper.get_ws(*predictor_config)
+        option_col = predictor_config.get_option()
+        perf_col = predictor_config.get_perf()
+        ws_col = predictor_config.get_perf()
         result = {option_col: None, perf_col: None, ws_col: 0}
 
         # Create RunOptions for allocation design
-        if alloc.name == Allocation.One_D.name:
+        if predictor_config.alloc.name == Allocation.One_D.name:
             # Find all possible 1D allocations
-            configs = run_pair.find_ctx_configs(self.job_names, num_slices)
+            configs = run_pair.find_ctx_configs(self.job_names,
+                                                self.NUM_SLICES_1D)
 
             if len(configs) == 0:
                 return result
@@ -711,7 +708,7 @@ class PairJob:
 
             run_options = [RunOption1D(ctx_value, self.jobs)
                            for ctx_value in ctx]
-        elif alloc.name == Allocation.Three_D.name:
+        elif predictor_config.alloc.name == Allocation.Three_D.name:
             # step = 1.0 / num_slices
             # run_options = [RunOption3D(self.jobs, ratio)
             #                for ratio in np.arange(0, 1, step)]
@@ -723,7 +720,7 @@ class PairJob:
 
         # Run Stage 1 to get kernel-wise matrices
         for option in run_options:
-            if stage_1.name == StageOne.GPUSim.name:
+            if predictor_config.stage_1.name == StageOne.GPUSim.name:
                 option.kernel_wise_gpusim()
             else:
                 # 'BOOST_TREE'
@@ -732,18 +729,18 @@ class PairJob:
         # Run Stage 2 to get app-wise matrices
         performance = []
         for option in run_options:
-            if stage_2.name == StageTwo.Full.name:
+            if predictor_config.stage_2.name == StageTwo.Full.name:
                 performance.append(
                     option.app_wise_full_and_steady(
-                        at_least_once=at_least_once)
+                        at_least_once=predictor_config.at_least_once)
                 )
-            elif stage_2.name == StageTwo.Steady.name:
+            elif predictor_config.stage_2.name == StageTwo.Steady.name:
                 performance.append(
                     option.app_wise_full_and_steady(
                         steady=True,
-                        at_least_once=at_least_once)
+                        at_least_once=predictor_config.at_least_once)
                 )
-            elif stage_2.name == StageTwo.Weighted.name:
+            elif predictor_config.stage_2.name == StageTwo.Weighted.name:
                 performance.append(option.app_wise_weighted())
             else:
                 performance.append(option.app_wise_gpusim())
