@@ -692,7 +692,7 @@ class PairJob:
 
         option_col = predictor_config.get_option()
         perf_col = predictor_config.get_perf()
-        ws_col = predictor_config.get_perf()
+        ws_col = predictor_config.get_ws()
         result = {option_col: None, perf_col: None, ws_col: 0}
 
         # Create RunOptions for allocation design
