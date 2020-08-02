@@ -38,17 +38,25 @@ def main():
 
     if args.exp == 0:
         # Generic experiment
-        num_batches = 1
+        num_batches = 5
+        num_jobs = 200
+
+        result = []
         for batch_id in range(num_batches):
-            batch = BatchJob(rand_seed=batch_id, num_jobs=10)
+            batch = BatchJob(rand_seed=batch_id, num_jobs=num_jobs)
+
+            # Get GPUPool results
             gpupool_config = GpuPoolConfig(Allocation.Three_D,
                                            StageOne[args.stage1],
                                            StageTwo[args.stage2],
                                            at_least_once=False)
-
             gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
                                                         save=args.save)
+
+            # Get baseline #1: MIG results
             mig = batch.calculate_gpu_count_mig()
+
+            result.append((batch.num_jobs, gpupool, mig))
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
@@ -69,6 +77,18 @@ def main():
 
             print("MIG time {:.6f} sec".format(batch.time_mig))
 
+        print("=" * 100)
+        print("Aggregate results:")
+        for num_jobs, gpupool, mig in result:
+            print("{} jobs used {} GPUs with GPUPool and {} GPUs with MIG"
+                  .format(num_jobs, gpupool, mig))
+
+        # TODO: how to get an average number?
+        sum_gpupool = sum([r[1] for r in result])
+        sum_mig = sum([r[2] for r in result])
+        pct_reduction = (sum_mig - sum_gpupool) / sum_mig * 100
+        print("GPUPool uses {:.2f}% fewer GPUs than MIG on average."
+              .format(pct_reduction))
     else:
         print("Unimplemented Error.")
         sys.exit(1)

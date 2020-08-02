@@ -8,6 +8,7 @@ import subprocess
 import numpy as np
 import multiprocessing as mp
 import time
+import sys
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -332,24 +333,44 @@ class BatchJob:
         f.write("var results = blossom(data);\n")
         f.write("console.log(results);\n")
         f.close()
-        print('Resulting input file is:')
-        print('')
-        os.system('cat input.js')
-        print('')
-        matching = subprocess.getoutput("node input.js")
+
+        # print('Resulting input file is:')
+        # print('')
+        # os.system('cat input.js')
+        # print('')
+
+        try:
+            matching = subprocess.getoutput("node input.js")
+        except subprocess.CalledProcessError as node_except:
+            print("GPUPool max match node.js call failed.")
+            print("Error code:", node_except.returncode)
+            print("Console output:", node_except.output)
+            sys.exit(1)
+
+        print(matching)
         matching = matching.replace(" ", "").replace("]", "").replace("[", "")
         matching = matching.split(",")
         matching = [int(x) for x in matching]
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
+
         os.system('rm input.js')
 
+        # Profiling
         self.time_gpupool[gpupool_config.get_time_matching()] = \
             time.perf_counter() - start_matching
 
         # Save df_pair
         if save:
-            self.df_pair.to_pickle("BatchJob-{}.pkl".format(self.id))
+            pickle_dir = os.path.join(THIS_DIR, "pickles")
+            if not os.path.exists(pickle_dir):
+                os.mkdir(pickle_dir)
+
+            self.df_pair.to_pickle(
+                os.path.join(
+                    pickle_dir,
+                    "BatchJob-{}-{}.pkl".format(self.id,
+                                                gpupool_config.to_string())))
 
         return num_pairs + num_isolated
 
