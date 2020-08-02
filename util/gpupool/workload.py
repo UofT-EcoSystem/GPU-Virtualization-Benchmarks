@@ -308,7 +308,7 @@ class BatchJob:
         perf_col = gpupool_config.get_perf()
         ws_col = gpupool_config.get_ws()
 
-        f = open("input.js", "a")
+        f = open("input.js", "w+")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
 
