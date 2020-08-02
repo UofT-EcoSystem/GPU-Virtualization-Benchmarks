@@ -138,6 +138,10 @@ class RunOption:
     QOS_LOSS_ERROR = 0.01
 
     df_dynamic = const.get_pickle('pair_dynamic.pkl')
+    df_dynamic_best = df_dynamic.sort_values(
+        'ws', ascending=False).drop_duplicates(
+        ['1_bench', '1_kidx', '2_bench', '2_kidx']).reset_index(drop=True)
+
     df_intra = const.get_pickle('intra.pkl')
 
     def __init__(self, jobs, offset_ratio=0):
@@ -566,8 +570,9 @@ class RunOption3D(RunOption):
 
             real_bench = [(job.benchmarks[idx], 1)
                           for job, idx in zip(self.jobs, bench_idx)]
+            same_bench = real_bench[0] == real_bench[1]
 
-            if real_bench[0] == real_bench[1]:
+            if same_bench:
                 # Identical benchmark pair. Get settings from df_intra
                 df_bench = self.df_intra[
                     (self.df_intra['pair_str'] == real_bench[0][0]) &
@@ -579,16 +584,9 @@ class RunOption3D(RunOption):
                     max_cta = const.get_max_cta_per_sm(real_bench[0][0],
                                                        real_bench[0][1])
                     if df_bench['intra'].max() * 2 > max_cta:
-                        cta_setting = max_cta // 2
-
-                        if cta_setting == 0:
-                            cta_setting = 1
-                            # serial = True
-                            # sld = 1
-                            sld = 0.5
-                        else:
-                            # Might be a bit pessimistic here:
-                            sld = 0.5
+                        cta_setting = max(max_cta // 2, 1)
+                        # Might be a bit pessimistic here:
+                        sld = 0.5
                     else:
                         cta_setting = df_bench.loc[idx_max['intra']]['intra']
                         sld = df_bench.loc[idx_max['intra']]['norm_ipc']
@@ -610,16 +608,15 @@ class RunOption3D(RunOption):
                 if real_bench != sorted_real_bench:
                     bench_importance.reverse()
 
-                idx_df = (self.df_dynamic['1_bench'] ==
-                          sorted_real_bench[0][0]) & \
-                         (self.df_dynamic['1_kidx'] ==
-                          sorted_real_bench[0][1]) & \
-                         (self.df_dynamic['2_bench'] ==
-                          sorted_real_bench[1][0]) & \
-                         (self.df_dynamic['2_kidx'] ==
-                          sorted_real_bench[1][1])
-
-                df_pair = self.df_dynamic[idx_df].copy()
+                df_pair = self.df_dynamic_best[
+                    (self.df_dynamic_best['1_bench'] == sorted_real_bench[0][0])
+                    &
+                    (self.df_dynamic_best['1_kidx'] == sorted_real_bench[0][1])
+                    &
+                    (self.df_dynamic_best['2_bench'] == sorted_real_bench[1][0])
+                    &
+                    (self.df_dynamic_best['2_kidx'] == sorted_real_bench[1][1])
+                ]
 
                 if len(df_pair.index) == 0:
                     # If no feasible pair dynamic config, let the kernels run
@@ -628,23 +625,19 @@ class RunOption3D(RunOption):
                     sld = []
                     # FIXME: get rid of serial
                     # serial = True
-                    for bench in real_bench:
+                    for bench in sorted_real_bench:
                         best_idx = self.df_intra[
                             (self.df_intra['pair_str'] == bench[0]) &
                             (self.df_intra['1_kidx'] == bench[1])]['norm_ipc'] \
                             .idxmax(axis=0)
                         cta_setting.append(
                             self.df_intra.loc[best_idx]['intra'])
-                        sld.append(self.df_intra.loc[best_idx]['norm_ipc'])
                         sld.append(0.5)
                 else:
                     # df_pair['sum_increase'] = df_pair['sld'].apply(
                     #     lambda list_sld: bench_importance[0] / list_sld[1] +
                     #                      bench_importance[1] / list_sld[2]
                     # )
-
-                    df_pair.sort_values('ws', inplace=True,
-                                        ascending=False)
 
                     series_best = df_pair.iloc[0]
                     cta_setting = [series_best['1_intra'],
@@ -693,7 +686,7 @@ class PairJob:
 
     # return RunOption, Performance, ws
     def get_gpupool_performance(self, predictor_config):
-        print("Getting performance for", self.job_names)
+        # print("Getting performance for", self.job_names)
 
         option_col = predictor_config.get_option()
         perf_col = predictor_config.get_perf()
