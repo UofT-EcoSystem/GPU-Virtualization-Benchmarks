@@ -51,11 +51,12 @@ def main():
 
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
             print("GPUPool: {} GPUs".format(gpupool))
-            print("MIG: {} GPUs", mig)
+            # print("MIG: {} GPUs", mig)
 
             print("Profiling info:")
             for time_name in batch.time_gpupool:
-                print(time_name, batch.time_gpupool[time_name], "sec")
+                print("{} {:.2f} sec".format(
+                    time_name, batch.time_gpupool[time_name]))
 
             print("MIG time", batch.time_mig, "sec")
 
