@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 from enum import Enum
 import math
+import time
 
 import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
@@ -43,6 +44,10 @@ class Performance:
         self.sld = np.array([])
         self.steady_iter = None
         self.delta = 0
+
+        # Profiling info
+        self.time_stage1 = -1
+        self.time_stage2 = -1
 
     def fill_with_duration(self, shared_runtimes, seq_runtimes, offset_times):
         # This assumes kernels are run back to back
@@ -718,6 +723,9 @@ class PairJob:
             print("PairJob: 2D is unimplemented.")
             sys.exit(1)
 
+        # Profiling
+        start_stage1 = time.perf_counter()
+
         # Run Stage 1 to get kernel-wise matrices
         for option in run_options:
             if predictor_config.stage_1.name == StageOne.GPUSim.name:
@@ -725,6 +733,10 @@ class PairJob:
             else:
                 # 'BOOST_TREE'
                 option.kernel_wise_prediction()
+
+        # Profiling
+        time_stage1 = time.perf_counter() - start_stage1
+        start_stage2 = time.perf_counter()
 
         # Run Stage 2 to get app-wise matrices
         performance = []
@@ -745,10 +757,16 @@ class PairJob:
             else:
                 performance.append(option.app_wise_gpusim())
 
+        time_stage2 = time.perf_counter() - start_stage2
+
         # only keep the best one (only matter for 1D)
         best_perf = max(performance)
         best_perf.delta = max(performance).weighted_speedup() - \
                           min(performance).weighted_speedup()
+
+        # Add profile info
+        best_perf.time_stage1 = time_stage1
+        best_perf.time_stage2 = time_stage2
 
         best_idx = performance.index(best_perf)
         best_option = run_options[best_idx]
@@ -756,6 +774,7 @@ class PairJob:
         result[option_col] = best_option
         result[perf_col] = best_perf
         result[ws_col] = best_perf.weighted_speedup()
+
         return result
 
     def name(self):

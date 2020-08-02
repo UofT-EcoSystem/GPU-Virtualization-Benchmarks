@@ -1,5 +1,6 @@
 import argparse
 import sys
+import multiprocessing as mp
 
 from gpupool.workload import BatchJob, GpuPoolConfig
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -49,16 +50,24 @@ def main():
                                                         save=args.save)
             mig = batch.calculate_gpu_count_mig()
 
+            print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
             print("GPUPool: {} GPUs".format(gpupool))
-            # print("MIG: {} GPUs", mig)
+            print("MIG: {} GPUs".format(mig))
 
+            print("-" * 100)
             print("Profiling info:")
             for time_name in batch.time_gpupool:
-                print("{} {:.2f} sec".format(
+                print("{} {:.6f} sec".format(
                     time_name, batch.time_gpupool[time_name]))
+            stage1 = batch.df_pair[gpupool_config.get_perf()].apply(
+                lambda x: x.time_stage1)
+            stage2 = batch.df_pair[gpupool_config.get_perf()].apply(
+                lambda x: x.time_stage2)
+            print("Sum of time spent in Stage1: ", sum(stage1) / mp.cpu_count())
+            print("Sum of time spent in Stage2: ", sum(stage2) / mp.cpu_count())
 
-            print("MIG time", batch.time_mig, "sec")
+            print("MIG time {:.6f} sec".format(batch.time_mig))
 
     else:
         print("Unimplemented Error.")
