@@ -226,6 +226,7 @@ class BatchJob:
     def calculate_gpu_count_mig(self):
         # convert jobs to size slices 
         jobs = [x.calculate_static_partition() for x in self.list_jobs]
+        # Reverse the sorted results
         indeces = np.argsort(jobs)[::-1]
         jobs = np.sort(jobs)[::-1]
         if np.where(jobs <= 3)[0].size != 0:
@@ -236,10 +237,11 @@ class BatchJob:
         # returns the index of the element that is to fill the remaining slice
         def best_fill(jobs: list, rem_slice: int) -> int:
             # find elements that can fill the spot
-            suitable_indeces = np.where(jobs <= rem_slice) 
+            suitable_indeces = np.where(jobs <= rem_slice)[0]
             suitable_values = np.take(jobs, suitable_indeces)
-            if suitable_values[0].size != 0:
-                return np.argmax(suitable_values) 
+            if suitable_values.size != 0:
+                return suitable_indeces[np.argmax(suitable_values)]
+                # return np.argmax(suitable_values)
             return -1
 
         # fill the machine as much as possible with suitable slices
@@ -256,8 +258,10 @@ class BatchJob:
                 # remove element at fill_index and update jobs and indeces
                 job_number = indeces[fill_index]
                 job_slice = jobs[fill_index]
+
                 job_line = str(job_number) + " "
                 f.write(job_line)
+
                 indeces = np.delete(indeces, fill_index)
                 jobs = np.delete(jobs, fill_index)
                 rem_slice -= job_slice
@@ -278,7 +282,7 @@ class BatchJob:
             num_gpus += 1
             gpu_line = "GPU " + str(num_gpus) + ": Jobs "
             f.write(gpu_line)
-            jobs, indeces = fill_machine(jobs, indeces, 8)
+            jobs, indeces = fill_machine(jobs, indeces, MAX_PARTITIONS)
             # print("after gpu is filled we have ", jobs, indeces, num_gpus)
             f.write("\n")
 
