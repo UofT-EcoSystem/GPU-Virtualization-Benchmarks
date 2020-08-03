@@ -150,10 +150,16 @@ class RunOption:
         self.job_names = [job.name for job in self.jobs]
         self.offset_ratio = offset_ratio
 
-        self.config_matrix = np.array([])
-        self.interference_matrix = np.array([])
-        self.interference_hit = np.array([])
-        self.serial = np.array([])
+        num_cols = const.get_num_kernels(self.job_names[0])
+        num_rows = const.get_num_kernels(self.job_names[1])
+        matrix_size = (num_rows, num_cols)
+
+        self.config_matrix = [np.zeros(matrix_size, dtype=int),
+                              np.zeros(matrix_size, dtype=int)]
+        self.interference_matrix = [np.zeros(matrix_size),
+                                    np.zeros(matrix_size)]
+        self.interference_hit = np.zeros(matrix_size, dtype=int)
+        self.serial = np.zeros(matrix_size, dtype=int)
 
     # Return Performance
     def app_wise_full_and_steady(self, steady=False, at_least_once=False):
@@ -179,6 +185,10 @@ class RunOption:
         # list to keep track of estimated qos using steady state estimate
         steady_state_qos = [-1, -1]
         steady_state_iter = [0, 0]
+
+        # Clear the interference_hit matrix just in case
+        self.interference_hit = np.zeros(self.interference_hit.shape,
+                                         dtype=int)
 
         # initialize starting offset by fast forward app 0
         forward_cycles = self.offset_ratio * sum(seq_runtimes[0])
@@ -441,109 +451,93 @@ class RunOption:
 class RunOption1D(RunOption):
     def __init__(self, ctx, jobs):
         super(RunOption1D, self).__init__(jobs)
+
+        # 1D config is fixed based on ctx value, calculate now
         self.ctx = [ctx, 1 - ctx]
         self.quota = [const.get_cta_from_ctx(const.get_dominant_usage(job),
                                              job_ctx, job)
                       for job, job_ctx in zip(self.job_names, self.ctx)]
 
-        # 1D config is fixed based on ctx value, calculate now
-        # Build config matrix:
-        matrix_size = (const.get_num_kernels(self.job_names[1]),
-                       const.get_num_kernels(self.job_names[0]))
-        configs = [np.zeros(matrix_size), np.zeros(matrix_size)]
-
         # config for job 0
         for idx, kernel_quota in enumerate(self.quota[0]):
-            configs[0][:, idx] = kernel_quota
+            self.config_matrix[0][:, idx] = int(kernel_quota)
 
         # config for job 1
         for idx, kernel_quota in enumerate(self.quota[1]):
-            configs[1][idx, :] = kernel_quota
-
-        self.config_matrix = [c.astype(int) for c in configs]
+            self.config_matrix[1][idx, :] = int(kernel_quota)
 
     def kernel_wise_gpusim(self):
         benchmarks = [[(bench, 1) for bench in job.benchmarks]
                       for job in self.jobs]
 
-        num_cols = const.get_num_kernels(self.job_names[0])
-        num_rows = const.get_num_kernels(self.job_names[1])
-        matrix_size = (num_rows, num_cols)
-
-        interference = [np.zeros(matrix_size),
-                        np.zeros(matrix_size)]
-
         kernel_columns = ['1_bench', '1_kidx', '2_bench', '2_kidx']
 
-        for row_idx in range(num_rows):
-            for col_idx in range(num_cols):
-                matrix_idx = (row_idx, col_idx)
+        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
+            row_idx = matrix_idx[0]
+            col_idx = matrix_idx[1]
 
-                bench = [benchmarks[0][col_idx], benchmarks[1][row_idx]]
-                kernel_configs = [c[matrix_idx] for c in self.config_matrix]
+            bench = [benchmarks[0][col_idx], benchmarks[1][row_idx]]
+            kernel_configs = [c[matrix_idx] for c in self.config_matrix]
 
-                if bench[0] == bench[1]:
-                    # Look at df_intra
-                    df_bench = self.df_intra[
-                        (self.df_intra['pair_str'] == bench[0][0]) &
-                        (self.df_intra['1_kidx'] == bench[0][1])]
+            if bench[0] == bench[1]:
+                # Look at df_intra
+                df_bench = self.df_intra[
+                    (self.df_intra['pair_str'] == bench[0][0]) &
+                    (self.df_intra['1_kidx'] == bench[0][1])]
 
-                    df_bench = df_bench.copy()
-                    df_bench.sort_values('intra', inplace=True)
+                df_bench = df_bench.copy()
+                df_bench.sort_values('intra', inplace=True)
 
-                    intra_total = sum(kernel_configs)
-                    df_config = pd.DataFrame([{'intra': intra_total}])
+                intra_total = sum(kernel_configs)
+                df_config = pd.DataFrame([{'intra': intra_total}])
 
-                    df_merge = pd.merge_asof(df_config, df_bench,
-                                             on='intra',
-                                             direction='nearest')
+                df_merge = pd.merge_asof(df_config, df_bench,
+                                         on='intra',
+                                         direction='nearest')
 
-                    weight = [intra / intra_total for intra in kernel_configs]
-                    list_sld = [df_merge['norm_ipc'].iloc[0] * w for w in
-                                weight]
+                weight = [intra / intra_total for intra in kernel_configs]
+                list_sld = [df_merge['norm_ipc'].iloc[0] * w for w in
+                            weight]
+            else:
+                # Look at dynamic
+                sorted_bench = bench.copy()
+                sorted_bench.sort(key=lambda x: x[0])
+
+                if sorted_bench != bench:
+                    kernel_configs.reverse()
+
+                value = sorted_bench[0] + sorted_bench[1]
+                df_bench = self.df_dynamic[
+                    self.df_dynamic[kernel_columns].isin(
+                        value).all(axis=1)].copy()
+
+                if df_bench.empty:
+                    # TODO: Need to handle kernel serialization...
+                    # FIXME: time multiplexing for now
+                    # print("RunOption1D unimplemented error.")
+                    # print(bench)
+                    # sys.exit(1)
+                    list_sld = [0.5, 0.5]
+
                 else:
-                    # Look at dynamic
-                    sorted_bench = bench.copy()
-                    sorted_bench.sort(key=lambda x: x[0])
+                    # FIXME: this needs to be removed when all dynamic pairs
+                    #  are available
+                    df_bench['distance'] = np.abs(df_bench['1_intra'] -
+                                                  kernel_configs[0]) + \
+                                           np.abs(df_bench['2_intra'] -
+                                                  kernel_configs[1])
 
-                    if sorted_bench != bench:
-                        kernel_configs.reverse()
+                    df_bench.sort_values('distance', inplace=True,
+                                         ascending=True)
 
-                    value = sorted_bench[0] + sorted_bench[1]
-                    df_bench = self.df_dynamic[
-                        self.df_dynamic[kernel_columns].isin(
-                            value).all(axis=1)].copy()
+                    list_sld = df_bench['sld'].iloc[0][1:]
 
-                    if df_bench.empty:
-                        # TODO: Need to handle kernel serialization...
-                        # FIXME: time multiplexing for now
-                        # print("RunOption1D unimplemented error.")
-                        # print(bench)
-                        # sys.exit(1)
-                        list_sld = [0.5, 0.5]
+                # Flip it back
+                if sorted_bench != bench:
+                    list_sld.reverse()
 
-                    else:
-                        # FIXME: this needs to be removed when all dynamic pairs
-                        #  are available
-                        df_bench['distance'] = np.abs(df_bench['1_intra'] -
-                                                      kernel_configs[0]) + \
-                                               np.abs(df_bench['2_intra'] -
-                                                      kernel_configs[1])
-
-                        df_bench.sort_values('distance', inplace=True,
-                                             ascending=True)
-
-                        list_sld = df_bench['sld'].iloc[0][1:]
-
-                    # Flip it back
-                    if sorted_bench != bench:
-                        list_sld.reverse()
-
-                interference[0][matrix_idx] = list_sld[0]
-                interference[1][matrix_idx] = list_sld[1]
-
-        self.interference_matrix = interference
-        self.interference_hit = np.zeros(matrix_size)
+            self.interference_matrix[0][matrix_idx] = list_sld[0]
+            self.interference_matrix[1][matrix_idx] = list_sld[1]
 
 
 class RunOption3D(RunOption):
@@ -551,20 +545,6 @@ class RunOption3D(RunOption):
         super(RunOption3D, self).__init__(job, offset_ratio)
 
     def kernel_wise_gpusim(self):
-        # Generate both config and interference matrices
-        num_cols = const.get_num_kernels(self.job_names[0])
-        num_rows = const.get_num_kernels(self.job_names[1])
-        matrix_size = (num_rows, num_cols)
-
-        # Calculate total runtime
-        seq_cycles = [const.get_seq_cycles(app) for app in self.job_names]
-        importance = [[cycles / sum(app_cycles) for cycles in app_cycles]
-                      for app_cycles in seq_cycles]
-
-        if num_cols != len(importance[0]) or num_rows != len(importance[1]):
-            print('Dimension mismatch between matrix size and importance array')
-            sys.exit(1)
-
         # return list_cta, list_sld, serial?
         def get_cta_sld(bench_idx):
             serial = False
@@ -603,11 +583,6 @@ class RunOption3D(RunOption):
                 # Benchmarks within each pair in dynamic are sorted
                 sorted_real_bench = real_bench.copy()
                 sorted_real_bench.sort(key=lambda x: x[0])
-                bench_importance = [importance[0][bench_idx[0]],
-                                    importance[1][bench_idx[1]]]
-
-                if real_bench != sorted_real_bench:
-                    bench_importance.reverse()
 
                 pair_index = sorted_real_bench[0] + sorted_real_bench[1]
 
@@ -638,31 +613,24 @@ class RunOption3D(RunOption):
 
                 return cta_setting, sld, serial
 
-        self.config_matrix = [np.zeros(matrix_size, dtype=int),
-                              np.zeros(matrix_size, dtype=int)]
-        self.interference_matrix = [np.zeros(matrix_size),
-                                    np.zeros(matrix_size)]
-        self.interference_hit = np.zeros(matrix_size)
-        self.serial = np.zeros(matrix_size, dtype=int)
+        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
+            row_idx = matrix_idx[0]
+            col_idx = matrix_idx[1]
 
-        for row_idx in range(num_rows):
-            for col_idx in range(num_cols):
-                list_cta, list_sld, pair_serial = get_cta_sld(
-                    [col_idx, row_idx])
+            list_cta, list_sld, pair_serial = get_cta_sld(
+                [col_idx, row_idx])
 
-                if len(list_cta) == 0:
-                    print("LUT config does not exist for {}", self.job_names)
-                    sys.exit(1)
+            if len(list_cta) == 0:
+                print("LUT config does not exist for {}", self.job_names)
+                sys.exit(1)
 
-                matrix_idx = (row_idx, col_idx)
+            self.config_matrix[0][matrix_idx] = int(list_cta[0])
+            self.config_matrix[1][matrix_idx] = int(list_cta[1])
 
-                self.config_matrix[0][matrix_idx] = int(list_cta[0])
-                self.config_matrix[1][matrix_idx] = int(list_cta[1])
+            self.interference_matrix[0][matrix_idx] = list_sld[0]
+            self.interference_matrix[1][matrix_idx] = list_sld[1]
 
-                self.interference_matrix[0][matrix_idx] = list_sld[0]
-                self.interference_matrix[1][matrix_idx] = list_sld[1]
-
-                self.serial[matrix_idx] = int(pair_serial)
+            self.serial[matrix_idx] = int(pair_serial)
 
 
 class PairJob:
