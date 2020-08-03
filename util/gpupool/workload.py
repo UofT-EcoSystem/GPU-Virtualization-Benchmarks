@@ -228,40 +228,67 @@ class BatchJob:
         jobs = [x.calculate_static_partition() for x in self.list_jobs]
         indeces = np.argsort(jobs)[::-1]
         jobs = np.sort(jobs)[::-1]
-        if np.where(jobs <= 3)[0].size != 0:
-            print("There are jobs that require less than 4 slices of GPU")
+        #print("jobs at the start are :", jobs)
+        #print("indeces at the start are :", indeces)
         num_gpus = 0
         f = open("mig_sched.out", "a")
 
         # returns the index of the element that is to fill the remaining slice
-        def best_fill(jobs: list, rem_slice: int) -> int:
+        def best_fill(jobs: list, rem_slice: int) -> (int, int):
+            #print("\ninside best_fill, jobs are: ", jobs)
             # find elements that can fill the spot
+            # if rem_slice is 4, handle special case
+            fours = np.where(jobs == 4)[0].size
+            threes = np.where(jobs == 3)[0].size
+            twos = np.where(jobs == 2)[0].size
+            if (rem_slice == 4) and (fours == 0) and \
+            (threes != 0) and (threes % 2 == 0) and \
+            (twos + 2 >= (threes / 2)):
+                # if we have a slice of size 4 and no more 4s and we have 3s 
+                # and we have more than 2 more 2s than twice 3s, we need to 
+                # patch this rem_slice of 4 with two 2s instead of 3
+                # we return two ints which are the indeces of the two 2s in jobs
+                return [np.where(jobs == 2)[0][0], np.where(jobs == 2)[0][1]]
+
             suitable_indeces = np.where(jobs <= rem_slice) 
+            #print("suitable indeces are: ", suitable_indeces)
             suitable_values = np.take(jobs, suitable_indeces)
+            #print("suitable values are: ", suitable_values)
+            #print("done best_fill\n")
             if suitable_values[0].size != 0:
-                return np.argmax(suitable_values) 
-            return -1
+                return [suitable_indeces[0][0], -1]
+            return [-1, -1]
 
         # fill the machine as much as possible with suitable slices
         def fill_machine(jobs: list, indeces: list, rem_slice: int):
-            # print("inside fill machine, rem_slice is ", rem_slice)
+            #print("inside fill machine, rem_slice is ", rem_slice)
             # check if there are suitable jobs in the array and fill
             while np.where(jobs <= rem_slice)[0].size != 0:
-                # print("suitable jobs are ", np.where(jobs <= rem_slice)[0])
                 fill_index = best_fill(jobs, rem_slice)
-                # print("fill_index is ", fill_index)
-                if fill_index == -1:
+                #print("fill_index is ", fill_index)
+                if fill_index[0] == -1:
                     break
-                
                 # remove element at fill_index and update jobs and indeces
-                job_number = indeces[fill_index]
-                job_slice = jobs[fill_index]
+                job_number = indeces[fill_index][0]
+                job_slice = jobs[fill_index][0]
                 job_line = str(job_number) + " "
+                # if we hit the special case and returned two 2s
+                # we need to add the second job to job removal
+                if (fill_index[1] != -1):
+                    job_number = indeces[fill_index][1]
+                    job_slice += jobs[fill_index][1]
+                    job_line += str(job_number)
+                    indeces = np.delete(indeces, fill_index)
+                    jobs = np.delete(jobs, fill_index)
+                else:
+                    indeces = np.delete(indeces, fill_index[0])
+                    jobs = np.delete(jobs, fill_index[0])
+                #print("job line is: ", job_line)
                 f.write(job_line)
-                indeces = np.delete(indeces, fill_index)
-                jobs = np.delete(jobs, fill_index)
                 rem_slice -= job_slice
-                # print("remaining slice on this gpu is ", rem_slice)
+
+                #print("remaining slice on this gpu is ", rem_slice)
+            #print("jobs array after fill_machine is: ", jobs)
             return jobs, indeces
 
         job_sizes = "Job sizes   " + np.array_str(jobs) + "\n"
@@ -279,7 +306,7 @@ class BatchJob:
             gpu_line = "GPU " + str(num_gpus) + ": Jobs "
             f.write(gpu_line)
             jobs, indeces = fill_machine(jobs, indeces, 8)
-            # print("after gpu is filled we have ", jobs, indeces, num_gpus)
+            #print("after gpu is filled we have ", jobs, indeces, num_gpus)
             f.write("\n")
 
         f.close()
