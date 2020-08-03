@@ -143,7 +143,9 @@ class RunOption:
         ['1_bench', '1_kidx', '2_bench', '2_kidx']).set_index(
         ['1_bench', '1_kidx', '2_bench', '2_kidx'], drop=True)
 
-    df_intra = const.get_pickle('intra.pkl')
+    df_intra = const.get_pickle('intra.pkl').set_index(
+        ['pair_str', '1_kidx', 'intra']).sort_index()
+
 
     def __init__(self, jobs, offset_ratio=0):
         self.jobs = jobs
@@ -481,23 +483,15 @@ class RunOption1D(RunOption):
 
             if bench[0] == bench[1]:
                 # Look at df_intra
-                df_bench = self.df_intra[
-                    (self.df_intra['pair_str'] == bench[0][0]) &
-                    (self.df_intra['1_kidx'] == bench[0][1])]
-
-                df_bench = df_bench.copy()
-                df_bench.sort_values('intra', inplace=True)
+                df_bench = self.df_intra.xs(bench)
 
                 intra_total = sum(kernel_configs)
-                df_config = pd.DataFrame([{'intra': intra_total}])
-
-                df_merge = pd.merge_asof(df_config, df_bench,
-                                         on='intra',
-                                         direction='nearest')
+                nearest_intra = df_bench.index.get_loc(intra_total,
+                                                       method='nearest')
 
                 weight = [intra / intra_total for intra in kernel_configs]
-                list_sld = [df_merge['norm_ipc'].iloc[0] * w for w in
-                            weight]
+                list_sld = [df_bench[nearest_intra]['norm_ipc'] * w
+                            for w in weight]
             else:
                 # Look at dynamic
                 sorted_bench = bench.copy()
@@ -555,25 +549,28 @@ class RunOption3D(RunOption):
 
             if same_bench:
                 # Identical benchmark pair. Get settings from df_intra
-                df_bench = self.df_intra[
-                    (self.df_intra['pair_str'] == real_bench[0][0]) &
-                    (self.df_intra['1_kidx'] == real_bench[0][1])].copy()
+                df_bench = self.df_intra.xs(real_bench[0])
 
-                idx_max = df_bench[['intra', 'norm_ipc']].idxmax(axis=0)
-                if idx_max['intra'] == idx_max['norm_ipc']:
+                intra_max = df_bench.index.max()
+                intra_ipc_max = df_bench['norm_ipc'].idxmax(axis=0)
+                if intra_max == intra_ipc_max:
                     # Max setting is the max allowed setting
                     max_cta = const.get_max_cta_per_sm(real_bench[0][0],
                                                        real_bench[0][1])
-                    if df_bench['intra'].max() * 2 > max_cta:
+                    if intra_max * 2 > max_cta:
                         cta_setting = max(max_cta // 2, 1)
                         # Might be a bit pessimistic here:
                         sld = 0.5
                     else:
-                        cta_setting = df_bench.loc[idx_max['intra']]['intra']
-                        sld = df_bench.loc[idx_max['intra']]['norm_ipc']
+                        cta_setting = intra_max
+
+                        # FIXME: sketchy?
+                        if intra_max * 2 in df_bench.index:
+                            sld = df_bench.loc[intra_max * 2]['norm_ipc'] / 2
+                        else:
+                            sld = 0.5
                 else:
-                    cta_setting = df_bench.loc[idx_max['norm_ipc']][
-                                      'intra'] // 2
+                    cta_setting = intra_ipc_max // 2
                     sld = 0.5
 
                 return [cta_setting, cta_setting], [sld, sld], serial
@@ -603,12 +600,9 @@ class RunOption3D(RunOption):
                     # FIXME: get rid of serial
                     # serial = True
                     for bench in sorted_real_bench:
-                        best_idx = self.df_intra[
-                            (self.df_intra['pair_str'] == bench[0]) &
-                            (self.df_intra['1_kidx'] == bench[1])]['norm_ipc'] \
-                            .idxmax(axis=0)
-                        cta_setting.append(
-                            self.df_intra.loc[best_idx]['intra'])
+                        best_intra = self.df_intra.xs(bench)['norm_ipc'].idxmax(
+                            axis=0)
+                        cta_setting.append(best_intra)
                         sld.append(0.5)
 
                 return cta_setting, sld, serial
