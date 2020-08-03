@@ -1,6 +1,7 @@
 import argparse
 import sys
 import multiprocessing as mp
+import numpy as np
 
 from gpupool.workload import BatchJob, GpuPoolConfig
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -56,12 +57,17 @@ def main():
             # Get baseline #1: MIG results
             mig = batch.calculate_gpu_count_mig()
 
-            result.append((batch.num_jobs, gpupool, mig))
+            # Get baseline #2: Random matching results
+            random = batch.calculate_qos_violation_random(mig)
+
+            result.append((batch.num_jobs, gpupool, mig, random))
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
             print("GPUPool: {} GPUs".format(gpupool))
             print("MIG: {} GPUs".format(mig))
+            print("Random: {} QoS violations using same number of GPUs as "
+                  "MIG.".format(random))
 
             print("-" * 100)
             print("Profiling info:")
@@ -79,16 +85,23 @@ def main():
 
         print("=" * 100)
         print("Aggregate results:")
-        for num_jobs, gpupool, mig in result:
-            print("{} jobs used {} GPUs with GPUPool and {} GPUs with MIG"
-                  .format(num_jobs, gpupool, mig))
+        for num_jobs, gpupool, mig, random in result:
+            print("{} jobs used {} GPUs with GPUPool and {} GPUs with MIG "
+                  "and {} violations with random."
+                  .format(num_jobs, gpupool, mig, random))
 
         # TODO: how to get an average number?
-        sum_gpupool = sum([r[1] for r in result])
-        sum_mig = sum([r[2] for r in result])
+        result = np.array(result)
+        sum_gpupool = sum(result[:, 1])
+        sum_mig = sum(result[:, 2])
         pct_reduction = (sum_mig - sum_gpupool) / sum_mig * 100
         print("GPUPool uses {:.2f}% fewer GPUs than MIG on average."
               .format(pct_reduction))
+
+        sum_jobs = sum(result[:, 0])
+        sum_violations = sum(result[:, 3])
+        print("Random matching introduces {:.2f} violations per job "
+              "on average.".format(sum_violations / sum_jobs))
     else:
         print("Unimplemented Error.")
         sys.exit(1)

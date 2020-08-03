@@ -758,5 +758,14 @@ class PairJob:
 
         return result
 
+    def get_best_effort_performance(self):
+        option = RunOption3D(self.jobs, 0)
+        # Get ground truth for kernels
+        option.kernel_wise_gpusim()
+        perf = option.app_wise_full_and_steady(
+            at_least_once=False)
+
+        return perf
+
     def name(self):
         return "+".join(self.job_names)
