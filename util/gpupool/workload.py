@@ -57,12 +57,30 @@ class GpuPoolConfig:
         return self.to_string() + '-time-matching'
 
 
+# Top-level functions to be pickled and parallelized on multiple cores
 def get_perf(df, option: GpuPoolConfig):
     _df_performance = df['pair_job'].apply(
         lambda pair_job:
         pd.Series(pair_job.get_gpupool_performance(option))
     )
     return _df_performance
+
+
+def get_qos_violations(job_pairs: list):
+    violation_count = 0
+    for pair in job_pairs:
+        qos_goals = [pair[0].qos.value, pair[1].qos.value]
+
+        from gpupool.predict import PairJob
+        pair = PairJob([pair[0], pair[1]])
+        perf = pair.get_best_effort_performance()
+
+        for sld, qos in zip(perf.sld, qos_goals):
+            if sld < qos:
+                violation_count += 1
+
+    return violation_count
+# End parallel functions
 
 
 class Job:
@@ -226,6 +244,7 @@ class BatchJob:
     def calculate_gpu_count_mig(self):
         # convert jobs to size slices 
         jobs = [x.calculate_static_partition() for x in self.list_jobs]
+        # Reverse the sorted results
         indeces = np.argsort(jobs)[::-1]
         jobs = np.sort(jobs)[::-1]
         #print("jobs at the start are :", jobs)
@@ -305,8 +324,8 @@ class BatchJob:
             num_gpus += 1
             gpu_line = "GPU " + str(num_gpus) + ": Jobs "
             f.write(gpu_line)
-            jobs, indeces = fill_machine(jobs, indeces, 8)
-            #print("after gpu is filled we have ", jobs, indeces, num_gpus)
+            jobs, indeces = fill_machine(jobs, indeces, MAX_PARTITIONS)
+            # print("after gpu is filled we have ", jobs, indeces, num_gpus)
             f.write("\n")
 
         f.close()
@@ -401,38 +420,27 @@ class BatchJob:
 
         return num_pairs + num_isolated
 
+    def calculate_qos_violation_random(self, max_gpu_count):
+        # With the same number of GPU that GPUPool uses, how many QoS
+        # violations we will get with random assignment
+        job_lhs = np.array(self.list_jobs[0:max_gpu_count])
+        job_rhs = np.array(self.list_jobs[max_gpu_count:])
+        # Remaining jobs in job_lhs will get a full GPU, hence no QoS violations
+        job_lhs.resize(job_rhs.size)
 
+        job_pairs = [(job0, job1) for job0, job1 in zip(job_lhs, job_rhs)]
 
+        cores = mp.cpu_count()
+        data_split = np.array_split(job_pairs, cores)
+        pool = mp.Pool(cores)
+        violations = sum(
+            pool.map(get_qos_violations, data_split)
+        )
 
+        pool.close()
+        pool.join()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return violations
 
 
 
