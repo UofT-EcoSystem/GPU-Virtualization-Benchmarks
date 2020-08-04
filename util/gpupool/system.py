@@ -28,6 +28,8 @@ def parse_args():
     parser.add_argument('--save', action='store_true',
                         help='Whether to save df_pair into pickles for each '
                              'simulated batch job.')
+    parser.add_argument('--load_model', action='store_true',
+                        help='Whether to load boosting tree model from pickle.')
 
     results = parser.parse_args()
 
@@ -50,7 +52,8 @@ def main():
             gpupool_config = GpuPoolConfig(Allocation.Three_D,
                                            StageOne[args.stage1],
                                            StageTwo[args.stage2],
-                                           at_least_once=False)
+                                           at_least_once=False,
+                                           load_pickle_model=args.load_model)
             gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
                                                         save=args.save)
 

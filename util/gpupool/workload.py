@@ -9,6 +9,7 @@ import numpy as np
 import multiprocessing as mp
 import time
 import sys
+from copy import deepcopy
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -28,17 +29,26 @@ class QOS(Enum):
 
 class GpuPoolConfig:
     def __init__(self, alloc: Allocation, stage_1: StageOne, stage_2: StageTwo,
-                 at_least_once):
+                 at_least_once, load_pickle_model):
         self.alloc = alloc
         self.stage_1 = stage_1
         self.stage_2 = stage_2
         self.at_least_once = at_least_once
+        self.model = None
 
+        model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
+
+        from gpupool.predict import RunOption
         if self.stage_1 == StageOne.BoostTree:
-            print("Training boosting tree for stage 1.")
-            from gpupool.predict import RunOption
-            if not RunOption.model:
-                RunOption.train_boosting_tree()
+            if load_pickle_model and os.path.isfile(model_pkl_path):
+                print("Load boosting tree from pickle {}"
+                      .format(model_pkl_path))
+
+                self.model = pickle.load(open(model_pkl_path, 'rb'))
+            else:
+                print("Training boosting tree for stage 1.")
+                self.model = RunOption.train_boosting_tree()
+                pickle.dump(self.model, open(model_pkl_path, 'wb'))
 
     def to_string(self):
         combo_name = "{}-{}-{}-{}".format(self.alloc.name,
@@ -62,13 +72,23 @@ class GpuPoolConfig:
     def get_time_matching(self):
         return self.to_string() + '-time-matching'
 
+    def get_model(self):
+        return self.model
+
 
 # Top-level functions to be pickled and parallelized on multiple cores
 def get_perf(df, option: GpuPoolConfig):
+    # Deep copy config so that each process can have a unique model copy to
+    # run on if stage1 is boosting tree
+    option_copy = deepcopy(option)
+
+    start = time.perf_counter()
     _df_performance = df['pair_job'].apply(
         lambda pair_job:
-        pd.Series(pair_job.get_gpupool_performance(option))
+        pd.Series(pair_job.get_gpupool_performance(option_copy))
     )
+
+    # print("Core:", time.perf_counter() - start, " jobs: ", len(df.index))
     return _df_performance
 
 

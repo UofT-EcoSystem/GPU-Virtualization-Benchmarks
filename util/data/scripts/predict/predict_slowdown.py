@@ -6,31 +6,31 @@ from sklearn import tree
 from sklearn.model_selection import KFold
 from graphviz import Source
 import numpy as np
+import pandas as pd
 import argparse
 import matplotlib.pyplot as plt
 import os
+from collections import OrderedDict
 
 import data.scripts.common.constants as const
 
-cols_prefix = [
-    'norm_ipc',
-    # 'ratio_rbh',
-    'diff_mflat',
-    'ratio_mpc',
-    'ratio_bw',
-    'sum_bw',
-    'ratio_thread',
-    'ratio_sp_busy',
-    'sum_sp_busy',
-    'ratio_int_busy',
-    'sum_int_busy',
-    'sum_not_selected_cycles',
-    'ratio_dp_busy',
-    'sum_dp_busy',
-    # 'ratio_l2_miss',
-    # 'sum_l2_miss',
-    'l2_miss_rate',
-]
+metric_dict = OrderedDict([
+    ('norm_ipc', 'norm_ipc'),
+    ('diff_mflat', 'avg_mem_lat'),
+    ('ratio_mpc', 'mpc'),
+    ('ratio_bw', 'avg_dram_bw'),
+    ('sum_bw', 'avg_dram_bw'),
+    ('ratio_thread', 'thread_count'),
+    ('ratio_sp_busy', 'sp_busy'),
+    ('sum_sp_busy', 'sp_busy'),
+    ('ratio_int_busy', 'int_busy'),
+    ('sum_int_busy', 'int_busy'),
+    ('sum_not_selected_cycles', 'not_selected_cycles'),
+    ('ratio_dp_busy', 'dp_busy'),
+    ('sum_dp_busy', 'dp_busy'),
+    ('l2_miss_rate', 'l2_miss_rate'),
+    # 'ratio_rbh': 'avg_rbh',
+])
 
 cols_ws = ['sum_norm_ipc',
            'sum_avg_rbh',
@@ -61,58 +61,50 @@ def export_tree(clf, path_png, tree_id=300):
 
 
 def prepare_datasets(df_pair, training=True):
+    df_features = pd.DataFrame()
+
     def feature_set(sfx_base, sfx_other):
-        def calculate_diff(derived_metric, metric):
+        def calculate_diff(derived_metric):
+            metric = metric_dict[derived_metric]
             this_metric = df_pair[metric + '_' + sfx_base]
             other_metric = df_pair[metric + '_' + sfx_other]
             # this_metric = this_metric.replace(0, 1e-10)
 
-            df_pair[derived_metric + '_' + sfx_base] = \
+            df_features[derived_metric + '_' + sfx_base] = \
                 (this_metric - other_metric) / this_metric
 
-        def calculate_ratio(derived_metric, metric):
+        def calculate_ratio(derived_metric):
+            metric = metric_dict[derived_metric]
             this_metric = df_pair[metric + '_' + sfx_base]
             other_metric = df_pair[metric + '_' + sfx_other]
             # other_metric = other_metric.replace(0, 1e-10)
 
-            df_pair[derived_metric + '_' + sfx_base] = \
+            df_features[derived_metric + '_' + sfx_base] = \
                 this_metric / other_metric
 
-        def calculate_sum(derived_metric, metric):
-            df_pair[derived_metric + '_' + sfx_base] = \
+        def calculate_sum(derived_metric):
+            metric = metric_dict[derived_metric]
+            df_features[derived_metric + '_' + sfx_base] = \
                 df_pair[metric + '_' + sfx_base] + df_pair[
                     metric + '_' + sfx_other]
 
-        calculate_diff('diff_mflat', 'avg_mem_lat')
-        calculate_diff('diff_ipc', 'ipc')
+        def get_metric(derived_metric):
+            metric = metric_dict[derived_metric]
+            df_features[derived_metric + '_' + sfx_base] = \
+                df_pair[metric + '_' + sfx_base]
 
-        calculate_ratio('ratio_mpc', 'mpc')
-        calculate_ratio('ratio_rbh', 'avg_rbh')
+        for derived in metric_dict:
+            if derived.startswith('diff'):
+                calculate_diff(derived)
+            elif derived.startswith('ratio'):
+                calculate_ratio(derived)
+            elif derived.startswith('sum'):
+                calculate_sum(derived)
+            else:
+                get_metric(derived)
 
-        calculate_ratio('ratio_bw', 'avg_dram_bw')
-        calculate_sum('sum_bw', 'avg_dram_bw')
-
-        calculate_ratio('ratio_l2_miss', 'l2_miss_rate')
-        calculate_sum('sum_l2_miss', 'l2_miss_rate')
-
-        calculate_ratio('ratio_sp_busy', 'sp_busy')
-        calculate_sum('sum_sp_busy', 'sp_busy')
-
-        calculate_ratio('ratio_dp_busy', 'dp_busy')
-        calculate_sum('sum_dp_busy', 'dp_busy')
-
-        calculate_ratio('ratio_int_busy', 'int_busy')
-        calculate_sum('sum_int_busy', 'int_busy')
-
-        calculate_sum('sum_not_selected_cycles', 'not_selected_cycles')
-
-        calculate_ratio('ratio_thread', 'thread_count')
-
-        calculate_ratio('ratio_inst_empty', 'inst_empty_cycles')
-        calculate_sum('sum_inst_empty', 'inst_empty_cycles')
-
-        cols = [c + '_' + sfx_base for c in cols_prefix]
-        x = df_pair[cols].values
+        cols = [c + '_' + sfx_base for c in metric_dict]
+        x = df_features[cols].values
         x = x.astype(np.double)
         # print('X invalid?', np.isnan(x).any())
         # replace inf and -inf
@@ -218,7 +210,7 @@ def plot_importance(clf, type='old'):
     if type == 'ws':
         np_cols = np.array(cols_ws)
     else:
-        np_cols = np.array(cols_prefix)
+        np_cols = np.array(metric_dict.keys())
 
     plt.yticks(pos, np_cols[sorted_idx], fontsize=20)
     plt.xlabel('Importance')
@@ -229,7 +221,7 @@ def plot_importance(clf, type='old'):
 
 
 def predict_from_df(clf, df_pair, suffix):
-    cols = [c + '_' + suffix for c in cols_prefix]
+    cols = [c + '_' + suffix for c in metric_dict]
 
     X = df_pair[cols].values.astype(np.double)
     X = np.nan_to_num(X, neginf=-1e30, posinf=1e30)
