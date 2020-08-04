@@ -409,6 +409,32 @@ class BatchJob:
         self.time_gpupool[gpupool_config.get_time_matching()] = \
             time.perf_counter() - start_matching
 
+        # Parse the output and get qos violations
+        #print(matching)
+        #print(self.list_jobs)
+        job_pairs = []
+
+        for i in range(self.num_jobs):
+            if matching[i] < i:
+                # either no pair or pair was formed already
+                continue
+            job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
+        
+        #for pair in job_pairs:
+        #    print("pair is:", pair[0].id, pair[1].id)
+            
+
+        cores = mp.cpu_count()
+        data_split = np.array_split(job_pairs, cores)
+        pool = mp.Pool(cores)
+        violations = sum(
+            pool.map(get_qos_violations, data_split)
+        )
+
+        pool.close()
+        pool.join()
+        
+
         # Save df_pair
         if save:
             pickle_dir = os.path.join(THIS_DIR, "pickles")
@@ -421,7 +447,7 @@ class BatchJob:
                     "BatchJob-{}-{}.pkl".format(self.id,
                                                 gpupool_config.to_string())))
 
-        return num_pairs + num_isolated
+        return num_pairs + num_isolated, violations
 
     def calculate_qos_violation_random(self, max_gpu_count):
         # With the same number of GPU that GPUPool uses, how many QoS
