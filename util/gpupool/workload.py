@@ -383,7 +383,9 @@ class BatchJob:
                 
         f.write("    ];\n")
         f.write("var results = blossom(data);\n")
-        f.write("console.log(results);\n")
+        #console.log(util.inspect(array, { maxArrayLength: null }))
+        f.write("const util = require('util');\n")
+        f.write("console.log(util.inspect(results, {maxArrayLength: null}));\n")
         f.close()
 
         # print('Resulting input file is:')
@@ -399,7 +401,8 @@ class BatchJob:
             print("Console output:", node_except.output)
             sys.exit(1)
 
-        print(matching)
+        #matching = subprocess.getoutput("node input.js")
+        #print(matching)
         matching = matching.replace(" ", "").replace("]", "").replace("[", "")
         matching = matching.split(",")
         matching = [int(x) for x in matching]
