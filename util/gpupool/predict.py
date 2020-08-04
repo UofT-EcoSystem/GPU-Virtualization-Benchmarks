@@ -9,6 +9,7 @@ import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
 import data.scripts.gen_graphs.gen_altair_timeline as gen_altair
+import data.scripts.predict.predict_slowdown as tree_model
 
 
 def debug_print(text, condition):
@@ -138,6 +139,8 @@ class RunOption:
     STEADY_STEP = 20
     QOS_LOSS_ERROR = 0.01
 
+    TRAINING_SET_RATIO = 0.8
+
     df_dynamic = const.get_pickle('pair_dynamic.pkl')
     df_dynamic_best = df_dynamic.sort_values(
         'ws', ascending=False).drop_duplicates(
@@ -147,6 +150,7 @@ class RunOption:
     df_intra = const.get_pickle('intra.pkl').set_index(
         ['pair_str', '1_kidx', 'intra']).sort_index()
 
+    model = None
 
     def __init__(self, jobs, offset_ratio=0):
         self.jobs = jobs
@@ -422,9 +426,72 @@ class RunOption:
         # TODO
         pass
 
+    @classmethod
+    def train_boosting_tree(cls):
+        x, y = tree_model.prepare_datasets(cls.df_dynamic)
+
+        offset = int(x.shape[0] * cls.TRAINING_SET_RATIO)
+        x_train, y_train = x[:offset], y[:offset]
+        x_test, y_test = x[offset:], y[offset:]
+
+        cls.model = tree_model.train(x_train, y_train)
+
+        y_predicted = cls.model.predict(x_test)
+        delta = np.average(np.abs((y_predicted - y_test) / y_predicted)) * 100
+
+        print("Average abs relative error in test set: {:.2f}%.".format(delta))
+
     def kernel_wise_prediction(self):
-        # Should be overridden
-        pass
+
+        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
+            row_idx = matrix_idx[0]
+            col_idx = matrix_idx[1]
+
+            benchmarks = [(self.jobs[0].benchmarks[col_idx], 1),
+                          (self.jobs[1].benchmarks[row_idx], 1)]
+
+            dfs = [self.df_intra.xs(bench).reset_index().rename(
+                columns={"index": "intra"})
+                   for bench in benchmarks]
+
+            df_prod = dfs[0].assign(key=1).merge(
+                dfs[1].assign(key=1), on="key").drop("key", axis=1)
+
+            for rsrc in const.EXEC_CTX:
+                df_prod = df_prod[
+                    (df_prod[rsrc + '_x'] + df_prod[rsrc + '_y']) <= 1.0
+                    ]
+
+            def time_multiplex():
+                # Simply run at best intra config and get 0.5 sld
+                for i in range(len(self.jobs)):
+                    self.config_matrix[i][matrix_idx] = \
+                        dfs[i]['norm_ipc'].idxmax(axis=0)
+                    self.interference_matrix[i][matrix_idx] = 0.5
+
+            if len(df_prod.index) == 0:
+                time_multiplex()
+            else:
+                xs = tree_model.prepare_datasets(df_prod,
+                                                 training=False)
+                config = df_prod[['intra_x', 'intra_y']]
+
+                sld = np.array([RunOption.model.predict(x) for x in xs])
+                ws = np.add(sld[0], sld[1])
+
+                best_ws = max(ws)
+
+                if best_ws < 1.0:
+                    time_multiplex()
+                else:
+                    idx_ws = np.argmax(ws)
+                    self.config_matrix[0][matrix_idx] = \
+                        int(config.iloc[idx_ws]['intra_x'])
+                    self.config_matrix[1][matrix_idx] = \
+                        int(config.iloc[idx_ws]['intra_y'])
+
+                    self.interference_matrix[0][matrix_idx] = sld[0][idx_ws]
+                    self.interference_matrix[1][matrix_idx] = sld[1][idx_ws]
 
     def kernel_wise_gpusim(self):
         sys.exit(1)

@@ -60,7 +60,7 @@ def export_tree(clf, path_png, tree_id=300):
         f.write(png_bytes)
 
 
-def prepare_datasets(df_pair):
+def prepare_datasets(df_pair, training=True):
     def feature_set(sfx_base, sfx_other):
         def calculate_diff(derived_metric, metric):
             this_metric = df_pair[metric + '_' + sfx_base]
@@ -112,31 +112,36 @@ def prepare_datasets(df_pair):
         calculate_sum('sum_inst_empty', 'inst_empty_cycles')
 
         cols = [c + '_' + sfx_base for c in cols_prefix]
-        X = df_pair[cols].values
-        X = X.astype(np.double)
-
-        sld_idx = 1 if sfx_base == 'x' else 2
-        y = [sld_list[sld_idx] for sld_list in df_pair['sld']]
-
-        print('X invalid?', np.isnan(X).any())
-        print('y invalid?', np.isnan(y).any())
-
+        x = df_pair[cols].values
+        x = x.astype(np.double)
+        # print('X invalid?', np.isnan(x).any())
         # replace inf and -inf
-        X = np.nan_to_num(X, neginf=-1e30, posinf=1e30)
+        x = np.nan_to_num(x, neginf=-1e30, posinf=1e30)
 
-        return X, y
+        return x
 
-    X1, y1 = feature_set('x', 'y')
-    X2, y2 = feature_set('y', 'x')
+    def ground_truth(sld_idx):
+        y = [sld_list[sld_idx] for sld_list in df_pair['sld']]
+        # print('y invalid?', np.isnan(y).any())
+        return y
 
-    X = np.concatenate((X1, X2), axis=0)
-    y = np.concatenate((y1, y2), axis=0)
+    x1 = feature_set('x', 'y')
+    x2 = feature_set('y', 'x')
 
-    X, y = shuffle(X, y)
+    if training:
+        aggregate_x = np.concatenate((x1, x2), axis=0)
 
-    print(X.shape, y.shape)
+        y1 = ground_truth(1)
+        y2 = ground_truth(2)
+        aggregate_y = np.concatenate((y1, y2), axis=0)
 
-    return X, y
+        aggregate_x, aggregate_y = shuffle(aggregate_x, aggregate_y)
+
+        # print(aggregate_x.shape, aggregate_y.shape)
+
+        return aggregate_x, aggregate_y
+    else:
+        return [x1, x2]
 
 
 def prepare_ws_datasets(df_pair):
