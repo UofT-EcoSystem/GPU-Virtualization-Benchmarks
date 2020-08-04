@@ -356,7 +356,7 @@ class BatchJob:
         ws_col = gpupool_config.get_ws()
 
         f = open("input.js", "w+")
-        f.write("var blossom = require('./node_modules/edmonds-blossom');" + "\n")
+        f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
 
         # iterate over rows and read off the weighted speedups
