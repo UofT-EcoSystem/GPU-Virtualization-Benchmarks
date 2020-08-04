@@ -74,21 +74,6 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
         _df = df_intra[kernel_keys == app].copy()
         _df['key'] = 0
 
-        # Shrink down number of jobs to be launched:
-        # If max CTAs/SM <= 8, granularity = 1
-        # If max CTAs/SM <= 16, granularity = 2
-        # If max CTAs/SM <= 32, granularity = 4
-        # Always include max config (baseline ipc)
-        # max_intra = _df['intra'].max()
-        # if 8 < max_intra <= 16:
-        #     # take rows that are factors of 2
-        #     _df =
-        #     _df[(_df['intra'].mod(2) == 0) | (_df['intra'] == max_intra)]
-        # elif 16 < max_intra <= 32:
-        #     # take rows that are factors of 4
-        #     _df =
-        #     _df[(_df['intra'].mod(4) == 0) | (_df['intra'] == max_intra)]
-
         df_app.append(_df)
 
     # create cartesian product of the two dfs
@@ -96,16 +81,8 @@ def build_df_prod(intra_pkl, qos, apps, cap, top_only=False):
     df_prod.drop(columns=['key'])
 
     # Step 2: drop any pair that exceeds resource usage:
-    # 'cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio',
-    # 'l2', 'dram_busy', 'comp_busy'
-    # resources = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio', 'l2']
-    resources = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio']
-
-    for rsrc in resources:
+    for rsrc in const.EXEC_CTX:
         df_prod = df_prod[(df_prod[rsrc + '_x'] + df_prod[rsrc + '_y']) <= 1.0]
-
-    # for l2 only, keep the ones that add up to 1.0 exactly
-    # df_prod = df_prod[(df_prod['l2_x'] + df_prod['l2_y'] == 1.0)]
 
     if len(df_prod) == 0:
         print('Error. No feasible pair configs for {0}+{1} at QoS {2}.'

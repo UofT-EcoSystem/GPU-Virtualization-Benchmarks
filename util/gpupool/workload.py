@@ -34,6 +34,12 @@ class GpuPoolConfig:
         self.stage_2 = stage_2
         self.at_least_once = at_least_once
 
+        if self.stage_1 == StageOne.BoostTree:
+            print("Training boosting tree for stage 1.")
+            from gpupool.predict import RunOption
+            if not RunOption.model:
+                RunOption.train_boosting_tree()
+
     def to_string(self):
         combo_name = "{}-{}-{}-{}".format(self.alloc.name,
                                           self.stage_1.name,

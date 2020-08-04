@@ -16,6 +16,8 @@ max_register = 64 * 1024
 num_sm_volta = 80
 num_mem_channels_volta = 32
 
+EXEC_CTX = ['cta_ratio', 'thread_ratio', 'smem_ratio', 'reg_ratio']
+
 base_config = "V100-PAE-CONCURRENT-SEP_RW"
 pair_base_config = base_config + "-LSRR" + "-PRINT_DEVICE_SYNC"
 
