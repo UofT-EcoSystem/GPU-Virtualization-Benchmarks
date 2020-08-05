@@ -30,6 +30,10 @@ def parse_args():
                              'simulated batch job.')
     parser.add_argument('--load_model', action='store_true',
                         help='Whether to load boosting tree model from pickle.')
+    parser.add_argument('--cores', default=mp.cpu_count(),
+                        type=int,
+                        help='Number of cores to run on. Default is the '
+                             'number of available CPU cores in the system.')
 
     results = parser.parse_args()
 
@@ -54,24 +58,28 @@ def main():
                                            StageTwo[args.stage2],
                                            at_least_once=False,
                                            load_pickle_model=args.load_model)
-            gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
-                gpupool_config, save=args.save)
+            gpupool, gpupool_violation = \
+                batch.calculate_gpu_count_gpupool(gpupool_config,
+                                                  cores=args.cores,
+                                                  save=args.save)
 
             # Get baseline #1: MIG results
             mig = batch.calculate_gpu_count_mig()
 
             # Get baseline #2: Random matching results
-            random = batch.calculate_qos_violation_random(gpupool)
+            random_violation = \
+                batch.calculate_qos_violation_random(gpupool,
+                                                     cores=args.cores)
 
-            result.append((batch.num_jobs, gpupool, mig, random))
+            result.append((batch.num_jobs, gpupool, mig, random_violation))
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
-            print("GPUPool: {} GPUs with {} violations".format(gpupool,
-                                                               gpupool_viol))
+            print("GPUPool: {} GPUs with".format(gpupool),
+                  gpupool_violation.to_string())
             print("MIG: {} GPUs".format(mig))
-            print("Random: {} QoS violations using same number of GPUs as "
-                  "MIG.".format(random))
+            print("Random: same number of GPUs as GPUPool with",
+                  random_violation.to_string())
 
             print("-" * 100)
             print("Profiling info:")
@@ -89,10 +97,10 @@ def main():
 
         print("=" * 100)
         print("Aggregate results:")
-        for num_jobs, gpupool, mig, random in result:
+        for num_jobs, gpupool, mig, random_violations in result:
             print("{} jobs used {} GPUs with GPUPool and {} GPUs with MIG "
                   "and {} violations with random."
-                  .format(num_jobs, gpupool, mig, random))
+                  .format(num_jobs, gpupool, mig, random_violations))
 
         # TODO: how to get an average number?
         result = np.array(result)
@@ -105,6 +113,7 @@ def main():
         sum_jobs = sum(result[:, 0])
         sum_violations = sum(result[:, 3])
         print("Random matching introduces {:.2f} violations per job "
+<<<<<<< HEAD
               "on average.".format(sum_violations / sum_jobs))
     elif args.exp == 2:
         job_step = 50
@@ -137,6 +146,9 @@ def main():
         f.close()
 
 
+=======
+              "on average.".format(sum_violations.count / sum_jobs))
+>>>>>>> beaa4b2261c648f2cceadd241703b2424a8f2557
     else:
         print("Unimplemented Error.")
         sys.exit(1)
