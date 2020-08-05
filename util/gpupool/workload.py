@@ -389,16 +389,22 @@ class BatchJob:
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
             # the qos of each job in pair is satisfied
+            string_pair = row['pair_str']
+            first_job_index = int(string_pair.split('+')[0].split('-')[1]) - \
+            int(self.list_jobs[0].id)
+            second_job_index = int(string_pair.split('+')[1].split('-')[1]) - \
+            int(self.list_jobs[0].id)
             if ((row['pair_job'].jobs[0].qos.value > row[perf_col].sld[0]) or
                     (row['pair_job'].jobs[1].qos.value > row[perf_col].sld[1])):
-                continue
-            string_pair = row['pair_str']
-            first_job_index = string_pair.split('+')[0].split('-')[1]
-            second_job_index = string_pair.split('+')[1].split('-')[1]
-            pair_weighted_speedup = row[ws_col]
-            input_line = "      [" + str(first_job_index) + ', ' +  \
-                    str(second_job_index) + ', ' \
-                    + str(round(pair_weighted_speedup, 3)) + '],\n'
+                input_line = "      [" + str(first_job_index) + ', ' +  \
+                        str(second_job_index) + ', ' \
+                        + str(- sys.maxsize - 1) + '],\n'
+            else:
+                pair_weighted_speedup = row[ws_col]
+                input_line = "      [" + str(first_job_index) + ', ' +  \
+                        str(second_job_index) + ', ' \
+                        + str(round(pair_weighted_speedup, 3)) + '],\n'
+
             f.write(input_line)
                 
         f.write("    ];\n")
@@ -408,10 +414,10 @@ class BatchJob:
         f.write("console.log(util.inspect(results, {maxArrayLength: null}));\n")
         f.close()
 
-        # print('Resulting input file is:')
-        # print('')
-        # os.system('cat input.js')
-        # print('')
+        #print('Resulting input file is:')
+        #print('')
+        #os.system('cat input.js')
+        #print('')
 
         try:
             matching = subprocess.getoutput("node input.js")
@@ -429,16 +435,15 @@ class BatchJob:
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
 
-        os.system('rm input.js')
+        #os.system('rm input.js')
 
         # Profiling
         self.time_gpupool[gpupool_config.get_time_matching()] = \
             time.perf_counter() - start_matching
 
         # Parse the output and get qos violations
-        #print(matching)
-        #print(self.list_jobs)
         job_pairs = []
+        #print(len(matching))
 
         for i in range(self.num_jobs):
             if matching[i] < i:
@@ -474,6 +479,7 @@ class BatchJob:
                                                 gpupool_config.to_string())))
 
         return num_pairs + num_isolated, violations
+
 
     def calculate_qos_violation_random(self, max_gpu_count):
         # With the same number of GPU that GPUPool uses, how many QoS
