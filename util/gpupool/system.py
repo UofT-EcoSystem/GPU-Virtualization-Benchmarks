@@ -58,27 +58,30 @@ def main():
                                            StageTwo[args.stage2],
                                            at_least_once=False,
                                            load_pickle_model=args.load_model)
-            gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
-                gpupool_config,
-                cores=args.cores,
-                save=args.save)
+            gpupool, gpupool_violations, gpupool_err = \
+                batch.calculate_gpu_count_gpupool(gpupool_config,
+                                                  cores=args.cores,
+                                                  save=args.save)
 
             # Get baseline #1: MIG results
             mig = batch.calculate_gpu_count_mig()
 
             # Get baseline #2: Random matching results
-            random = batch.calculate_qos_violation_random(gpupool,
-                                                          cores=args.cores)
+            random_violations, random_err = \
+                batch.calculate_qos_violation_random(gpupool,
+                                                     cores=args.cores)
 
-            result.append((batch.num_jobs, gpupool, mig, random))
+            result.append((batch.num_jobs, gpupool, mig, random_violations))
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
-            print("GPUPool: {} GPUs with {} violations".format(gpupool,
-                                                               gpupool_viol))
+            print("GPUPool: {} GPUs with {} violations ({:.2f}% mean relative "
+                  "error)"
+                  .format(gpupool, gpupool_violations, gpupool_err * 100))
             print("MIG: {} GPUs".format(mig))
-            print("Random: {} QoS violations using same number of GPUs as "
-                  "MIG.".format(random))
+            print("Random: {} QoS violations ({:.2f}% mean relative error) "
+                  "using same number of GPUs as MIG."
+                  .format(random_violations, random_err * 100))
 
             print("-" * 100)
             print("Profiling info:")
@@ -96,10 +99,10 @@ def main():
 
         print("=" * 100)
         print("Aggregate results:")
-        for num_jobs, gpupool, mig, random in result:
+        for num_jobs, gpupool, mig, random_violations in result:
             print("{} jobs used {} GPUs with GPUPool and {} GPUs with MIG "
                   "and {} violations with random."
-                  .format(num_jobs, gpupool, mig, random))
+                  .format(num_jobs, gpupool, mig, random_violations))
 
         # TODO: how to get an average number?
         result = np.array(result)

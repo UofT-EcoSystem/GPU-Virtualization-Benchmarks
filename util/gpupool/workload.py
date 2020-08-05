@@ -94,6 +94,8 @@ def get_perf(df, option: GpuPoolConfig):
 
 def get_qos_violations(job_pairs: list):
     violation_count = 0
+    relative_error = 0
+
     for pair in job_pairs:
         qos_goals = [pair[0].qos.value, pair[1].qos.value]
 
@@ -104,9 +106,25 @@ def get_qos_violations(job_pairs: list):
         for sld, qos in zip(perf.sld, qos_goals):
             if sld < qos:
                 violation_count += 1
+                relative_error += (qos - sld) / qos
 
-    return violation_count
+    return violation_count, relative_error
 # End parallel functions
+
+
+def parallelize_violation_verify(job_pairs: list, cores):
+    data_split = np.array_split(job_pairs, cores)
+    pool = mp.Pool(cores)
+    violations_result = pool.map(get_qos_violations, data_split)
+
+    violations = sum([r[0] for r in violations_result])
+    errors = sum([r[1] for r in violations_result])
+    mean_errors = errors / violations
+
+    pool.close()
+    pool.join()
+
+    return violations, mean_errors
 
 
 class Job:
@@ -450,14 +468,7 @@ class BatchJob:
         # for pair in job_pairs:
         #    print("pair is:", pair[0].id, pair[1].id)
 
-        data_split = np.array_split(job_pairs, cores)
-        pool = mp.Pool(cores)
-        violations = sum(
-            pool.map(get_qos_violations, data_split)
-        )
-
-        pool.close()
-        pool.join()
+        violations, mean_errors = parallelize_violation_verify(job_pairs, cores)
 
         # Save df_pair
         if save:
@@ -471,7 +482,7 @@ class BatchJob:
                     "BatchJob-{}-{}.pkl".format(self.id,
                                                 gpupool_config.to_string())))
 
-        return num_pairs + num_isolated, violations
+        return num_pairs + num_isolated, violations, mean_errors
 
     def calculate_qos_violation_random(self, max_gpu_count, cores):
         # With the same number of GPU that GPUPool uses, how many QoS
@@ -482,14 +493,6 @@ class BatchJob:
         job_lhs.resize(job_rhs.size)
 
         job_pairs = [(job0, job1) for job0, job1 in zip(job_lhs, job_rhs)]
+        violations, mean_errors = parallelize_violation_verify(job_pairs, cores)
 
-        data_split = np.array_split(job_pairs, cores)
-        pool = mp.Pool(cores)
-        violations = sum(
-            pool.map(get_qos_violations, data_split)
-        )
-
-        pool.close()
-        pool.join()
-
-        return violations
+        return violations, mean_errors
