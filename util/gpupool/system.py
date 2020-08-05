@@ -61,7 +61,7 @@ def main():
             mig = batch.calculate_gpu_count_mig()
 
             # Get baseline #2: Random matching results
-            random = batch.calculate_qos_violation_random(mig)
+            random = batch.calculate_qos_violation_random(gpupool)
 
             result.append((batch.num_jobs, gpupool, mig, random))
 
