@@ -114,6 +114,36 @@ def main():
         sum_violations = sum(result[:, 3])
         print("Random matching introduces {:.2f} violations per job "
               "on average.".format(sum_violations.count / sum_jobs))
+
+    elif args.exp == 2:
+        job_step = 50
+        min_jobs = 350
+        max_jobs = 350
+        max_jobs += job_step
+        f = open('sensitivity_2.out', 'a')
+        for num_jobs in range(min_jobs, max_jobs, job_step):
+            result = []
+            # generate required number of jobs
+            batch = BatchJob(rand_seed=0, num_jobs=num_jobs)
+            # Get GPUPool results
+            gpupool_config = GpuPoolConfig(Allocation.Three_D,
+                                           StageOne[args.stage1],
+                                           StageTwo[args.stage2],
+                                           at_least_once=False,
+                                           load_pickle_model=args.load_model)
+            gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
+                gpupool_config, save=args.save)
+
+            # Get baseline #1: MIG results
+            mig = batch.calculate_gpu_count_mig()
+
+            # Get baseline #2: Random matching results
+            random = batch.calculate_qos_violation_random(gpupool)
+
+            result.append((batch.num_jobs, (gpupool, gpupool_viol), mig, random))
+            f.write('%s\n' % result)
+
+        f.close()
     else:
         print("Unimplemented Error.")
         sys.exit(1)
