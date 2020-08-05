@@ -54,7 +54,8 @@ class Performance:
         # This assumes kernels are run back to back
         timestamps = np.array([const.get_from_to(shared, offset)
                                for shared, offset in zip(shared_runtimes,
-                                                         offset_times)])
+                                                         offset_times)],
+                               dtype=object)
         self.start_stamps = timestamps[:, 0]
         self.end_stamps = timestamps[:, 1]
 

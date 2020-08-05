@@ -54,8 +54,8 @@ def main():
                                            StageTwo[args.stage2],
                                            at_least_once=False,
                                            load_pickle_model=args.load_model)
-            gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
-                                                        save=args.save)
+            gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
+                gpupool_config, save=args.save)
 
             # Get baseline #1: MIG results
             mig = batch.calculate_gpu_count_mig()
@@ -67,7 +67,8 @@ def main():
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
-            print("GPUPool: {} GPUs".format(gpupool))
+            print("GPUPool: {} GPUs with {} violations".format(gpupool,
+                                                               gpupool_viol))
             print("MIG: {} GPUs".format(mig))
             print("Random: {} QoS violations using same number of GPUs as "
                   "MIG.".format(random))
