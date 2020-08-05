@@ -146,7 +146,8 @@ class Job:
                 # calculate how much time will be added by restricting this
                 # benchmark
                 restricted_runtime += cycle_lengths[bm_index] / \
-                        mig_ipcs[self.benchmarks[bm_index]][resources]
+                                      mig_ipcs[self.benchmarks[bm_index]][
+                                          resources]
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
             if attained_qos >= self.qos.value:
@@ -186,9 +187,9 @@ class BatchJob:
         self.time_gpupool = {}
         self.time_mig = 0
 
-    def _calculate_gpupool_performance(self, config: GpuPoolConfig):
+    def _calculate_gpupool_performance(self, config: GpuPoolConfig,
+                                       cores):
         def parallelize(df, func):
-            cores = mp.cpu_count()
             data_split = np.array_split(df, cores)
             pool = mp.Pool(cores)
             data = pd.concat(
@@ -273,44 +274,44 @@ class BatchJob:
         # Reverse the sorted results
         indeces = np.argsort(jobs)[::-1]
         jobs = np.sort(jobs)[::-1]
-        #print("jobs at the start are :", jobs)
-        #print("indeces at the start are :", indeces)
+        # print("jobs at the start are :", jobs)
+        # print("indeces at the start are :", indeces)
         num_gpus = 0
         f = open("mig_sched.out", "a")
 
         # returns the index of the element that is to fill the remaining slice
         def best_fill(jobs: list, rem_slice: int) -> (int, int):
-            #print("\ninside best_fill, jobs are: ", jobs)
+            # print("\ninside best_fill, jobs are: ", jobs)
             # find elements that can fill the spot
             # if rem_slice is 4, handle special case
             fours = np.where(jobs == 4)[0].size
             threes = np.where(jobs == 3)[0].size
             twos = np.where(jobs == 2)[0].size
             if (rem_slice == 4) and (fours == 0) and \
-            (threes != 0) and (threes % 2 == 0) and \
-            (twos + 2 >= (threes / 2)):
+                    (threes != 0) and (threes % 2 == 0) and \
+                    (twos + 2 >= (threes / 2)):
                 # if we have a slice of size 4 and no more 4s and we have 3s 
                 # and we have more than 2 more 2s than twice 3s, we need to 
                 # patch this rem_slice of 4 with two 2s instead of 3
                 # we return two ints which are the indeces of the two 2s in jobs
                 return [np.where(jobs == 2)[0][0], np.where(jobs == 2)[0][1]]
 
-            suitable_indeces = np.where(jobs <= rem_slice) 
-            #print("suitable indeces are: ", suitable_indeces)
+            suitable_indeces = np.where(jobs <= rem_slice)
+            # print("suitable indeces are: ", suitable_indeces)
             suitable_values = np.take(jobs, suitable_indeces)
-            #print("suitable values are: ", suitable_values)
-            #print("done best_fill\n")
+            # print("suitable values are: ", suitable_values)
+            # print("done best_fill\n")
             if suitable_values[0].size != 0:
                 return [suitable_indeces[0][0], -1]
             return [-1, -1]
 
         # fill the machine as much as possible with suitable slices
         def fill_machine(jobs: list, indeces: list, rem_slice: int):
-            #print("inside fill machine, rem_slice is ", rem_slice)
+            # print("inside fill machine, rem_slice is ", rem_slice)
             # check if there are suitable jobs in the array and fill
             while np.where(jobs <= rem_slice)[0].size != 0:
                 fill_index = best_fill(jobs, rem_slice)
-                #print("fill_index is ", fill_index)
+                # print("fill_index is ", fill_index)
                 if fill_index[0] == -1:
                     break
                 # remove element at fill_index and update jobs and indeces
@@ -328,12 +329,12 @@ class BatchJob:
                 else:
                     indeces = np.delete(indeces, fill_index[0])
                     jobs = np.delete(jobs, fill_index[0])
-                #print("job line is: ", job_line)
+                # print("job line is: ", job_line)
                 f.write(job_line)
                 rem_slice -= job_slice
 
-                #print("remaining slice on this gpu is ", rem_slice)
-            #print("jobs array after fill_machine is: ", jobs)
+                # print("remaining slice on this gpu is ", rem_slice)
+            # print("jobs array after fill_machine is: ", jobs)
             return jobs, indeces
 
         job_sizes = "Job sizes   " + np.array_str(jobs) + "\n"
@@ -360,13 +361,13 @@ class BatchJob:
 
         return num_gpus
 
-    def calculate_gpu_count_gpupool(self, gpupool_config, save=False):
+    def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
         print("Running GPUPool predictor... ")
         # Profiling
         start_prediction = time.perf_counter()
 
         # Call two-stage predictor
-        self._calculate_gpupool_performance(gpupool_config)
+        self._calculate_gpupool_performance(gpupool_config, cores=cores)
 
         # Profiling
         self.time_gpupool[gpupool_config.get_time_prediction()] = \
@@ -396,14 +397,14 @@ class BatchJob:
             first_job_index = string_pair.split('+')[0].split('-')[1]
             second_job_index = string_pair.split('+')[1].split('-')[1]
             pair_weighted_speedup = row[ws_col]
-            input_line = "      [" + str(first_job_index) + ', ' +  \
-                    str(second_job_index) + ', ' \
-                    + str(round(pair_weighted_speedup, 3)) + '],\n'
+            input_line = "      [" + str(first_job_index) + ', ' + \
+                         str(second_job_index) + ', ' \
+                         + str(round(pair_weighted_speedup, 3)) + '],\n'
             f.write(input_line)
-                
+
         f.write("    ];\n")
         f.write("var results = blossom(data);\n")
-        #console.log(util.inspect(array, { maxArrayLength: null }))
+        # console.log(util.inspect(array, { maxArrayLength: null }))
         f.write("const util = require('util');\n")
         f.write("console.log(util.inspect(results, {maxArrayLength: null}));\n")
         f.close()
@@ -421,8 +422,8 @@ class BatchJob:
             print("Console output:", node_except.output)
             sys.exit(1)
 
-        #matching = subprocess.getoutput("node input.js")
-        #print(matching)
+        # matching = subprocess.getoutput("node input.js")
+        # print(matching)
         matching = matching.replace(" ", "").replace("]", "").replace("[", "")
         matching = matching.split(",")
         matching = [int(x) for x in matching]
@@ -436,8 +437,8 @@ class BatchJob:
             time.perf_counter() - start_matching
 
         # Parse the output and get qos violations
-        #print(matching)
-        #print(self.list_jobs)
+        # print(matching)
+        # print(self.list_jobs)
         job_pairs = []
 
         for i in range(self.num_jobs):
@@ -445,12 +446,10 @@ class BatchJob:
                 # either no pair or pair was formed already
                 continue
             job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
-        
-        #for pair in job_pairs:
-        #    print("pair is:", pair[0].id, pair[1].id)
-            
 
-        cores = mp.cpu_count()
+        # for pair in job_pairs:
+        #    print("pair is:", pair[0].id, pair[1].id)
+
         data_split = np.array_split(job_pairs, cores)
         pool = mp.Pool(cores)
         violations = sum(
@@ -459,7 +458,6 @@ class BatchJob:
 
         pool.close()
         pool.join()
-        
 
         # Save df_pair
         if save:
@@ -475,7 +473,7 @@ class BatchJob:
 
         return num_pairs + num_isolated, violations
 
-    def calculate_qos_violation_random(self, max_gpu_count):
+    def calculate_qos_violation_random(self, max_gpu_count, cores):
         # With the same number of GPU that GPUPool uses, how many QoS
         # violations we will get with random assignment
         job_lhs = np.array(self.list_jobs[0:max_gpu_count])
@@ -485,7 +483,6 @@ class BatchJob:
 
         job_pairs = [(job0, job1) for job0, job1 in zip(job_lhs, job_rhs)]
 
-        cores = mp.cpu_count()
         data_split = np.array_split(job_pairs, cores)
         pool = mp.Pool(cores)
         violations = sum(
@@ -496,8 +493,3 @@ class BatchJob:
         pool.join()
 
         return violations
-
-
-
-
-

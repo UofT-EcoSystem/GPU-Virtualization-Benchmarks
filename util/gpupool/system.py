@@ -30,6 +30,10 @@ def parse_args():
                              'simulated batch job.')
     parser.add_argument('--load_model', action='store_true',
                         help='Whether to load boosting tree model from pickle.')
+    parser.add_argument('--cores', default=mp.cpu_count(),
+                        type=int,
+                        help='Number of cores to run on. Default is the '
+                             'number of available CPU cores in the system.')
 
     results = parser.parse_args()
 
@@ -55,13 +59,16 @@ def main():
                                            at_least_once=False,
                                            load_pickle_model=args.load_model)
             gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
-                gpupool_config, save=args.save)
+                gpupool_config,
+                cores=args.cores,
+                save=args.save)
 
             # Get baseline #1: MIG results
             mig = batch.calculate_gpu_count_mig()
 
             # Get baseline #2: Random matching results
-            random = batch.calculate_qos_violation_random(gpupool)
+            random = batch.calculate_qos_violation_random(gpupool,
+                                                          cores=args.cores)
 
             result.append((batch.num_jobs, gpupool, mig, random))
 
