@@ -92,7 +92,10 @@ class Violation:
                 self.max = error
 
     def mean_error_pct(self):
-        return self.sum / self.count * 100
+        if self.count == 0:
+            return 0
+        else:
+            return self.sum / self.count * 100
 
     def max_error_pct(self):
         return self.max * 100
