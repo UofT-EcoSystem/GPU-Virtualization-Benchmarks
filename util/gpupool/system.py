@@ -58,7 +58,7 @@ def main():
                                            StageTwo[args.stage2],
                                            at_least_once=False,
                                            load_pickle_model=args.load_model)
-            gpupool, gpupool_violations, gpupool_err = \
+            gpupool, gpupool_violation = \
                 batch.calculate_gpu_count_gpupool(gpupool_config,
                                                   cores=args.cores,
                                                   save=args.save)
@@ -67,21 +67,19 @@ def main():
             mig = batch.calculate_gpu_count_mig()
 
             # Get baseline #2: Random matching results
-            random_violations, random_err = \
+            random_violation = \
                 batch.calculate_qos_violation_random(gpupool,
                                                      cores=args.cores)
 
-            result.append((batch.num_jobs, gpupool, mig, random_violations))
+            result.append((batch.num_jobs, gpupool, mig, random_violation))
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
-            print("GPUPool: {} GPUs with {} violations ({:.2f}% mean relative "
-                  "error)"
-                  .format(gpupool, gpupool_violations, gpupool_err * 100))
+            print("GPUPool: {} GPUs with".format(gpupool),
+                  gpupool_violation.to_string())
             print("MIG: {} GPUs".format(mig))
-            print("Random: {} QoS violations ({:.2f}% mean relative error) "
-                  "using same number of GPUs as MIG."
-                  .format(random_violations, random_err * 100))
+            print("Random: same number of GPUs as GPUPool with",
+                  random_violation.to_string())
 
             print("-" * 100)
             print("Profiling info:")
@@ -115,7 +113,7 @@ def main():
         sum_jobs = sum(result[:, 0])
         sum_violations = sum(result[:, 3])
         print("Random matching introduces {:.2f} violations per job "
-              "on average.".format(sum_violations / sum_jobs))
+              "on average.".format(sum_violations.count / sum_jobs))
     else:
         print("Unimplemented Error.")
         sys.exit(1)

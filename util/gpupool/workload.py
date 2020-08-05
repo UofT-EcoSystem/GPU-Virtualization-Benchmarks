@@ -76,6 +76,46 @@ class GpuPoolConfig:
         return self.model
 
 
+class Violation:
+    def __init__(self, count=0, err_sum=0, err_max=0):
+        self.count = count
+        self.sum = err_sum
+        self.max = err_max
+
+    def update(self, actual_qos, target_qos):
+        if actual_qos < target_qos:
+            self.count += 1
+            error = (target_qos - actual_qos) / target_qos
+            self.sum += error
+
+            if error > self.max:
+                self.max = error
+
+    def mean_error_pct(self):
+        return self.sum / self.count * 100
+
+    def max_error_pct(self):
+        return self.max * 100
+
+    def to_string(self):
+        return "{} QoS violations ({:.2f}% mean relative error, " \
+               "{:.2f}% max error)".format(self.count, self.mean_error_pct(),
+                                           self.max_error_pct())
+
+    def __add__(self, other):
+        new_count = self.count + other.count
+        new_sum = self.sum + other.sum
+        new_max = max(self.max, other.max)
+
+        return Violation(new_count, new_sum, new_max)
+
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        else:
+            return self.__add__(other)
+
+
 # Top-level functions to be pickled and parallelized on multiple cores
 def get_perf(df, option: GpuPoolConfig):
     # Deep copy config so that each process can have a unique model copy to
@@ -93,8 +133,7 @@ def get_perf(df, option: GpuPoolConfig):
 
 
 def get_qos_violations(job_pairs: list):
-    violation_count = 0
-    relative_error = 0
+    violation = Violation()
 
     for pair in job_pairs:
         qos_goals = [pair[0].qos.value, pair[1].qos.value]
@@ -104,11 +143,9 @@ def get_qos_violations(job_pairs: list):
         perf = pair.get_best_effort_performance()
 
         for sld, qos in zip(perf.sld, qos_goals):
-            if sld < qos:
-                violation_count += 1
-                relative_error += (qos - sld) / qos
+            violation.update(sld, qos)
 
-    return violation_count, relative_error
+    return violation
 # End parallel functions
 
 
@@ -117,14 +154,12 @@ def parallelize_violation_verify(job_pairs: list, cores):
     pool = mp.Pool(cores)
     violations_result = pool.map(get_qos_violations, data_split)
 
-    violations = sum([r[0] for r in violations_result])
-    errors = sum([r[1] for r in violations_result])
-    mean_errors = errors / violations
+    violation = sum(violations_result)
 
     pool.close()
     pool.join()
 
-    return violations, mean_errors
+    return violation
 
 
 class Job:
@@ -454,9 +489,10 @@ class BatchJob:
         self.time_gpupool[gpupool_config.get_time_matching()] = \
             time.perf_counter() - start_matching
 
-        # Parse the output and get qos violations
         # print(matching)
         # print(self.list_jobs)
+
+        # Parse the output and get qos violations
         job_pairs = []
 
         for i in range(self.num_jobs):
@@ -468,7 +504,7 @@ class BatchJob:
         # for pair in job_pairs:
         #    print("pair is:", pair[0].id, pair[1].id)
 
-        violations, mean_errors = parallelize_violation_verify(job_pairs, cores)
+        violation = parallelize_violation_verify(job_pairs, cores)
 
         # Save df_pair
         if save:
@@ -482,7 +518,7 @@ class BatchJob:
                     "BatchJob-{}-{}.pkl".format(self.id,
                                                 gpupool_config.to_string())))
 
-        return num_pairs + num_isolated, violations, mean_errors
+        return num_pairs + num_isolated, violation
 
     def calculate_qos_violation_random(self, max_gpu_count, cores):
         # With the same number of GPU that GPUPool uses, how many QoS
@@ -493,6 +529,6 @@ class BatchJob:
         job_lhs.resize(job_rhs.size)
 
         job_pairs = [(job0, job1) for job0, job1 in zip(job_lhs, job_rhs)]
-        violations, mean_errors = parallelize_violation_verify(job_pairs, cores)
+        violation = parallelize_violation_verify(job_pairs, cores)
 
-        return violations, mean_errors
+        return violation
