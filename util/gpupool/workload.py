@@ -29,25 +29,27 @@ class QOS(Enum):
 
 class GpuPoolConfig:
     def __init__(self, alloc: Allocation, stage_1: StageOne, stage_2: StageTwo,
-                 at_least_once, load_pickle_model):
+                 at_least_once, accuracy_mode):
         self.alloc = alloc
         self.stage_1 = stage_1
         self.stage_2 = stage_2
         self.at_least_once = at_least_once
         self.model = None
+        self.accuracy_mode = accuracy_mode
 
         model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
 
         from gpupool.predict import RunOption
-        if self.stage_1 == StageOne.BoostTree:
-            if load_pickle_model and os.path.isfile(model_pkl_path):
+        if self.stage_1 == StageOne.BoostTree and not accuracy_mode:
+            # Runtime mode, simply do inference on a single model
+            if os.path.isfile(model_pkl_path):
                 print("Load boosting tree from pickle {}"
                       .format(model_pkl_path))
 
                 self.model = pickle.load(open(model_pkl_path, 'rb'))
             else:
                 print("Training boosting tree for stage 1.")
-                self.model = RunOption.train_boosting_tree()
+                self.model = RunOption.train_boosting_tree(train_all=True)
                 pickle.dump(self.model, open(model_pkl_path, 'wb'))
 
     def to_string(self):

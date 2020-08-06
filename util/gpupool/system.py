@@ -29,12 +29,16 @@ def parse_args():
     parser.add_argument('--save', action='store_true',
                         help='Whether to save df_pair into pickles for each '
                              'simulated batch job.')
-    parser.add_argument('--load_model', action='store_true',
-                        help='Whether to load boosting tree model from pickle.')
     parser.add_argument('--cores', default=mp.cpu_count(),
                         type=int,
                         help='Number of cores to run on. Default is the '
                              'number of available CPU cores in the system.')
+    parser.add_argument('--accuracy_mode', action='store_true',
+                        help='Only relevant when stage1 is BoostTree. '
+                             'Accuracy mode will do cross validation and '
+                             'train a new model for each pair of jobs.'
+                             'Otherwise, runtime mode will simply load a '
+                             'trained model to do fast inference.')
 
     results = parser.parse_args()
 
@@ -55,7 +59,7 @@ def run_exp_0(args):
                                        StageOne[args.stage1],
                                        StageTwo[args.stage2],
                                        at_least_once=False,
-                                       load_pickle_model=args.load_model)
+                                       accuracy_mode=args.accuracy_mode)
         gpupool, gpupool_violation = \
             batch.calculate_gpu_count_gpupool(gpupool_config,
                                               cores=args.cores,

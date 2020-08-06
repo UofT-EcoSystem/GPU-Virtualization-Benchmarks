@@ -146,6 +146,8 @@ class RunOption:
         'ws', ascending=False).drop_duplicates(
         ['1_bench', '1_kidx', '2_bench', '2_kidx']).set_index(
         ['1_bench', '1_kidx', '2_bench', '2_kidx'], drop=True)
+    df_dynamic_index = df_dynamic.set_index(
+        ['1_bench', '2_bench'], drop=True)
 
     df_intra = const.get_pickle('intra.pkl').set_index(
         ['pair_str', '1_kidx', 'intra']).sort_index()
@@ -429,23 +431,28 @@ class RunOption:
         pass
 
     @classmethod
-    def train_boosting_tree(cls):
-        x, y = tree_model.prepare_datasets(cls.df_dynamic)
+    def train_boosting_tree(cls, train_all=True, df_train=None):
+        if train_all:
+            x, y = tree_model.prepare_datasets(cls.df_dynamic)
 
-        offset = int(x.shape[0] * cls.TRAINING_SET_RATIO)
-        x_train, y_train = x[:offset], y[:offset]
-        x_test, y_test = x[offset:], y[offset:]
+            offset = int(x.shape[0] * cls.TRAINING_SET_RATIO)
+            x_train, y_train = x[:offset], y[:offset]
+            x_test, y_test = x[offset:], y[offset:]
 
-        model = tree_model.train(x_train, y_train)
+            model = tree_model.train(x_train, y_train)
 
-        y_predicted = model.predict(x_test)
-        delta = np.average(np.abs((y_predicted - y_test) / y_predicted)) * 100
+            y_predicted = model.predict(x_test)
+            delta = np.average(np.abs((y_predicted - y_test) / y_predicted))
+            print("Average abs relative error in test set: {:.2f}%."
+                  .format(delta * 100))
 
-        print("Average abs relative error in test set: {:.2f}%.".format(delta))
+        else:
+            x_train, y_train = tree_model.prepare_datasets(df_train)
+            model = tree_model.train(x_train, y_train, cross_validation=False)
 
         return model
 
-    def kernel_wise_prediction(self, model):
+    def kernel_wise_prediction(self, accuracy_mode, model=None):
         # Cross product of kernels from each job
         dfs = [self.df_intra[self.df_intra.index
                                           .get_level_values('pair_str')
@@ -461,10 +468,24 @@ class RunOption:
                 (df_prod_tot[rsrc + '_x'] + df_prod_tot[rsrc + '_y']) <= 1.0
                 ]
 
-        # Run inference on all pairs
+        # Prep for inference data
         xs = tree_model.prepare_datasets(df_prod_tot,
                                          training=False)
 
+        if accuracy_mode:
+            # Retrain model for cross validation
+            test_pairs = df_prod_tot[['pair_str_x', 'pair_str_y']].itertuples(
+                index=False, name=None)
+            test_pairs = [tuple(sorted(pair)) for pair in test_pairs
+                          if pair[0] != pair[1]]
+            test_pairs = list(set(test_pairs))
+            df_train = \
+                self.df_dynamic_index[
+                    ~self.df_dynamic_index.index.isin(test_pairs)]
+            model = RunOption.train_boosting_tree(train_all=False,
+                                                  df_train=df_train)
+
+        # Run inference on all pairs
         sld = [model.predict(x) for x in xs]
         df_prod_tot['sld'] = list(zip(sld[0], sld[1]))
         df_prod_tot['ws'] = df_prod_tot['sld'].apply(lambda x: x[0] + x[1])
@@ -508,9 +529,9 @@ class RunOption:
         sys.exit(1)
         pass
 
-    def verify_kernel_wise(self, model):
+    def verify_kernel_wise(self, accuracy_mode, model=None):
         from copy import deepcopy
-        self.kernel_wise_prediction(model)
+        self.kernel_wise_prediction(accuracy_mode, model)
         prediction = deepcopy(self.interference_matrix)
 
         self.kernel_wise_gpusim()
@@ -779,7 +800,9 @@ class PairJob:
                 option.kernel_wise_gpusim()
             else:
                 # 'BOOST_TREE'
-                option.kernel_wise_prediction(predictor_config.get_model())
+                option.kernel_wise_prediction(
+                    accuracy_mode=predictor_config.accuracy_mode,
+                    model=predictor_config.get_model())
 
         # Profiling
         time_stage1 = time.perf_counter() - start_stage1
@@ -835,7 +858,10 @@ class PairJob:
 
     def verify_boosting_tree(self, predictor_config):
         option = RunOption3D(self.jobs, 0)
-        delta = option.verify_kernel_wise(predictor_config.get_model())
+        delta = option.verify_kernel_wise(
+            predictor_config.accuracy_mode,
+            predictor_config.get_model()
+        )
 
         return delta
 

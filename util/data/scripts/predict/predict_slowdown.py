@@ -166,22 +166,23 @@ def prepare_ws_datasets(df_pair):
     return X, y
 
 
-def train(X, y):
-    # #########################################################################
-    # Fit gradient boost tree regression model using K-fold cross validation
-    kf = KFold(n_splits=5, shuffle=True)
+def train(X, y, cross_validation=True):
     params = {'n_estimators': 400, 'max_depth': 9, 'min_samples_split': 2,
               'learning_rate': 0.05, 'loss': 'huber'}
 
-    for train_index, test_index in kf.split(X):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
+    if cross_validation:
+        # Fit gradient boost tree regression model using K-fold cross validation
+        kf = KFold(n_splits=5, shuffle=True)
 
-        clf = ensemble.GradientBoostingRegressor(**params)
+        for train_index, test_index in kf.split(X):
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
 
-        clf.fit(X_train, y_train)
-        mae = mean_absolute_error(y_test, clf.predict(X_test))
-        print('K-fold l1 error:', mae)
+            clf = ensemble.GradientBoostingRegressor(**params)
+
+            clf.fit(X_train, y_train)
+            mae = mean_absolute_error(y_test, clf.predict(X_test))
+            print('K-fold l1 error:', mae)
 
     # get the final model
     X_train = X
