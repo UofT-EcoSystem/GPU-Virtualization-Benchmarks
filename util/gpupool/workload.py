@@ -122,10 +122,10 @@ class Violation:
 
 
 # Top-level functions to be pickled and parallelized on multiple cores
-def get_perf(df, option: GpuPoolConfig):
+def get_perf(df, config: GpuPoolConfig):
     # Deep copy config so that each process can have a unique model copy to
     # run on if stage1 is boosting tree
-    option_copy = deepcopy(option)
+    option_copy = deepcopy(config)
 
     start = time.perf_counter()
     _df_performance = df['pair_job'].apply(
@@ -153,20 +153,34 @@ def get_qos_violations(job_pairs: list):
     return violation
 
 
+def verify_boosting_tree(df, config: GpuPoolConfig):
+    config_copy = deepcopy(config)
+
+    delta = df['pair_job'].apply(
+        lambda pair_job: pair_job.verify_boosting_tree(config_copy)
+    )
+
+    return delta.tolist()
+
 # End parallel functions
 
 
-def parallelize_violation_verify(job_pairs: list, cores):
-    data_split = np.array_split(job_pairs, cores)
+def parallelize(data, cores, func, extra_param=None):
+    cores = min(cores, len(data))
     pool = mp.Pool(cores)
-    violations_result = pool.map(get_qos_violations, data_split)
 
-    violation = sum(violations_result)
+    data_split = np.array_split(data, cores)
+
+    if extra_param:
+        data_split = [(ds, extra_param) for ds in data_split]
+        result = pool.starmap(func, data_split)
+    else:
+        result = pool.map(func, data_split)
 
     pool.close()
     pool.join()
 
-    return violation
+    return result
 
 
 class Job:
@@ -247,20 +261,9 @@ class BatchJob:
         self.time_gpupool = {}
         self.time_mig = 0
 
-    def _calculate_gpupool_performance(self, config: GpuPoolConfig,
-                                       cores):
-        def parallelize(df, func):
-            data_split = np.array_split(df, cores)
-            pool = mp.Pool(cores)
-            data = pd.concat(
-                pool.starmap(func, [(ds, config) for ds in data_split])
-            )
-            pool.close()
-            pool.join()
-
-            return data
-
-        df_performance = parallelize(self.df_pair, get_perf)
+    def _calculate_gpupool_performance(self, config: GpuPoolConfig, cores):
+        result = parallelize(self.df_pair, cores, get_perf, extra_param=config)
+        df_performance = pd.concat(result)
 
         # Drop the same columns
         drop_col = [col for col in self.df_pair.columns
@@ -327,6 +330,22 @@ class BatchJob:
         self.df_pair['pair_job'] = pairs
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
+
+    def boosting_tree_test(self, config: GpuPoolConfig, cores):
+        delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
+        # Flatten the array
+        import itertools
+        delta = list(itertools.chain.from_iterable(delta))
+
+        sum_delta = 0
+        len_delta = 0
+        for d in delta:
+            sum_delta += d[0] * d[1]
+            len_delta += d[1]
+
+        average_error = sum_delta / len_delta
+
+        return average_error
 
     def calculate_gpu_count_mig(self):
         # convert jobs to size slices 
@@ -519,7 +538,12 @@ class BatchJob:
         # for pair in job_pairs:
         #    print("pair is:", pair[0].id, pair[1].id)
 
-        violation = parallelize_violation_verify(job_pairs, cores)
+        if len(job_pairs) > 0:
+            violations_result = parallelize(job_pairs, cores, get_qos_violations)
+            violation = sum(violations_result)
+        else:
+            # No jobs are co-running
+            violation = Violation()
 
         # Save df_pair
         if save:
@@ -544,6 +568,12 @@ class BatchJob:
         job_lhs.resize(job_rhs.size)
 
         job_pairs = [(job0, job1) for job0, job1 in zip(job_lhs, job_rhs)]
-        violation = parallelize_violation_verify(job_pairs, cores)
+
+        if len(job_pairs) > 0:
+            violations_result = parallelize(
+                job_pairs, cores, get_qos_violations)
+            violation = sum(violations_result)
+        else:
+            violation = Violation()
 
         return violation

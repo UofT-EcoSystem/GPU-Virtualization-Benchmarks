@@ -504,9 +504,25 @@ class RunOption:
                     self.interference_matrix[1][matrix_idx] = sld[1]
 
     def kernel_wise_gpusim(self):
-
+        print("Parent kernel_wise_gpusim function prototype called.")
         sys.exit(1)
         pass
+
+    def verify_kernel_wise(self, model):
+        from copy import deepcopy
+        self.kernel_wise_prediction(model)
+        prediction = deepcopy(self.interference_matrix)
+
+        self.kernel_wise_gpusim()
+        ground_truth = deepcopy(self.interference_matrix)
+
+        delta = [np.abs(p - g) / g
+                 for p, g in zip(prediction, ground_truth)]
+
+        delta = np.array([matrix.reshape((matrix.size,))
+                          for matrix in delta]).flatten()
+
+        return sum(delta) / len(delta), len(delta)
 
     def _pretty_print_matrix(self, title, data):
         for job, job_data in zip(self.jobs, data):
@@ -816,6 +832,12 @@ class PairJob:
             at_least_once=False)
 
         return perf
+
+    def verify_boosting_tree(self, predictor_config):
+        option = RunOption3D(self.jobs, 0)
+        delta = option.verify_kernel_wise(predictor_config.get_model())
+
+        return delta
 
     def name(self):
         return "+".join(self.job_names)
