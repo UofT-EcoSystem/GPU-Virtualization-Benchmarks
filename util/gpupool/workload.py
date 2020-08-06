@@ -363,8 +363,8 @@ class BatchJob:
 
             # Buffer to tighten the bounds and offset error from stage 1
             buffer = gpupool_config.stage2_buffer
-            if (jobs[0].qos.value + buffer < row[perf_col].sld[0]) and \
-                    (jobs[1].qos.value + buffer < row[perf_col].sld[1]):
+            if (jobs[0].qos.value * (1 + buffer) < row[perf_col].sld[0]) and \
+                    (jobs[1].qos.value * (1 + buffer) < row[perf_col].sld[1]):
                 input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
                                                                 adjusted_id[1],
                                                                 row[ws_col]
