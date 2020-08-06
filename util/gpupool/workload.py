@@ -264,6 +264,12 @@ class BatchJob:
         self.time_gpupool = {}
         self.time_mig = 0
 
+    def load_df_from_pickle(self, file_path):
+        if os.path.isfile(file_path):
+            self.df_pair = pd.read_pickle(file_path)
+        else:
+            print(file_path, "does not exist. Do nothing.")
+
     def _calculate_gpupool_performance(self, config: GpuPoolConfig, cores):
         result = parallelize(self.df_pair, cores, get_perf, extra_param=config)
         df_performance = pd.concat(result)
@@ -333,6 +339,102 @@ class BatchJob:
         self.df_pair['pair_job'] = pairs
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
+
+    def _max_matching(self, gpupool_config, cores):
+        # Call max weight matching solver
+
+        # Profiling
+        start_matching = time.perf_counter()
+
+        perf_col = gpupool_config.get_perf()
+        ws_col = gpupool_config.get_ws()
+
+        f = open("input.js", "w+")
+        f.write("var blossom = require('./edmonds-blossom');" + "\n")
+        f.write("var data = [" + "\n")
+
+        # iterate over rows and read off the weighted speedups
+        for index, row in self.df_pair.iterrows():
+            # determine if we include this pair as an edge or not based on if
+            # the qos of each job in pair is satisfied
+            jobs = row['pair_job'].jobs
+            id_offset = self.list_jobs[0].id
+            adjusted_id = [job.id - id_offset for job in jobs]
+
+            # Buffer to tighten the bounds and offset error from stage 1
+            buffer = gpupool_config.stage2_buffer
+            if (jobs[0].qos.value + buffer < row[perf_col].sld[0]) and \
+                    (jobs[1].qos.value + buffer < row[perf_col].sld[1]):
+                input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
+                                                                adjusted_id[1],
+                                                                row[ws_col]
+                                                                )
+            else:
+                input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
+                                                            adjusted_id[1],
+                                                            -sys.maxsize - 1)
+
+            f.write(input_line)
+
+        f.write("    ];\n")
+        f.write("var results = blossom(data);\n")
+        # console.log(util.inspect(array, { maxArrayLength: null }))
+        f.write("const util = require('util');\n")
+        f.write("console.log(util.inspect(results, {maxArrayLength: null}));\n")
+        f.close()
+
+        # print('Resulting input file is:')
+        # print('')
+        # os.system('cat input.js')
+        # print('')
+
+        try:
+            matching = subprocess.getoutput("node input.js")
+        except subprocess.CalledProcessError as node_except:
+            print("GPUPool max match node.js call failed.")
+            print("Error code:", node_except.returncode)
+            print("Console output:", node_except.output)
+            sys.exit(1)
+
+        # matching = subprocess.getoutput("node input.js")
+        # print(matching)
+        matching = matching.replace(" ", "").replace("]", "").replace("[", "")
+        matching = matching.split(",")
+        matching = [int(x) for x in matching]
+        num_pairs = len([x for x in matching if x >= 0]) // 2
+        num_isolated = len([x for x in matching if x == -1])
+
+        # Profiling
+        self.time_gpupool[gpupool_config.get_time_matching()] = \
+            time.perf_counter() - start_matching
+
+        # os.system('rm input.js')
+        # print(matching)
+        # print(self.list_jobs)
+
+        # Parse the output and get qos violations
+        print("Running QoS verifications...")
+        job_pairs = []
+        # print(len(matching))
+
+        for i in range(self.num_jobs):
+            if matching[i] < i:
+                # either no pair or pair was formed already
+                continue
+            job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
+
+        # for pair in job_pairs:
+        #    print("pair is:", pair[0].id, pair[1].id)
+
+        if len(job_pairs) > 0:
+            violations_result = parallelize(
+                job_pairs, cores, get_qos_violations)
+            violation = sum(violations_result)
+        else:
+            # No jobs are co-running
+            violation = Violation()
+
+        return num_pairs + num_isolated, violation
 
     def boosting_tree_test(self, config: GpuPoolConfig, cores):
         delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
@@ -456,99 +558,7 @@ class BatchJob:
             time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
-
-        # Profiling
-        start_matching = time.perf_counter()
-
-        # Call max weight matching solver
-        perf_col = gpupool_config.get_perf()
-        ws_col = gpupool_config.get_ws()
-
-        f = open("input.js", "w+")
-        f.write("var blossom = require('./edmonds-blossom');" + "\n")
-        f.write("var data = [" + "\n")
-
-        # iterate over rows and read off the weighted speedups
-        for index, row in self.df_pair.iterrows():
-            # determine if we include this pair as an edge or not based on if
-            # the qos of each job in pair is satisfied
-            jobs = row['pair_job'].jobs
-            id_offset = self.list_jobs[0].id
-            adjusted_id = [job.id - id_offset for job in jobs]
-
-            # Buffer to tighten the bounds and offset error from stage 1
-            buffer = gpupool_config.stage2_buffer
-            if (jobs[0].qos.value + buffer < row[perf_col].sld[0]) and \
-                    (jobs[1].qos.value + buffer < row[perf_col].sld[1]):
-                input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
-                                                                adjusted_id[1],
-                                                                row[ws_col]
-                                                                )
-            else:
-                input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
-                                                            adjusted_id[1],
-                                                            -sys.maxsize - 1)
-
-            f.write(input_line)
-
-        f.write("    ];\n")
-        f.write("var results = blossom(data);\n")
-        # console.log(util.inspect(array, { maxArrayLength: null }))
-        f.write("const util = require('util');\n")
-        f.write("console.log(util.inspect(results, {maxArrayLength: null}));\n")
-        f.close()
-
-        # print('Resulting input file is:')
-        # print('')
-        # os.system('cat input.js')
-        # print('')
-
-        try:
-            matching = subprocess.getoutput("node input.js")
-        except subprocess.CalledProcessError as node_except:
-            print("GPUPool max match node.js call failed.")
-            print("Error code:", node_except.returncode)
-            print("Console output:", node_except.output)
-            sys.exit(1)
-
-        # matching = subprocess.getoutput("node input.js")
-        # print(matching)
-        matching = matching.replace(" ", "").replace("]", "").replace("[", "")
-        matching = matching.split(",")
-        matching = [int(x) for x in matching]
-        num_pairs = len([x for x in matching if x >= 0]) // 2
-        num_isolated = len([x for x in matching if x == -1])
-
-        # os.system('rm input.js')
-
-        # Profiling
-        self.time_gpupool[gpupool_config.get_time_matching()] = \
-            time.perf_counter() - start_matching
-
-        # print(matching)
-        # print(self.list_jobs)
-
-        # Parse the output and get qos violations
-        print("Running QoS verifications...")
-        job_pairs = []
-        # print(len(matching))
-
-        for i in range(self.num_jobs):
-            if matching[i] < i:
-                # either no pair or pair was formed already
-                continue
-            job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
-
-        # for pair in job_pairs:
-        #    print("pair is:", pair[0].id, pair[1].id)
-
-        if len(job_pairs) > 0:
-            violations_result = parallelize(
-                job_pairs, cores, get_qos_violations)
-            violation = sum(violations_result)
-        else:
-            # No jobs are co-running
-            violation = Violation()
+        gpu_count, violation = self._max_matching(gpupool_config)
 
         # Save df_pair
         if save:
@@ -562,7 +572,7 @@ class BatchJob:
                     "BatchJob-{}-{}.pkl".format(self.id,
                                                 gpupool_config.to_string())))
 
-        return num_pairs + num_isolated, violation
+        return gpu_count, violation
 
     def calculate_qos_violation_random(self, max_gpu_count, cores):
         # With the same number of GPU that GPUPool uses, how many QoS
