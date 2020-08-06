@@ -39,6 +39,9 @@ def parse_args():
                              'train a new model for each pair of jobs.'
                              'Otherwise, runtime mode will simply load a '
                              'trained model to do fast inference.')
+    parser.add_argument('--stage2_buffer', default=0.05,
+                        type=float,
+                        help='Amount of buffer to tighten qos check in stage2.')
 
     results = parser.parse_args()
 
@@ -59,7 +62,8 @@ def run_exp_0(args):
                                        StageOne[args.stage1],
                                        StageTwo[args.stage2],
                                        at_least_once=False,
-                                       accuracy_mode=args.accuracy_mode)
+                                       accuracy_mode=args.accuracy_mode,
+                                       stage2_buffer=args.stage2_buffer)
         gpupool, gpupool_violation = \
             batch.calculate_gpu_count_gpupool(gpupool_config,
                                               cores=args.cores,
@@ -148,7 +152,8 @@ def run_exp_2(args):
                                        StageOne[args.stage1],
                                        StageTwo[args.stage2],
                                        at_least_once=False,
-                                       load_pickle_model=args.load_model)
+                                       accuracy_mode=args.accuracy_mode,
+                                       stage2_buffer=args.stage2_buffer)
         gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
             gpupool_config, save=args.save)
 
@@ -175,7 +180,8 @@ def run_exp_3(args):
                                    StageOne[args.stage1],
                                    StageTwo[args.stage2],
                                    at_least_once=False,
-                                   load_pickle_model=args.load_model)
+                                   accuracy_mode=args.accuracy_mode,
+                                   stage2_buffer=args.stage2_buffer)
 
     error = batch.boosting_tree_test(gpupool_config, args.cores)
 

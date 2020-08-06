@@ -29,13 +29,14 @@ class QOS(Enum):
 
 class GpuPoolConfig:
     def __init__(self, alloc: Allocation, stage_1: StageOne, stage_2: StageTwo,
-                 at_least_once, accuracy_mode):
+                 at_least_once, accuracy_mode, stage2_buffer):
         self.alloc = alloc
         self.stage_1 = stage_1
         self.stage_2 = stage_2
         self.at_least_once = at_least_once
         self.model = None
         self.accuracy_mode = accuracy_mode
+        self.stage2_buffer = stage2_buffer
 
         model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
 
@@ -476,8 +477,7 @@ class BatchJob:
             adjusted_id = [job.id - id_offset for job in jobs]
 
             # Buffer to tighten the bounds and offset error from stage 1
-            # TODO: make this an input parameter
-            buffer = 0.05
+            buffer = gpupool_config.stage2_buffer
             if (jobs[0].qos.value + buffer < row[perf_col].sld[0]) and \
                     (jobs[1].qos.value + buffer < row[perf_col].sld[1]):
                 input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
