@@ -469,21 +469,23 @@ class BatchJob:
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
             # the qos of each job in pair is satisfied
-            string_pair = row['pair_str']
-            first_job_index = int(string_pair.split('+')[0].split('-')[1]) - \
-                              int(self.list_jobs[0].id)
-            second_job_index = int(string_pair.split('+')[1].split('-')[1]) - \
-                               int(self.list_jobs[0].id)
-            if ((row['pair_job'].jobs[0].qos.value > row[perf_col].sld[0]) or
-                    (row['pair_job'].jobs[1].qos.value > row[perf_col].sld[1])):
-                input_line = "      [" + str(first_job_index) + ', ' + \
-                             str(second_job_index) + ', ' \
-                             + str(- sys.maxsize - 1) + '],\n'
+            jobs = row['pair_job'].jobs
+            id_offset = self.list_jobs[0].id
+            adjusted_id = [job.id - id_offset for job in jobs]
+
+            # Buffer to tighten the bounds and offset error from stage 1
+            # TODO: make this an input parameter
+            buffer = 0.05
+            if (jobs[0].qos.value + buffer < row[perf_col].sld[0]) and \
+                    (jobs[1].qos.value + buffer < row[perf_col].sld[1]):
+                input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
+                                                                adjusted_id[1],
+                                                                row[ws_col]
+                                                                )
             else:
-                pair_weighted_speedup = row[ws_col]
-                input_line = "      [" + str(first_job_index) + ', ' + \
-                             str(second_job_index) + ', ' \
-                             + str(round(pair_weighted_speedup, 3)) + '],\n'
+                input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
+                                                            adjusted_id[1],
+                                                            -sys.maxsize - 1)
 
             f.write(input_line)
 
@@ -539,7 +541,8 @@ class BatchJob:
         #    print("pair is:", pair[0].id, pair[1].id)
 
         if len(job_pairs) > 0:
-            violations_result = parallelize(job_pairs, cores, get_qos_violations)
+            violations_result = parallelize(
+                job_pairs, cores, get_qos_violations)
             violation = sum(violations_result)
         else:
             # No jobs are co-running
