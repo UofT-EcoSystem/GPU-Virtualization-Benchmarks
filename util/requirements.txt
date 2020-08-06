@@ -2,7 +2,7 @@ scipy
 graphviz
 scikit-learn
 oyaml
-pandas==0.24.0 
+pandas
 numpy
 argparse
 matplotlib
