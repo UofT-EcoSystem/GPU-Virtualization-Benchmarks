@@ -620,6 +620,19 @@ class RunOption3D(RunOption):
     def kernel_wise_gpusim(self):
         # return list_cta, list_sld, serial?
         def get_cta_sld(bench_idx):
+            def time_multiplex(sorted_bench):
+                # If no feasible pair dynamic config, let the kernels
+                # time multiplex using its best intra config
+                _cta_setting = []
+                _sld = []
+                for bench in sorted_bench:
+                    best_intra = self.df_intra.xs(bench)['norm_ipc'].idxmax(
+                        axis=0)
+                    _cta_setting.append(best_intra)
+                    _sld.append(0.5)
+
+                return _cta_setting, _sld
+
             serial = False
 
             real_bench = [(job.benchmarks[idx], 1)
@@ -628,31 +641,33 @@ class RunOption3D(RunOption):
 
             if same_bench:
                 # Identical benchmark pair. Get settings from df_intra
-                df_bench = self.df_intra.xs(real_bench[0])
-
-                intra_max = df_bench.index.max()
-                intra_ipc_max = df_bench['norm_ipc'].idxmax(axis=0)
-                if intra_max == intra_ipc_max:
-                    # Max setting is the max allowed setting
-                    max_cta = const.get_max_cta_per_sm(real_bench[0][0],
-                                                       real_bench[0][1])
-                    if intra_max * 2 > max_cta:
-                        cta_setting = max(max_cta // 2, 1)
-                        # Might be a bit pessimistic here:
-                        sld = 0.5
-                    else:
-                        cta_setting = intra_max
-
-                        # FIXME: sketchy?
-                        if intra_max * 2 in df_bench.index:
-                            sld = df_bench.loc[intra_max * 2]['norm_ipc'] / 2
-                        else:
-                            sld = 0.5
-                else:
-                    cta_setting = intra_ipc_max // 2
-                    sld = 0.5
-
-                return [cta_setting, cta_setting], [sld, sld], serial
+                # df_bench = self.df_intra.xs(real_bench[0])
+                #
+                # intra_max = df_bench.index.max()
+                # intra_ipc_max = df_bench['norm_ipc'].idxmax(axis=0)
+                # if intra_max == intra_ipc_max:
+                #     # Max setting is the max allowed setting
+                #     max_cta = const.get_max_cta_per_sm(real_bench[0][0],
+                #                                        real_bench[0][1])
+                #     if intra_max * 2 > max_cta:
+                #         cta_setting = max(max_cta // 2, 1)
+                #         # Might be a bit pessimistic here:
+                #         sld = 0.5
+                #     else:
+                #         cta_setting = intra_max
+                #
+                #         # FIXME: sketchy?
+                #         if intra_max * 2 in df_bench.index:
+                #             sld = df_bench.loc[intra_max * 2]['norm_ipc'] / 2
+                #         else:
+                #             sld = 0.5
+                # else:
+                #     cta_setting = intra_ipc_max // 2
+                #     sld = 0.5
+                #
+                # return [cta_setting, cta_setting], [sld, sld], serial
+                cta_setting, sld = time_multiplex(real_bench)
+                return cta_setting, sld, serial
 
             else:
                 # Different benchmarks. Get settings from df_dynamic
@@ -664,25 +679,19 @@ class RunOption3D(RunOption):
 
                 if pair_index in self.df_dynamic_best.index:
                     series_best = self.df_dynamic_best.loc[pair_index]
-                    cta_setting = [series_best['1_intra'],
-                                   series_best['2_intra']]
-                    sld = series_best['sld'][1:3]
 
-                    if real_bench != sorted_real_bench:
-                        cta_setting.reverse()
-                        sld.reverse()
+                    if sum(series_best['sld']) < 1.0:
+                        cta_setting, sld = time_multiplex(sorted_real_bench)
+                    else:
+                        cta_setting = [series_best['1_intra'],
+                                       series_best['2_intra']]
+                        sld = series_best['sld'][1:3]
                 else:
-                    # If no feasible pair dynamic config, let the kernels
-                    # time multiplex using its best intra config
-                    cta_setting = []
-                    sld = []
-                    # FIXME: get rid of serial
-                    # serial = True
-                    for bench in sorted_real_bench:
-                        best_intra = self.df_intra.xs(bench)['norm_ipc'].idxmax(
-                            axis=0)
-                        cta_setting.append(best_intra)
-                        sld.append(0.5)
+                    cta_setting, sld = time_multiplex(sorted_real_bench)
+
+                if real_bench != sorted_real_bench:
+                    cta_setting.reverse()
+                    sld.reverse()
 
                 return cta_setting, sld, serial
 
