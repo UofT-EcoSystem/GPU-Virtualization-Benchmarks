@@ -100,10 +100,12 @@ class Violation:
     def max_error_pct(self):
         return self.max * 100
 
-    def to_string(self):
-        return "{} QoS violations ({:.2f}% mean relative error, " \
-               "{:.2f}% max error)".format(self.count, self.mean_error_pct(),
-                                           self.max_error_pct())
+    def to_string(self, num_jobs):
+        return "{} QoS violations ({:.2f}% jobs, {:.2f}% mean relative " \
+               "error, {:.2f}% max error)".format(self.count,
+                                                  self.count / num_jobs * 100,
+                                                  self.mean_error_pct(),
+                                                  self.max_error_pct())
 
     def __add__(self, other):
         new_count = self.count + other.count
@@ -504,6 +506,7 @@ class BatchJob:
         # print(self.list_jobs)
 
         # Parse the output and get qos violations
+        print("Running QoS verifications...")
         job_pairs = []
         # print(len(matching))
 

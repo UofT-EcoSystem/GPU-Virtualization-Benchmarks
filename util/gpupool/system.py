@@ -45,7 +45,7 @@ def main():
 
     if args.exp == 0:
         # Generic experiment
-        num_batches = 5
+        num_batches = 1
         num_jobs = 200
 
         result = []
@@ -71,15 +71,22 @@ def main():
                 batch.calculate_qos_violation_random(gpupool,
                                                      cores=args.cores)
 
-            result.append((batch.num_jobs, gpupool, mig, random_violation))
+            result.append(
+                {"batch": batch,
+                 "gpupool": gpupool,
+                 "gpupool_violation": gpupool_violation,
+                 "mig": mig,
+                 "random_violation": random_violation
+                 }
+            )
 
             print("=" * 100)
             print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
             print("GPUPool: {} GPUs with".format(gpupool),
-                  gpupool_violation.to_string())
+                  gpupool_violation.to_string(batch.num_jobs))
             print("MIG: {} GPUs".format(mig))
             print("Random: same number of GPUs as GPUPool with",
-                  random_violation.to_string())
+                  random_violation.to_string(batch.num_jobs))
 
             print("-" * 100)
             print("Profiling info:")
@@ -95,25 +102,31 @@ def main():
 
             print("MIG time {:.6f} sec".format(batch.time_mig))
 
+        # Aggregate results over all runs
         print("=" * 100)
         print("Aggregate results:")
-        for num_jobs, gpupool, mig, random_violations in result:
-            print("{} jobs used {} GPUs with GPUPool and {} GPUs with MIG "
-                  "and {} violations with random."
-                  .format(num_jobs, gpupool, mig, random_violations))
 
         # TODO: how to get an average number?
-        result = np.array(result)
-        sum_gpupool = sum(result[:, 1])
-        sum_mig = sum(result[:, 2])
+
+        sum_gpupool = sum([r['gpupool'] for r in result])
+        sum_mig = sum(r['mig'] for r in result)
+
+        # GPUPool v.s. baseline #1
         pct_reduction = (sum_mig - sum_gpupool) / sum_mig * 100
         print("GPUPool uses {:.2f}% fewer GPUs than MIG on average."
               .format(pct_reduction))
 
-        sum_jobs = sum(result[:, 0])
-        sum_violations = sum(result[:, 3])
-        print("Random matching introduces {:.2f} violations per job "
-              "on average.".format(sum_violations.count / sum_jobs))
+        # GPUPool v.s. baseline #2
+        sum_jobs = sum([r['batch'].num_jobs for r in result])
+        sum_gpupool_violations = sum([r['gpupool_violation'] for r in result])
+        sum_random_violations = sum([r['random_violation'] for r in result])
+
+        print("GPUPool:", sum_gpupool_violations.to_string(sum_jobs))
+        print("Random matching:", sum_random_violations.to_string(sum_jobs))
+        print("Random matching introduces {:.2f}% more violations than "
+              "GPUPool.".format((sum_random_violations.count -
+                                sum_gpupool_violations.count) /
+                                sum_gpupool_violations.count * 100))
 
     elif args.exp == 2:
         job_step = 50
