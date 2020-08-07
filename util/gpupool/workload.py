@@ -558,7 +558,7 @@ class BatchJob:
             time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
-        gpu_count, violation = self._max_matching(gpupool_config)
+        gpu_count, violation = self._max_matching(gpupool_config, cores)
 
         # Save df_pair
         if save:
