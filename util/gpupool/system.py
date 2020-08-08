@@ -138,11 +138,14 @@ def run_exp_0(args):
 
 
 def run_exp_2(args):
+
     job_step = 50
-    min_jobs = 350
+    min_jobs = 50
     max_jobs = 350
     max_jobs += job_step
     f = open('sensitivity_2.out', 'a')
+    f.write('num_jobs, (gpupool_required_gpus, gpupool_violations),\
+    mig_required_gpus, random_violations, dram_bw_based_violations\n')
     for num_jobs in range(min_jobs, max_jobs, job_step):
         result = []
         # generate required number of jobs
@@ -155,15 +158,19 @@ def run_exp_2(args):
                                        accuracy_mode=args.accuracy_mode,
                                        stage2_buffer=args.stage2_buffer)
         gpupool, gpupool_viol = batch.calculate_gpu_count_gpupool(
-            gpupool_config, save=args.save)
+            gpupool_config, args.cores, save=args.save)
 
         # Get baseline #1: MIG results
         mig = batch.calculate_gpu_count_mig()
 
         # Get baseline #2: Random matching results
-        random = batch.calculate_qos_violation_random(gpupool)
+        random = batch.calculate_qos_violation_random(gpupool, args.cores)
 
-        result.append((batch.num_jobs, (gpupool, gpupool_viol), mig, random))
+        # Get baseline #3: Dram_bw based results
+        dram_bw_based = batch.calculate_qos_viol_dram_bw(gpupool, args.cores)
+
+        result.append((batch.num_jobs, (gpupool, gpupool_viol.count), mig,
+            random.count, dram_bw_based))
         f.write('%s\n' % result)
 
     f.close()
