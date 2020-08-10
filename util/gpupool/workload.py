@@ -228,7 +228,7 @@ class Job:
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
             if attained_qos >= self.qos.value:
-                return resources + 1
+                return resources + 1, attained_qos
 
         return MAX_PARTITIONS
 
@@ -471,7 +471,8 @@ class BatchJob:
 
     def calculate_gpu_count_mig(self):
         # convert jobs to size slices 
-        jobs = [x.calculate_static_partition() for x in self.list_jobs]
+        jobs = [x.calculate_static_partition()[0] for x in self.list_jobs]
+        slowdowns = [y.calculate_static_partition()[1] for y in self.list_jobs]
         # Reverse the sorted results
         indeces = np.argsort(jobs)[::-1]
         jobs = np.sort(jobs)[::-1]
@@ -479,6 +480,8 @@ class BatchJob:
         # print("indeces at the start are :", indeces)
         num_gpus = 0
         f = open("mig_sched.out", "a")
+        # variable to keep track of which jobs are on same gpu
+        paired_jobs = []
 
         # returns the index of the element that is to fill the remaining slice
         def best_fill(jobs: list, rem_slice: int) -> (int, int):
@@ -530,8 +533,9 @@ class BatchJob:
                 else:
                     indeces = np.delete(indeces, fill_index[0])
                     jobs = np.delete(jobs, fill_index[0])
-                # print("job line is: ", job_line)
                 f.write(job_line)
+                # add this job into this gpu's job set
+                paired_jobs.append(int(job_line))
                 rem_slice -= job_slice
 
                 # print("remaining slice on this gpu is ", rem_slice)
@@ -547,12 +551,22 @@ class BatchJob:
         start_fill = time.perf_counter()
 
         # main algo loop where we fill machines with jobs
+        speedup_sum = 0
         while len(jobs) > 0:
             # fill next machine
             num_gpus += 1
             gpu_line = "GPU " + str(num_gpus) + ": Jobs "
             f.write(gpu_line)
             jobs, indeces = fill_machine(jobs, indeces, MAX_PARTITIONS)
+            # add appriate amount to speedup sum based on how many jobs on this 
+            # gpu
+            if len(paired_jobs) == 1:
+                speedup_sum += 1
+            else:
+                set_slowdown = [slowdowns[job] for job in paired_jobs]
+                speedup_sum += sum(set_slowdown)
+            # empty the set of jobs on this gpu before we fill next machine
+            paired_jobs = []
             # print("after gpu is filled we have ", jobs, indeces, num_gpus)
             f.write("\n")
 
@@ -560,7 +574,7 @@ class BatchJob:
 
         self.time_mig = time.perf_counter() - start_fill
 
-        return num_gpus
+        return num_gpus, speedup_sum / num_gpus
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
         print("Running GPUPool predictor... ")

@@ -70,7 +70,7 @@ def run_exp_0(args):
                                               save=args.save)
 
         # Get baseline #1: MIG results
-        mig = batch.calculate_gpu_count_mig()
+        mig, mig_ws_total = batch.calculate_gpu_count_mig()
 
         # Get baseline #2: Random matching results
         random_violation = \
@@ -92,7 +92,8 @@ def run_exp_0(args):
         print("GPUPool: {} GPUs achieving {} weighted speedup with".
                 format(gpupool, gpupool_ws_total),
               gpupool_violation.to_string(batch.num_jobs))
-        print("MIG: {} GPUs".format(mig))
+        print("MIG: {} GPUs achieving {} weighted speedup".format(mig,
+            mig_ws_total))
         print("Random: same number of GPUs as GPUPool with",
               random_violation.to_string(batch.num_jobs))
 
