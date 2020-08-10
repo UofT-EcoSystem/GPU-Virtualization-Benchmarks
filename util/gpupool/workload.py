@@ -353,6 +353,9 @@ class BatchJob:
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
 
+        # variable to track sum of weighted speedup
+        ws_sum = 0
+
         # iterate over rows and read off the weighted speedups
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
@@ -403,6 +406,8 @@ class BatchJob:
         matching = [int(x) for x in matching]
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
+        print("number os isolated jobs is ", num_isolated)
+        ws_sum += num_isolated
 
         # Profiling
         self.time_gpupool[gpupool_config.get_time_matching()] = \
@@ -423,8 +428,19 @@ class BatchJob:
                 continue
             job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
 
-        # for pair in job_pairs:
-        #    print("pair is:", pair[0].id, pair[1].id)
+        #print(self.df_pair)
+        #for pair in job_pairs:
+        #    print(pair[0].name, pair[1].name)
+        #    ws = float(self.df_pair[(self.df_pair['pair_str'] == (pair[0].name + '+' +
+        #        pair[1].name)) | (self.df_pair['pair_str'] == (pair[1].name +
+        #        '+' + pair[0].name))][ws_col])
+        #    print(ws)
+        # sum weighted speedup of all matched pairs
+        pair_ws_sum = sum([float(self.df_pair[(self.df_pair['pair_str'] == (pair[0].name + '+' +
+                pair[1].name)) | (self.df_pair['pair_str'] == (pair[1].name +
+                '+' + pair[0].name))][ws_col]) for pair in job_pairs])
+        ws_sum += pair_ws_sum
+        
 
         if len(job_pairs) > 0:
             violations_result = parallelize(
@@ -434,7 +450,8 @@ class BatchJob:
             # No jobs are co-running
             violation = Violation()
 
-        return num_pairs + num_isolated, violation
+        num_gpus = num_pairs + num_isolated
+        return num_gpus, violation, ws_sum / num_gpus
 
     def boosting_tree_test(self, config: GpuPoolConfig, cores):
         delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
@@ -558,7 +575,7 @@ class BatchJob:
             time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
-        gpu_count, violation = self._max_matching(gpupool_config, cores)
+        gpu_count, violation, ws_total = self._max_matching(gpupool_config, cores)
 
         # Save df_pair
         if save:
@@ -572,7 +589,7 @@ class BatchJob:
                     "BatchJob-{}-{}.pkl".format(self.id,
                                                 gpupool_config.to_string())))
 
-        return gpu_count, violation
+        return gpu_count, violation, ws_total
 
     def calculate_qos_violation_random(self, max_gpu_count, cores):
         # With the same number of GPU that GPUPool uses, how many QoS

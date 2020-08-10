@@ -64,7 +64,7 @@ def run_exp_0(args):
                                        at_least_once=False,
                                        accuracy_mode=args.accuracy_mode,
                                        stage2_buffer=args.stage2_buffer)
-        gpupool, gpupool_violation = \
+        gpupool, gpupool_violation, gpupool_ws_total = \
             batch.calculate_gpu_count_gpupool(gpupool_config,
                                               cores=args.cores,
                                               save=args.save)
@@ -81,6 +81,7 @@ def run_exp_0(args):
             {"batch": batch,
              "gpupool": gpupool,
              "gpupool_violation": gpupool_violation,
+             "gpupool_weighted_speedup": gpupool_ws_total,
              "mig": mig,
              "random_violation": random_violation
              }
@@ -88,7 +89,8 @@ def run_exp_0(args):
 
         print("=" * 100)
         print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
-        print("GPUPool: {} GPUs with".format(gpupool),
+        print("GPUPool: {} GPUs achieving {} weighted speedup with".
+                format(gpupool, gpupool_ws_total),
               gpupool_violation.to_string(batch.num_jobs))
         print("MIG: {} GPUs".format(mig))
         print("Random: same number of GPUs as GPUPool with",
