@@ -84,6 +84,7 @@ class Violation:
         self.count = count
         self.sum = err_sum
         self.max = err_max
+        self.pair = None
 
     def update(self, actual_qos, target_qos):
         if actual_qos < target_qos:
@@ -93,6 +94,8 @@ class Violation:
 
             if error > self.max:
                 self.max = error
+            return 1
+        return 0
 
     def mean_error_pct(self):
         if self.count == 0:
@@ -150,8 +153,13 @@ def get_qos_violations(job_pairs: list):
         pair = PairJob([pair[0], pair[1]])
         perf = pair.get_best_effort_performance()
 
+        # counter to keep track if this pair should 
+        # be included into violating pairs
+        include_flag = 0
         for sld, qos in zip(perf.sld, qos_goals):
-            violation.update(sld, qos)
+            include_flag += violation.update(sld, qos)
+        if include_flag > 0:
+            violation.pair = pair
 
     return violation
 
@@ -428,29 +436,43 @@ class BatchJob:
                 continue
             job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
 
-        #print(self.df_pair)
-        #for pair in job_pairs:
-        #    print(pair[0].name, pair[1].name)
-        #    ws = float(self.df_pair[(self.df_pair['pair_str'] == (pair[0].name + '+' +
-        #        pair[1].name)) | (self.df_pair['pair_str'] == (pair[1].name +
-        #        '+' + pair[0].name))][ws_col])
-        #    print(ws)
-        # sum weighted speedup of all matched pairs
-        pair_ws_sum = sum([float(self.df_pair[(self.df_pair['pair_str'] == (pair[0].name + '+' +
-                pair[1].name)) | (self.df_pair['pair_str'] == (pair[1].name +
-                '+' + pair[0].name))][ws_col]) for pair in job_pairs])
-        ws_sum += pair_ws_sum
-        
-
+        from gpupool.predict import PairJob
+        violating_pairs = []
         if len(job_pairs) > 0:
             violations_result = parallelize(
                 job_pairs, cores, get_qos_violations)
             violation = sum(violations_result)
+            violating_pairs = [x.pair.job_names for x in violations_result 
+                    if x.pair is not None]
+            print(violating_pairs)
         else:
             # No jobs are co-running
             violation = Violation()
+        #print("violating pairs are: ", [x.job_names for x in violating_pairs])
 
-        num_gpus = num_pairs + num_isolated
+        # convert violating pairs into list of strings each being a pair
+        violating_pairs = [x[0] + '+' + x[1] for x in violating_pairs]
+        print(violating_pairs)
+
+        num_gpus = num_isolated + num_pairs
+        pair_ws_sum = num_isolated
+        # calculate weighted speedup taking violations into account
+        for pair in job_pairs:
+            # two possible names for this matched pair
+            name_0 = (pair[0].name + '+' + pair[1].name)
+            name_1 = (pair[1].name + '+' + pair[0].name)
+            if name_0 in violating_pairs or name_1 in violating_pairs:
+                print('name_0 and name_1 are {} and {}'.format(name_0, name_1))
+                num_gpus += 1
+                ws_sum += 2
+                continue
+            if any(self.df_pair['pair_str'] == name_0):
+                ws_sum += float(self.df_pair[(self.df_pair['pair_str'] == 
+                    name_0)][ws_col])
+            else: 
+                ws_sum += float(self.df_pair[(self.df_pair['pair_str'] == 
+                    name_1)][ws_col])
+
         return num_gpus, violation, ws_sum / num_gpus
 
     def boosting_tree_test(self, config: GpuPoolConfig, cores):
