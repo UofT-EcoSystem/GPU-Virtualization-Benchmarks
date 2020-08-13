@@ -85,6 +85,7 @@ class Violation:
         self.sum = err_sum
         self.max = err_max
         self.pair = None
+        self.actual_ws = None
 
     def update(self, actual_qos, target_qos):
         if actual_qos < target_qos:
@@ -151,15 +152,17 @@ def get_qos_violations(job_pairs: list):
 
         from gpupool.predict import PairJob
         pair = PairJob([pair[0], pair[1]])
+        #print('job names are: ', pair.job_names)
         perf = pair.get_best_effort_performance()
+        #print('performance is: ', perf.sld)
 
         # counter to keep track if this pair should 
         # be included into violating pairs
         include_flag = 0
         for sld, qos in zip(perf.sld, qos_goals):
-            include_flag += violation.update(sld, qos)
-        if include_flag > 0:
+            violation.update(sld, qos)
             violation.pair = pair
+            violation.actual_qos = perf
 
     return violation
 
@@ -442,36 +445,28 @@ class BatchJob:
             violations_result = parallelize(
                 job_pairs, cores, get_qos_violations)
             violation = sum(violations_result)
-            violating_pairs = [x.pair.job_names for x in violations_result 
-                    if x.pair is not None]
-            print(violating_pairs)
+            job_pairs = [(x.pair.job_names, x.count, x.actual_qos) for x in violations_result]
         else:
             # No jobs are co-running
             violation = Violation()
         #print("violating pairs are: ", [x.job_names for x in violating_pairs])
 
         # convert violating pairs into list of strings each being a pair
-        violating_pairs = [x[0] + '+' + x[1] for x in violating_pairs]
-        print(violating_pairs)
+        print('number of pairs: ',len(job_pairs))
+
 
         num_gpus = num_isolated + num_pairs
-        pair_ws_sum = num_isolated
         # calculate weighted speedup taking violations into account
         for pair in job_pairs:
-            # two possible names for this matched pair
-            name_0 = (pair[0].name + '+' + pair[1].name)
-            name_1 = (pair[1].name + '+' + pair[0].name)
-            if name_0 in violating_pairs or name_1 in violating_pairs:
-                print('name_0 and name_1 are {} and {}'.format(name_0, name_1))
+            # if this pair violated
+            if pair[1] == 1:
+                print('violating pair is {}'.format(pair))
                 num_gpus += 1
                 ws_sum += 2
                 continue
-            if any(self.df_pair['pair_str'] == name_0):
-                ws_sum += float(self.df_pair[(self.df_pair['pair_str'] == 
-                    name_0)][ws_col])
-            else: 
-                ws_sum += float(self.df_pair[(self.df_pair['pair_str'] == 
-                    name_1)][ws_col])
+            else:
+                print('pair ws is: ', sum(pair[2].sld))
+                ws_sum += sum(pair[2].sld)
 
         return num_gpus, violation, ws_sum / num_gpus
 
