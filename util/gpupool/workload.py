@@ -650,7 +650,7 @@ class BatchJob:
         indeces = np.argsort(dram_utils)[::-1]
         job_dram_utils = np.sort(dram_utils)[::-1]
 
-        num_singles = -self.num_jobs + 2 * (gpu_avail)
+        num_singles = -self.num_jobs + 2 * gpu_avail
         f = open('dram_bw_based.out', 'a')
         gpu_count = 0
         # allocate singles
@@ -661,24 +661,24 @@ class BatchJob:
         # pair up rest based on dram_bw
         job_dram_utils = job_dram_utils[num_singles:]
         indeces = indeces[num_singles:]
+
         job_pair_indeces = []
         while len(indeces) > 1:
-            if (len(indeces) >= 2):
+            if len(indeces) >= 2:
                 gpu_count += 1
-                f.write('{} {}\n'.format(indeces[0], indeces[len(indeces) - 1]))
-                job_pair_indeces.append((indeces[0], indeces[len(indeces) - 1]))
+                f.write('{} {}\n'.format(indeces[0], indeces[-1]))
+                job_pair_indeces.append((indeces[0], indeces[-1]))
                 # remove indeces from the list
-                indeces = np.delete(indeces, [0, len(indeces) - 1])
-                job_dram_utils = np.delete(job_dram_utils,
-                                           [0, len(job_dram_utils) - 1])
+                indeces = indeces[1:-1]
+                job_dram_utils = job_dram_utils[1:-1]
             else:
                 f.write('{}\n'.format(indeces[0]))
                 # remove indeces from the list
-                indeces = np.delete(indeces, 0)
-                job_dram_utils = np.delete(job_dram_utils, 0)
+                indeces.clear()
+                job_dram_utils.clear()
 
-        job_pairs = [(self.list_jobs[ind[0]], self.list_jobs[ind[1]]) for ind in
-                     job_pair_indeces]
+        job_pairs = [(self.list_jobs[idx[0]], self.list_jobs[idx[1]])
+                     for idx in job_pair_indeces]
 
         os.system('rm dram_bw_based.out')
 
