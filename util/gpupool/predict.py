@@ -485,8 +485,16 @@ class RunOption:
             model = RunOption.train_boosting_tree(train_all=False,
                                                   df_train=df_train)
 
+        # Profile info
+        # start_inference = time.perf_counter()
+
         # Run inference on all pairs
         sld = [model.predict(x) for x in xs]
+
+        # duration_inference = \
+        #     (time.perf_counter() - start_inference) / len(df_prod_tot.index)
+        # print("Duration per inference:", duration_inference, "sec")
+
         df_prod_tot['sld'] = list(zip(sld[0], sld[1]))
         df_prod_tot['ws'] = df_prod_tot['sld'].apply(lambda x: x[0] + x[1])
 

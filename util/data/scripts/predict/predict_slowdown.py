@@ -194,8 +194,8 @@ def train(X, y, cross_validation=True):
 
 
 def plot_importance(clf, type='old'):
-    fig = plt.figure(figsize=(20, 10))
-    plt.style.use('seaborn-talk')
+    fig = plt.figure()
+    plt.style.use('seaborn-paper')
     # #########################################################################
     # Plot feature importance
     feature_importance = clf.feature_importances_
@@ -213,12 +213,13 @@ def plot_importance(clf, type='old'):
     else:
         np_cols = np.array(list(metric_dict.keys()))
 
-    plt.yticks(pos, np_cols[sorted_idx], fontsize=20)
-    plt.xlabel('Importance')
-    plt.title('Variable Importance')
+    plt.yticks(pos, np_cols[sorted_idx])
+    plt.xlabel('Importance Score')
+    # plt.title('Variable Importance')
 
     # plt.show()
-    fig.savefig(os.path.join(const.DATA_HOME, 'graphs/grad_boosting_imp.pdf'))
+    fig.savefig(os.path.join(const.DATA_HOME, 'graphs/grad_boosting_imp.pdf'),
+                bbox_inches='tight')
 
 
 def predict_from_df(clf, df_pair, suffix):
