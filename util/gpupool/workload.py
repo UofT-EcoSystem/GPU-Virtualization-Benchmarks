@@ -158,15 +158,39 @@ def get_qos_violations(job_pairs: list):
 
         from gpupool.predict import PairJob
         pair = PairJob([pair[0], pair[1]])
-        # print('job names are: ', pair.job_names)
         perf = pair.get_best_effort_performance()
-        # print('performance is: ', perf.sld)
+        violated_pair = False
+
+        for sld, qos in zip(perf.sld, qos_goals):
+            violated_pair |= violation.update(sld, qos)
+
+        if violated_pair:
+            violation.gpu_increase += 1
+            violation.actual_ws += 2
+        else:
+            violation.actual_ws += sum(perf.sld)
+
+    return violation
+
+
+def verify_qos_violations(options: list):
+    violation = Violation()
+
+    for option in options:
+        job_pair = option.jobs
+        qos_goals = [job_pair[0].qos.value, job_pair[1].qos.value]
+
+        # This function changes interference matrix get a deepcopy first
+        from copy import deepcopy
+        option_copy = deepcopy(option)
+        perf = option_copy.get_real_performance()
 
         violated_pair = False
         for sld, qos in zip(perf.sld, qos_goals):
             violated_pair |= violation.update(sld, qos)
 
         if violated_pair:
+            print(option.job_names)
             violation.gpu_increase += 1
             violation.actual_ws += 2
         else:
@@ -360,6 +384,22 @@ class BatchJob:
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
 
+    def boosting_tree_test(self, config: GpuPoolConfig, cores):
+        delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
+        # Flatten the array
+        import itertools
+        delta = list(itertools.chain.from_iterable(delta))
+
+        sum_delta = 0
+        len_delta = 0
+        for d in delta:
+            sum_delta += d[0] * d[1]
+            len_delta += d[1]
+
+        average_error = sum_delta / len_delta
+
+        return average_error
+
     def _max_matching(self, gpupool_config, cores):
         # Call max weight matching solver
 
@@ -436,18 +476,25 @@ class BatchJob:
 
         # Parse the output and get qos violations
         print("Running QoS verifications...")
-        job_pairs = []
+        options = []
         # print(len(matching))
 
         for i in range(self.num_jobs):
             if matching[i] < i:
                 # either no pair or pair was formed already
                 continue
-            job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
 
-        if len(job_pairs) > 0:
+            job_pair = [self.list_jobs[matching[i]].name,
+                        self.list_jobs[i].name]
+            job_pair.sort()
+            pair_str = "+".join(job_pair)
+            option = self.df_pair[self.df_pair['pair_str'] == pair_str]\
+                [gpupool_config.get_option()].iloc[0]
+            options.append(option)
+
+        if len(options) > 0:
             violations_result = parallelize(
-                job_pairs, cores, get_qos_violations)
+                options, cores, verify_qos_violations)
             violation = sum(violations_result)
         else:
             # No jobs are co-running
@@ -458,23 +505,8 @@ class BatchJob:
 
         return num_gpus, violation, ws_sum / num_gpus
 
-    def boosting_tree_test(self, config: GpuPoolConfig, cores):
-        delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
-        # Flatten the array
-        import itertools
-        delta = list(itertools.chain.from_iterable(delta))
-
-        sum_delta = 0
-        len_delta = 0
-        for d in delta:
-            sum_delta += d[0] * d[1]
-            len_delta += d[1]
-
-        average_error = sum_delta / len_delta
-
-        return average_error
-
     def calculate_gpu_count_mig(self):
+        print("Running MIG job scheduling...")
         # convert jobs to size slices 
         jobs = [x.calculate_static_partition()[0] for x in self.list_jobs]
         slowdowns = [y.calculate_static_partition()[1] for y in self.list_jobs]
@@ -579,6 +611,8 @@ class BatchJob:
 
         self.time_mig = time.perf_counter() - start_fill
 
+        print("Done with MIG scheduling.")
+
         return num_gpus, speedup_sum / num_gpus
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
@@ -609,9 +643,13 @@ class BatchJob:
                     "BatchJob-{}-{}.pkl".format(self.id,
                                                 gpupool_config.to_string())))
 
+        print("Done with GPUPool Calculations.\n")
+
         return gpu_count, violation, ws_total
 
     def calculate_qos_violation_random(self, max_gpu_count, cores):
+        print("Running random matching...")
+
         # With the same number of GPU that GPUPool uses, how many QoS
         # violations we will get with random assignment
         job_lhs = np.array(self.list_jobs[0:max_gpu_count])
@@ -628,9 +666,11 @@ class BatchJob:
         else:
             violation = Violation()
 
+        print("Done random matching.\n")
         return violation
 
     def calculate_qos_viol_dram_bw(self, gpu_avail, cores):
+        print("Running heuristic-based scheduling...")
 
         # access the dram bw of bms:
         df = const.get_pickle('seq.pkl')
@@ -689,4 +729,5 @@ class BatchJob:
         else:
             violation = Violation()
 
+        print("Done with heuristic-based scheduling...\n")
         return violation.count

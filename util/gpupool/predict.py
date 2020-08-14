@@ -148,6 +148,9 @@ class RunOption:
         ['1_bench', '1_kidx', '2_bench', '2_kidx'], drop=True)
     df_dynamic_index = df_dynamic.set_index(
         ['1_bench', '2_bench'], drop=True)
+    df_dynamic_index_all = df_dynamic.set_index(
+        ['1_bench', '2_bench', '1_intra', '2_intra'], drop=True
+    ).sort_index()
 
     df_intra = const.get_pickle('intra.pkl').set_index(
         ['pair_str', '1_kidx', 'intra']).sort_index()
@@ -468,9 +471,29 @@ class RunOption:
                 (df_prod_tot[rsrc + '_x'] + df_prod_tot[rsrc + '_y']) <= 1.0
                 ]
 
+        # FIXME: be consistent with df_dyanmic launch condition
+        # Only check the ones with above 0.5 intra norm ipc
+        df_prod_tot = df_prod_tot[df_prod_tot['norm_ipc_x'] > 0.5]
+        df_prod_tot = df_prod_tot[df_prod_tot['norm_ipc_y'] > 0.5]
+
+        # FIXME: Don't predict anything that is not available from GPUSim
+        filtered_list = []
+        for idx, row in df_prod_tot.iterrows():
+            bench = [row['pair_str_x'], row['pair_str_y']]
+            ctas = [row['intra_x'], row['intra_y']]
+            sorted_bench = sorted(bench)
+
+            if sorted_bench != bench:
+                ctas.reverse()
+
+            index = tuple(sorted_bench) + tuple(ctas)
+            if index in self.df_dynamic_index_all.index:
+                filtered_list.append(row)
+
+        df_prod_tot = pd.DataFrame(filtered_list)
+
         # Prep for inference data
-        xs = tree_model.prepare_datasets(df_prod_tot,
-                                         training=False)
+        xs = tree_model.prepare_datasets(df_prod_tot, training=False)
 
         if accuracy_mode:
             # Retrain model for cross validation
@@ -517,7 +540,8 @@ class RunOption:
                         dfs[i]['norm_ipc'].idxmax(axis=0)
                     self.interference_matrix[i][matrix_idx] = 0.5
 
-            if benchmarks not in df_prod_tot.index:
+            if (benchmarks[0] == benchmarks[1]) or \
+                    (benchmarks not in df_prod_tot.index):
                 time_multiplex()
             else:
                 pair_series = df_prod_tot.xs(benchmarks)
@@ -552,6 +576,44 @@ class RunOption:
                           for matrix in delta]).flatten()
 
         return sum(delta) / len(delta), len(delta)
+
+    def get_real_performance(self):
+        # Update interference matrix
+        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
+            row_idx = matrix_idx[0]
+            col_idx = matrix_idx[1]
+
+            # Look up real performance from df_dynamic
+            benchmarks = [self.jobs[0].benchmarks[col_idx],
+                          self.jobs[1].benchmarks[row_idx]]
+            ctas = [self.config_matrix[0][matrix_idx],
+                    self.config_matrix[1][matrix_idx]]
+
+            sorted_bench = sorted(benchmarks)
+
+            if sorted_bench != benchmarks:
+                # Flip everything
+                ctas.reverse()
+
+            index = tuple(sorted_bench) + tuple(ctas)
+            if index in self.df_dynamic_index_all.index:
+                df_bench_pair = self.df_dynamic_index_all.loc[index]
+                sld = df_bench_pair['sld'].iloc[0]
+            else:
+                sld = [0, 0.5, 0.5]
+
+            if sorted_bench != benchmarks:
+                self.interference_matrix[0][matrix_idx] = sld[2]
+                self.interference_matrix[1][matrix_idx] = sld[1]
+            else:
+                self.interference_matrix[0][matrix_idx] = sld[1]
+                self.interference_matrix[1][matrix_idx] = sld[2]
+
+            self.serial[matrix_idx] = False
+
+        # Run second stage full
+        perf = self.app_wise_full_and_steady(steady=False, at_least_once=False)
+        return perf
 
     def _pretty_print_matrix(self, title, data):
         for job, job_data in zip(self.jobs, data):
@@ -709,7 +771,7 @@ class RunOption3D(RunOption):
                 # else:
                 #     cta_setting = intra_ipc_max // 2
                 #     sld = 0.5
-                #
+
                 # return [cta_setting, cta_setting], [sld, sld], serial
                 cta_setting, sld = time_multiplex(real_bench)
                 return cta_setting, sld, serial
