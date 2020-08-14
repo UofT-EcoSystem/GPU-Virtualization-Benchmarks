@@ -151,8 +151,10 @@ def run_exp_2(args):
     (mig_required_gpus, mig_ws), random_violations, dram_bw_based_violations\n')
     for num_jobs in range(min_jobs, max_jobs, job_step):
         result = []
+        seed = num_jobs // job_step
+        print(seed)
         # generate required number of jobs
-        batch = BatchJob(rand_seed=0, num_jobs=num_jobs)
+        batch = BatchJob(rand_seed=seed, num_jobs=num_jobs)
         # Get GPUPool results
         gpupool_config = GpuPoolConfig(Allocation.Three_D,
                                        StageOne[args.stage1],
