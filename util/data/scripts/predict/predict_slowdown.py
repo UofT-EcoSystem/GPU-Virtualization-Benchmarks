@@ -211,7 +211,7 @@ def plot_importance(clf, type='old'):
     if type == 'ws':
         np_cols = np.array(cols_ws)
     else:
-        np_cols = np.array(metric_dict.keys())
+        np_cols = np.array(list(metric_dict.keys()))
 
     plt.yticks(pos, np_cols[sorted_idx], fontsize=20)
     plt.xlabel('Importance')
