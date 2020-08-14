@@ -80,12 +80,13 @@ class GpuPoolConfig:
 
 
 class Violation:
-    def __init__(self, count=0, err_sum=0, err_max=0):
+    def __init__(self, count=0, err_sum=0, err_max=0, gpu_increase=0,
+                 actual_ws=0):
         self.count = count
         self.sum = err_sum
         self.max = err_max
-        self.pair = None
-        self.actual_ws = None
+        self.gpu_increase = gpu_increase
+        self.actual_ws = actual_ws
 
     def update(self, actual_qos, target_qos):
         if actual_qos < target_qos:
@@ -95,8 +96,11 @@ class Violation:
 
             if error > self.max:
                 self.max = error
-            return 1
-        return 0
+
+            # return did violate
+            return True
+        else:
+            return False
 
     def mean_error_pct(self):
         if self.count == 0:
@@ -118,8 +122,10 @@ class Violation:
         new_count = self.count + other.count
         new_sum = self.sum + other.sum
         new_max = max(self.max, other.max)
+        new_gpu_increase = self.gpu_increase + other.gpu_increase
+        new_ws = self.actual_ws + other.actual_ws
 
-        return Violation(new_count, new_sum, new_max)
+        return Violation(new_count, new_sum, new_max, new_gpu_increase, new_ws)
 
     def __radd__(self, other):
         if other == 0:
@@ -152,17 +158,19 @@ def get_qos_violations(job_pairs: list):
 
         from gpupool.predict import PairJob
         pair = PairJob([pair[0], pair[1]])
-        #print('job names are: ', pair.job_names)
+        # print('job names are: ', pair.job_names)
         perf = pair.get_best_effort_performance()
-        #print('performance is: ', perf.sld)
+        # print('performance is: ', perf.sld)
 
-        # counter to keep track if this pair should 
-        # be included into violating pairs
-        include_flag = 0
+        violated_pair = False
         for sld, qos in zip(perf.sld, qos_goals):
-            violation.update(sld, qos)
-            violation.pair = pair
-            violation.actual_qos = perf
+            violated_pair |= violation.update(sld, qos)
+
+        if violated_pair:
+            violation.gpu_increase += 1
+            violation.actual_ws += 2
+        else:
+            violation.actual_ws += sum(perf.sld)
 
     return violation
 
@@ -175,6 +183,7 @@ def verify_boosting_tree(df, config: GpuPoolConfig):
     )
 
     return delta.tolist()
+
 
 # End parallel functions
 
@@ -364,9 +373,6 @@ class BatchJob:
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
 
-        # variable to track sum of weighted speedup
-        ws_sum = 0
-
         # iterate over rows and read off the weighted speedups
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
@@ -417,8 +423,8 @@ class BatchJob:
         matching = [int(x) for x in matching]
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
-        print("number os isolated jobs is ", num_isolated)
-        ws_sum += num_isolated
+        print("number of isolated jobs is ", num_isolated)
+        print("number of pairs is ", num_pairs)
 
         # Profiling
         self.time_gpupool[gpupool_config.get_time_matching()] = \
@@ -439,34 +445,16 @@ class BatchJob:
                 continue
             job_pairs.append((self.list_jobs[matching[i]], self.list_jobs[i]))
 
-        from gpupool.predict import PairJob
-        violating_pairs = []
         if len(job_pairs) > 0:
             violations_result = parallelize(
                 job_pairs, cores, get_qos_violations)
             violation = sum(violations_result)
-            job_pairs = [(x.pair.job_names, x.count, x.actual_qos) for x in violations_result]
         else:
             # No jobs are co-running
             violation = Violation()
-        #print("violating pairs are: ", [x.job_names for x in violating_pairs])
 
-        # convert violating pairs into list of strings each being a pair
-        print('number of pairs: ',len(job_pairs))
-
-
-        num_gpus = num_isolated + num_pairs
-        # calculate weighted speedup taking violations into account
-        for pair in job_pairs:
-            # if this pair violated
-            if pair[1] == 1:
-                print('violating pair is {}'.format(pair))
-                num_gpus += 1
-                ws_sum += 2
-                continue
-            else:
-                print('pair ws is: ', sum(pair[2].sld))
-                ws_sum += sum(pair[2].sld)
+        num_gpus = num_isolated + num_pairs + violation.gpu_increase
+        ws_sum = num_isolated + violation.actual_ws
 
         return num_gpus, violation, ws_sum / num_gpus
 
@@ -606,7 +594,8 @@ class BatchJob:
             time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
-        gpu_count, violation, ws_total = self._max_matching(gpupool_config, cores)
+        gpu_count, violation, ws_total = self._max_matching(gpupool_config,
+                                                            cores)
 
         # Save df_pair
         if save:
@@ -640,7 +629,6 @@ class BatchJob:
             violation = Violation()
 
         return violation
-
 
     def calculate_qos_viol_dram_bw(self, gpu_avail, cores):
 
