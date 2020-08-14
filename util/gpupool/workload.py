@@ -640,16 +640,16 @@ class BatchJob:
             cycles = job.get_seq_cycles()
             job_total = sum(cycles)
             norm_lengths = [x / job_total for x in cycles]
-            avg_dram_bw_util = [float(df[df['pair_str'] == bm]['avg_dram_bw']) for bm
-                    in job.benchmarks]
-            weighted_arith_mean = sum([norm_lengths[i] * avg_dram_bw_util[i] for i
-                    in range(len(norm_lengths))])
+            avg_dram_bw_util = [float(df[df['pair_str'] == bm]['avg_dram_bw'])
+                                for bm in job.benchmarks]
+            weighted_arith_mean = sum([norm_lengths[i] * avg_dram_bw_util[i]
+                                       for i in range(len(norm_lengths))])
             dram_utils.append(weighted_arith_mean)
 
         # sort the jobs and indeces
         indeces = np.argsort(dram_utils)[::-1]
         job_dram_utils = np.sort(dram_utils)[::-1]
-        
+
         num_singles = -self.num_jobs + 2 * (gpu_avail)
         f = open('dram_bw_based.out', 'a')
         gpu_count = 0
@@ -663,13 +663,14 @@ class BatchJob:
         indeces = indeces[num_singles:]
         job_pair_indeces = []
         while len(indeces) > 1:
-            if(len(indeces) >= 2):
+            if (len(indeces) >= 2):
                 gpu_count += 1
                 f.write('{} {}\n'.format(indeces[0], indeces[len(indeces) - 1]))
                 job_pair_indeces.append((indeces[0], indeces[len(indeces) - 1]))
                 # remove indeces from the list
                 indeces = np.delete(indeces, [0, len(indeces) - 1])
-                job_dram_utils = np.delete(job_dram_utils, [0, len(job_dram_utils) - 1])
+                job_dram_utils = np.delete(job_dram_utils,
+                                           [0, len(job_dram_utils) - 1])
             else:
                 f.write('{}\n'.format(indeces[0]))
                 # remove indeces from the list
@@ -677,7 +678,7 @@ class BatchJob:
                 job_dram_utils = np.delete(job_dram_utils, 0)
 
         job_pairs = [(self.list_jobs[ind[0]], self.list_jobs[ind[1]]) for ind in
-                job_pair_indeces]
+                     job_pair_indeces]
 
         os.system('rm dram_bw_based.out')
 
