@@ -81,12 +81,17 @@ class GpuPoolConfig:
 
 class Violation:
     def __init__(self, count=0, err_sum=0, err_max=0, gpu_increase=0,
-                 actual_ws=0):
+                 actual_ws=0, actual_ws_list=None):
         self.count = count
         self.sum = err_sum
         self.max = err_max
         self.gpu_increase = gpu_increase
         self.actual_ws = actual_ws
+
+        if actual_ws_list is None:
+            self.actual_ws_list = []
+        else:
+            self.actual_ws_list = actual_ws_list
 
     def update(self, actual_qos, target_qos):
         if actual_qos < target_qos:
@@ -124,8 +129,10 @@ class Violation:
         new_max = max(self.max, other.max)
         new_gpu_increase = self.gpu_increase + other.gpu_increase
         new_ws = self.actual_ws + other.actual_ws
+        new_ws_list = self.actual_ws_list + other.actual_ws_list
 
-        return Violation(new_count, new_sum, new_max, new_gpu_increase, new_ws)
+        return Violation(new_count, new_sum, new_max,
+                         new_gpu_increase, new_ws, new_ws_list)
 
     def __radd__(self, other):
         if other == 0:
@@ -167,8 +174,10 @@ def get_qos_violations(job_pairs: list):
         if violated_pair:
             violation.gpu_increase += 1
             violation.actual_ws += 2
+            violation.actual_ws_list += [1, 1]
         else:
             violation.actual_ws += sum(perf.sld)
+            violation.actual_ws_list.append(sum(perf.sld))
 
     return violation
 
@@ -193,8 +202,10 @@ def verify_qos_violations(options: list):
             print(option.job_names)
             violation.gpu_increase += 1
             violation.actual_ws += 2
+            violation.actual_ws_list += [1, 1]
         else:
             violation.actual_ws += sum(perf.sld)
+            violation.actual_ws_list.append(sum(perf.sld))
 
     return violation
 
@@ -502,8 +513,9 @@ class BatchJob:
 
         num_gpus = num_isolated + num_pairs + violation.gpu_increase
         ws_sum = num_isolated + violation.actual_ws
+        ws_list = [1] * num_isolated + violation.actual_ws_list
 
-        return num_gpus, violation, ws_sum / num_gpus
+        return num_gpus, violation, ws_sum / num_gpus, ws_list
 
     def calculate_gpu_count_mig(self):
         print("Running MIG job scheduling...")
@@ -589,6 +601,7 @@ class BatchJob:
 
         # main algo loop where we fill machines with jobs
         speedup_sum = 0
+        ws_list = []
         while len(jobs) > 0:
             # fill next machine
             num_gpus += 1
@@ -599,9 +612,11 @@ class BatchJob:
             # gpu
             if len(paired_jobs) == 1:
                 speedup_sum += 1
+                ws_list.append(1)
             else:
                 set_slowdown = [slowdowns[job] for job in paired_jobs]
                 speedup_sum += sum(set_slowdown)
+                ws_list.append(sum(set_slowdown))
             # empty the set of jobs on this gpu before we fill next machine
             paired_jobs = []
             # print("after gpu is filled we have ", jobs, indeces, num_gpus)
@@ -613,7 +628,7 @@ class BatchJob:
 
         print("Done with MIG scheduling.")
 
-        return num_gpus, speedup_sum / num_gpus
+        return num_gpus, speedup_sum / num_gpus, ws_list
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
         print("Running GPUPool predictor... ")
@@ -628,8 +643,8 @@ class BatchJob:
             time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
-        gpu_count, violation, ws_total = self._max_matching(gpupool_config,
-                                                            cores)
+        gpu_count, violation, ws_total, ws_list = \
+            self._max_matching(gpupool_config, cores)
 
         # Save df_pair
         if save:
@@ -690,7 +705,7 @@ class BatchJob:
         indeces = np.argsort(dram_utils)[::-1]
         job_dram_utils = np.sort(dram_utils)[::-1]
 
-        num_singles = -self.num_jobs + 2 * gpu_avail
+        num_singles = int(-self.num_jobs + 2 * gpu_avail)
         f = open('dram_bw_based.out', 'a')
         gpu_count = 0
         # allocate singles
@@ -729,5 +744,8 @@ class BatchJob:
         else:
             violation = Violation()
 
+        ws_list = violation.actual_ws_list + [1] * num_singles
         print("Done with heuristic-based scheduling...\n")
-        return violation.count
+        gpu_migrated_count = gpu_avail + violation.gpu_increase
+
+        return violation.count, ws_list, gpu_migrated_count

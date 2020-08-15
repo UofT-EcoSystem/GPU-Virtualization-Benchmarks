@@ -172,7 +172,8 @@ def run_exp_2(args):
         random = batch.calculate_qos_violation_random(gpupool, args.cores)
 
         # Get baseline #3: Dram_bw based results
-        dram_bw_based = batch.calculate_qos_viol_dram_bw(gpupool, args.cores)
+        dram_bw_based, dram_bw_ws_list, migrated_count_dram = \
+            batch.calculate_qos_viol_dram_bw(gpupool, args.cores)
 
         result.append((batch.num_jobs,
                        (gpupool, gpupool_viol.count, gpupool_ws),

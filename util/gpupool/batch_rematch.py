@@ -29,7 +29,8 @@ for num_jobs in range(min_jobs, max_jobs, job_step):
     random = batch.calculate_qos_violation_random(gpupool, 32)
 
     # Get baseline #3: Dram_bw based results
-    dram_bw_based = batch.calculate_qos_viol_dram_bw(gpupool, 32)
+    dram_bw_based, ws_list_dram, migrated_count_dram = \
+        batch.calculate_qos_viol_dram_bw(gpupool, 32)
 
     result.append((batch.num_jobs, (gpupool, gpupool_viol.count, gpupool_ws), mig,
         random.count, dram_bw_based))
