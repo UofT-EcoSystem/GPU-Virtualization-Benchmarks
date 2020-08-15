@@ -26,12 +26,13 @@ metric_dict = OrderedDict([
     ('ratio_int_busy', 'int_busy'),
     ('sum_int_busy', 'int_busy'),
     ('sum_not_selected_cycles', 'not_selected_cycles'),
-    ('ratio_dp_busy', 'dp_busy'),
-    ('sum_dp_busy', 'dp_busy'),
+    # ('ratio_dp_busy', 'dp_busy'),
+    # ('sum_dp_busy', 'dp_busy'),
     ('l2_miss_rate', 'l2_miss_rate'),
-    # 'ratio_rbh': 'avg_rbh',
+    ('ratio_rbh', 'avg_rbh'),
 ])
 
+# deprecated
 cols_ws = ['sum_norm_ipc',
            'sum_avg_rbh',
            'sum_mflat',
@@ -167,12 +168,12 @@ def prepare_ws_datasets(df_pair):
 
 
 def train(X, y, cross_validation=True):
-    params = {'n_estimators': 400, 'max_depth': 9, 'min_samples_split': 2,
-              'learning_rate': 0.05, 'loss': 'huber'}
+    params = {'n_estimators': 300, 'max_depth': 8, 'min_samples_split': 2,
+              'learning_rate': 0.1, 'loss': 'huber'}
 
     if cross_validation:
         # Fit gradient boost tree regression model using K-fold cross validation
-        kf = KFold(n_splits=5, shuffle=True)
+        kf = KFold(n_splits=3, shuffle=True)
 
         for train_index, test_index in kf.split(X):
             X_train, X_test = X[train_index], X[test_index]
@@ -222,13 +223,11 @@ def plot_importance(clf, type='old'):
                 bbox_inches='tight')
 
 
-def predict_from_df(clf, df_pair, suffix):
-    cols = [c + '_' + suffix for c in metric_dict]
+def predict_from_df(clf, df_pair):
+    xs = prepare_datasets(df_pair, training=False)
+    ys = [clf.predict(x) for x in xs]
 
-    X = df_pair[cols].values.astype(np.double)
-    X = np.nan_to_num(X, neginf=-1e30, posinf=1e30)
-
-    return clf.predict(X)
+    return ys
 
 
 def parse_args():
