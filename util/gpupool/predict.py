@@ -476,21 +476,9 @@ class RunOption:
         df_prod_tot = df_prod_tot[df_prod_tot['norm_ipc_x'] > 0.5]
         df_prod_tot = df_prod_tot[df_prod_tot['norm_ipc_y'] > 0.5]
 
-        # FIXME: Don't predict anything that is not available from GPUSim
-        filtered_list = []
-        for idx, row in df_prod_tot.iterrows():
-            bench = [row['pair_str_x'], row['pair_str_y']]
-            ctas = [row['intra_x'], row['intra_y']]
-            sorted_bench = sorted(bench)
-
-            if sorted_bench != bench:
-                ctas.reverse()
-
-            index = tuple(sorted_bench) + tuple(ctas)
-            if index in self.df_dynamic_index_all.index:
-                filtered_list.append(row)
-
-        df_prod_tot = pd.DataFrame(filtered_list)
+        # Don't predict same benchmarks
+        df_prod_tot = df_prod_tot[df_prod_tot['pair_str_x']
+                                  != df_prod_tot['pair_str_y']]
 
         # Prep for inference data
         xs = tree_model.prepare_datasets(df_prod_tot, training=False)
@@ -540,8 +528,7 @@ class RunOption:
                         dfs[i]['norm_ipc'].idxmax(axis=0)
                     self.interference_matrix[i][matrix_idx] = 0.5
 
-            if (benchmarks[0] == benchmarks[1]) or \
-                    (benchmarks not in df_prod_tot.index):
+            if benchmarks not in df_prod_tot.index:
                 time_multiplex()
             else:
                 pair_series = df_prod_tot.xs(benchmarks)
