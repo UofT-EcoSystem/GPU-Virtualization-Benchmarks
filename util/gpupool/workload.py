@@ -81,12 +81,17 @@ class GpuPoolConfig:
 
 class Violation:
     def __init__(self, count=0, err_sum=0, err_max=0, gpu_increase=0,
-                 actual_ws=0, actual_ws_list=None):
+                 actual_ws=0, actual_ws_list=None, job_sld=None):
         self.count = count
         self.sum = err_sum
         self.max = err_max
         self.gpu_increase = gpu_increase
         self.actual_ws = actual_ws
+
+        if job_sld is None:
+            self.job_sld = {}
+        else:
+            self.job_sld = job_sld
 
         if actual_ws_list is None:
             self.actual_ws_list = []
@@ -131,8 +136,12 @@ class Violation:
         new_ws = self.actual_ws + other.actual_ws
         new_ws_list = self.actual_ws_list + other.actual_ws_list
 
+        new_job_sld = {}
+        new_job_sld.update(self.job_sld)
+        new_job_sld.update(other.job_sld)
+
         return Violation(new_count, new_sum, new_max,
-                         new_gpu_increase, new_ws, new_ws_list)
+                         new_gpu_increase, new_ws, new_ws_list, new_job_sld)
 
     def __radd__(self, other):
         if other == 0:
@@ -160,11 +169,11 @@ def get_perf(df, config: GpuPoolConfig):
 def get_qos_violations(job_pairs: list):
     violation = Violation()
 
-    for pair in job_pairs:
-        qos_goals = [pair[0].qos.value, pair[1].qos.value]
+    for list_job in job_pairs:
+        qos_goals = [list_job[0].qos.value, list_job[1].qos.value]
 
         from gpupool.predict import PairJob
-        pair = PairJob([pair[0], pair[1]])
+        pair = PairJob([list_job[0], list_job[1]])
         perf = pair.get_best_effort_performance()
         violated_pair = False
 
@@ -175,10 +184,17 @@ def get_qos_violations(job_pairs: list):
             violation.gpu_increase += 1
             violation.actual_ws += 2
             violation.actual_ws_list += [1, 1]
+
+            # Update job slowdown for heuristic
+            for job in list_job:
+                violation.job_sld[job.id] = 1
         else:
             violation.actual_ws += sum(perf.sld)
             violation.actual_ws_list.append(sum(perf.sld))
 
+            # Update job slowdown for heuristic
+            for job, sld in zip(list_job, perf.sld):
+                violation.job_sld[job.id] = sld
     return violation
 
 
@@ -203,9 +219,17 @@ def verify_qos_violations(options: list):
             violation.gpu_increase += 1
             violation.actual_ws += 2
             violation.actual_ws_list += [1, 1]
+
+            # Update job slowdown for GPUPool
+            for job in option.jobs:
+                violation.job_sld[job.id] = 1
         else:
             violation.actual_ws += sum(perf.sld)
             violation.actual_ws_list.append(sum(perf.sld))
+
+            # Update job slowdown for GPUPool
+            for job, sld in zip(option.jobs, perf.sld):
+                violation.job_sld[job.id] = sld
 
     return violation
 
@@ -247,6 +271,9 @@ class Job:
 
     def __init__(self, qos: QOS, num_iters, benchmarks: list):
         self.qos = qos
+        self.sld_gpupool = 0
+        self.sld_heuristic = 0
+        self.sld_mig = 0
         self.num_iters = num_iters
 
         # Create new job with a list of benchmarks
@@ -283,6 +310,7 @@ class Job:
             # use restricted runtime to estimate qos at this static partition
             attained_qos = full_runtime / restricted_runtime
             if attained_qos >= self.qos.value:
+                self.sld_mig = attained_qos
                 return resources + 1, attained_qos
 
         return MAX_PARTITIONS
@@ -745,7 +773,6 @@ class BatchJob:
             violation = Violation()
 
         ws_list = violation.actual_ws_list + [1] * num_singles
-        print("Done with heuristic-based scheduling...\n")
         gpu_migrated_count = gpu_avail + violation.gpu_increase
 
-        return violation.count, ws_list, gpu_migrated_count
+        return violation, ws_list, gpu_migrated_count
