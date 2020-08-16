@@ -15,7 +15,8 @@ config = GpuPoolConfig(Allocation.Three_D, StageOne.BoostTree, StageTwo.Steady,
                        at_least_once=False, accuracy_mode=False,
                        stage2_buffer=0.1)
 
-gpupool_count, gpupool_violation, gpupool_ws, ws_list_gpupool = \
+gpupool_count, gpupool_violation, gpupool_ws, ws_list_gpupool, isolated_count\
+    = \
     batch._max_matching(config, cores=32)
 print("GPUPool GPU count:", gpupool_count)
 print("WS:", gpupool_ws)

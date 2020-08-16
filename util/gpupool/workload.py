@@ -81,12 +81,14 @@ class GpuPoolConfig:
 
 class Violation:
     def __init__(self, count=0, err_sum=0, err_max=0, gpu_increase=0,
-                 actual_ws=0, actual_ws_list=None, job_sld=None):
+                 actual_ws=0, actual_ws_list=None, job_sld=None,
+                 ws_no_migrate=0):
         self.count = count
         self.sum = err_sum
         self.max = err_max
         self.gpu_increase = gpu_increase
         self.actual_ws = actual_ws
+        self.ws_no_migrate = ws_no_migrate
 
         if job_sld is None:
             self.job_sld = {}
@@ -135,13 +137,15 @@ class Violation:
         new_gpu_increase = self.gpu_increase + other.gpu_increase
         new_ws = self.actual_ws + other.actual_ws
         new_ws_list = self.actual_ws_list + other.actual_ws_list
+        new_ws_no_migrate = self.ws_no_migrate + other.ws_no_migrate
 
         new_job_sld = {}
         new_job_sld.update(self.job_sld)
         new_job_sld.update(other.job_sld)
 
         return Violation(new_count, new_sum, new_max,
-                         new_gpu_increase, new_ws, new_ws_list, new_job_sld)
+                         new_gpu_increase, new_ws, new_ws_list, new_job_sld,
+                         new_ws_no_migrate)
 
     def __radd__(self, other):
         if other == 0:
@@ -229,6 +233,8 @@ def verify_qos_violations(options: list):
             # Update job slowdown for GPUPool
             for job, sld in zip(option.jobs, perf.sld):
                 violation.job_sld[job.id] = sld
+
+        violation.ws_no_migrate += sum(perf.sld)
 
     return violation
 
@@ -540,7 +546,7 @@ class BatchJob:
         ws_sum = num_isolated + violation.actual_ws
         ws_list = [1] * num_isolated + violation.actual_ws_list
 
-        return num_gpus, violation, ws_sum / num_gpus, ws_list
+        return num_gpus, violation, ws_sum / num_gpus, ws_list, num_isolated
 
     def calculate_gpu_count_mig(self):
         print("Running MIG job scheduling...")
@@ -668,7 +674,7 @@ class BatchJob:
             time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
-        gpu_count, violation, ws_total, ws_list = \
+        gpu_count, violation, ws_total, ws_list, isolated_count = \
             self._max_matching(gpupool_config, cores)
 
         # Save df_pair

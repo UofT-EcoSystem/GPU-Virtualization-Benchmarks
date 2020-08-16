@@ -21,7 +21,8 @@ for num_jobs in range(min_jobs, max_jobs, job_step):
     config = GpuPoolConfig(Allocation.Three_D, StageOne.BoostTree, StageTwo.Steady,
             at_least_once=False, accuracy_mode=True, stage2_buffer=0.15)
 
-    gpupool, gpupool_viol, gpupool_ws, ws_list = batch._max_matching(config, cores=32)
+    gpupool, gpupool_viol, gpupool_ws, ws_list, gpupool_isolated = \
+        batch._max_matching(config, cores=32)
 
     # Get baseline #1: MIG results
     mig, mig_ws, mig_ws_list = batch.calculate_gpu_count_mig()
