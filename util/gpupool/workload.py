@@ -215,7 +215,6 @@ def verify_qos_violations(options: list):
             violated_pair |= violation.update(sld, qos)
 
         if violated_pair:
-            print(option.job_names)
             violation.gpu_increase += 1
             violation.actual_ws += 2
             violation.actual_ws_list += [1, 1]
@@ -502,8 +501,6 @@ class BatchJob:
         matching = [int(x) for x in matching]
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
-        print("number of isolated jobs is ", num_isolated)
-        print("number of pairs is ", num_pairs)
 
         # Profiling
         self.time_gpupool[gpupool_config.get_time_matching()] = \
