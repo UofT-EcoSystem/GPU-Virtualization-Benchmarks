@@ -292,7 +292,8 @@ class Job:
         Job.job_list[self.name] = self.benchmarks
 
     def get_seq_cycles(self):
-        return const.get_seq_cycles(self.name)
+        result = [const.get_seq_cycles(bench)[0] for bench in self.benchmarks]
+        return result
 
     def get_num_benchmarks(self):
         return len(self.benchmarks)
