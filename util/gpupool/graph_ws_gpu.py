@@ -85,14 +85,14 @@ plt.figure(figsize=(4, 4))
 ax = sns.barplot(x=["No-Sharing", "Coarse-Grained", "Heuristic", "GPUPool"],
                  y=[num_jobs, mig_count, heuristic_migrated_count_final,
                     gpupool_count],
-                 color='w', edgecolor='k'
+                 color='tab:gray', edgecolor='k'
                  )
 plt.ylabel("Required GPU Count")
 plt.xticks(rotation=30)
-hatches = itertools.cycle(['//', '-', '+', 'x'])
-for i, bar in enumerate(ax.patches):
-    hatch = next(hatches)
-    bar.set_hatch(hatch)
+# hatches = itertools.cycle(['//', '-', '+', 'x'])
+# for i, bar in enumerate(ax.patches):
+#     hatch = next(hatches)
+#     bar.set_hatch(hatch)
 
 plt.savefig("required_gpu_count.pdf", bbox_inches='tight')
 plt.close()
@@ -101,14 +101,14 @@ plt.close()
 plt.figure(figsize=(4, 4))
 ax = sns.barplot(x=["No-Sharing", "Coarse-Grained", "Heuristic", "GPUPool"],
                  y=[1, mig_ws, heuristic_ws_final, gpupool_ws],
-                 color='w', edgecolor='k'
+                 color='tab:gray', edgecolor='k'
                  )
 plt.ylabel("STP")
 plt.xticks(rotation=30)
-hatches = itertools.cycle(['//', '-', '+', 'x'])
-for i, bar in enumerate(ax.patches):
-    hatch = next(hatches)
-    bar.set_hatch(hatch)
+# hatches = itertools.cycle(['//', '-', '+', 'x'])
+# for i, bar in enumerate(ax.patches):
+#     hatch = next(hatches)
+#     bar.set_hatch(hatch)
 
 plt.savefig("aggregate_ws.pdf", bbox_inches='tight')
 plt.close()
