@@ -360,6 +360,7 @@ class BatchJob:
             print(file_path, "does not exist. Do nothing.")
 
     def _calculate_gpupool_performance(self, config: GpuPoolConfig, cores):
+        print(self, config)
         result = parallelize(self.df_pair, cores, get_perf, extra_param=config)
         df_performance = pd.concat(result)
 
@@ -470,14 +471,27 @@ class BatchJob:
             buffer = gpupool_config.stage2_buffer
             if (jobs[0].qos.value * (1 + buffer) < row[perf_col].sld[0]) and \
                     (jobs[1].qos.value * (1 + buffer) < row[perf_col].sld[1]):
-                input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
+                input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
                                                                 adjusted_id[1],
-                                                                row[ws_col]
+                                                                1
                                                                 )
             else:
                 input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
                                                             adjusted_id[1],
                                                             -sys.maxsize - 1)
+
+            ## Buffer to tighten the bounds and offset error from stage 1
+            #buffer = gpupool_config.stage2_buffer
+            #if (jobs[0].qos.value * (1 + buffer) < row[perf_col].sld[0]) and \
+            #        (jobs[1].qos.value * (1 + buffer) < row[perf_col].sld[1]):
+            #    input_line = "      [{}, {}, {:.3f}],\n".format(adjusted_id[0],
+            #                                                    adjusted_id[1],
+            #                                                    row[ws_col]
+            #                                                    )
+            #else:
+            #    input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
+            #                                                adjusted_id[1],
+            #                                                -sys.maxsize - 1)
 
             f.write(input_line)
 
