@@ -1,0 +1,2 @@
+cut_sgemm 576 896 512
+repeat 3000

@@ -1,0 +1,2 @@
+cut_wmma 512 544 512
+repeat 5000
