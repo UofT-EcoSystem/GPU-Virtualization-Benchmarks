@@ -52,6 +52,7 @@ set(CUTLASS_NVCC_EMBED_PTX ON CACHE BOOL "Embed compiled PTX into executables.")
 
 string(APPEND NVCC_FLAGS " --cudart=shared -lcudart")
 string(APPEND NVCC_FLAGS " -arch=sm_70")
+string(APPEND NVCC_FLAGS " -Xptxas -dlcm=cg")
 # gpgpusim does not support this stream mode
 #string(APPEND NVCC_FLAGS " --default-stream per-thread")
 
