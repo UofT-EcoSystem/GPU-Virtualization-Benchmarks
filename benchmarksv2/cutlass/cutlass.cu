@@ -10,7 +10,8 @@
 #include "interface.h"
 
 #include <unistd.h>
-
+#include <vector>
+#include <iostream>
 
 extern bool set_and_check(int uid, bool start);
 
@@ -31,21 +32,37 @@ static void run_gemm(
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(1),
     typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type beta =
         typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type(0)) {
-  typedef cutlass::gemm::Gemm<GemmTraits_> Gemm;
-  typename Gemm::Params params;
 
-  test::GemmTestbed<
-      typename test::GemmTestbedTraits<
-          typename GemmTraits_::GemmConfig::ScalarA>::host_type,  // AType
-      typename test::GemmTestbedTraits<
-          typename GemmTraits_::GemmConfig::ScalarB>::host_type,  // BType
-      typename test::GemmTestbedTraits<
-          typename GemmTraits_::Epilogue::ScalarC>::host_type,  // CType
-      typename test::GemmTestbedTraits<
-          typename GemmTraits_::Epilogue::Accumulators::Element>::host_type,  // Accumulator
-      typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type  // Scalar
-      >
-      testbed(m,
+  typedef cutlass::gemm::Gemm<GemmTraits_> Gemm;
+
+  // To avoid cache effects in repeated launches
+  // Create multiple copies of params
+  cudaDeviceProp deviceProp;
+  cudaGetDeviceProperties(&deviceProp, 0);
+  const int l2_bytes = deviceProp.l2CacheSize;
+
+  // 2bytes assumed for the smallest data size fp16
+  const int matrix_bytes = (m * k + n * k) * 2;
+  const int num_params = (l2_bytes / matrix_bytes + 1) * 4;
+
+  typename Gemm::Params params[num_params];
+
+  typedef test::GemmTestbed<
+          typename test::GemmTestbedTraits<
+                  typename GemmTraits_::GemmConfig::ScalarA>::host_type,  // AType
+          typename test::GemmTestbedTraits<
+                  typename GemmTraits_::GemmConfig::ScalarB>::host_type,  // BType
+          typename test::GemmTestbedTraits<
+                  typename GemmTraits_::Epilogue::ScalarC>::host_type,  // CType
+          typename test::GemmTestbedTraits<
+                  typename GemmTraits_::Epilogue::Accumulators::Element>::host_type,  // Accumulator
+          typename test::GemmTestbedTraits<typename GemmTraits_::Epilogue::Scalar>::host_type  // Scalar
+  > TB;
+  std::vector<TB*> testbeds;
+
+  for (int i = 0; i < num_params; i++) {
+      testbeds.push_back(new TB(
+              m,
               n,
               k,
               lda,
@@ -55,36 +72,39 @@ static void run_gemm(
               cutlass::convert(GemmTraits_::kLayoutB),
               stream,
               alpha,
-              beta);
+              beta
+      ));
+      testbeds[i]->initialize();
 
-  testbed.initialize();
-
-  params.initialize(testbed.M(),
-                    testbed.N(),
-                    testbed.K(),
-                    testbed.alpha,
-                    testbed.ptr_A(),
-                    testbed.lda(),
-                    testbed.ptr_B(),
-                    testbed.ldb(),
-                    testbed.beta,
-                    testbed.ptr_C_initial(),
-                    testbed.ldc(),
-                    testbed.ptr_computed(),
-                    testbed.ldc());
+      params[i].initialize(testbeds[i]->M(),
+                        testbeds[i]->N(),
+                        testbeds[i]->K(),
+                        testbeds[i]->alpha,
+                        testbeds[i]->ptr_A(),
+                        testbeds[i]->lda(),
+                        testbeds[i]->ptr_B(),
+                        testbeds[i]->ldb(),
+                        testbeds[i]->beta,
+                        testbeds[i]->ptr_C_initial(),
+                        testbeds[i]->ldc(),
+                        testbeds[i]->ptr_computed(),
+                        testbeds[i]->ldc());
+  }
 
   // mark setup done
-  set_and_check(uid, true);
+  cudaStreamSynchronize(stream);
   while (!set_and_check(uid, true)) {
     usleep(1);
   }
 
   bool can_exit = false;
+  int index = 0;
 
   while (!can_exit) {
-    Gemm::launch(params, stream);
+    Gemm::launch(params[index], stream);
+    index = (index + 1) % num_params;
 
-    cudaStreamSynchronize(stream);
+//    cudaStreamSynchronize(stream);
     can_exit = set_and_check(uid, false);
   }
 

@@ -18,7 +18,7 @@
 #include <cassert>
 #include <vector>
 #include <functional>
-#include <string.h>
+#include <string>
 
 // user includes
 #include "framework.h"
@@ -93,6 +93,8 @@ bool get_exit(int uid) {
 
 // called by stream threads
 bool set_and_check_iteration(unsigned uid) {
+  return true;
+
   std::lock_guard<std::mutex> guard(lock_flag);
   if (synthetic_workload) {
     list_stream_ops[uid].done_iteration = true;
@@ -397,7 +399,16 @@ int main(int argc, char** argv) {
         if (line.rfind("repeat", 0) == 0) {
           // Repeat previous app
           assert(stream_ops.apps.size() > 0);
-          stream_ops.apps.back().num_repeat += 1;
+
+          // Check how many times we need to repeat
+          int num_repeat = 1;
+          if (line.find(' ') != -1) {
+            num_repeat =
+                std::stoi(line.substr(line.find(' ') + 1, line.size()));
+          }
+
+          assert(num_repeat > 0);
+          stream_ops.apps.back().num_repeat += num_repeat;
           synthetic_workload = true;
         } else {
           app_t app = build_app(line);
