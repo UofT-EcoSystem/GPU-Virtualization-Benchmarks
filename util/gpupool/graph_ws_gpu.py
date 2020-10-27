@@ -1,5 +1,6 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 import itertools
 from gpupool.workload import BatchJob, GpuPoolConfig
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -62,6 +63,8 @@ mig_xs = range(len(ws_list_mig))
 sorted_heuristic_ws = sorted(ws_list_heuristic_final, reverse=True)
 heuristic_xs = range(len(ws_list_heuristic_final))
 
+csv = open('best.csv', 'w')
+
 # WS per GPU
 # plt.style.use('seaborn-paper')
 sns.set_style("ticks")
@@ -80,6 +83,17 @@ plt.ylim([1, 2])
 plt.savefig("ws_gpu.pdf", bbox_inches='tight')
 plt.close()
 
+csv.write("#ws-plot")
+
+sorted_mig_ws = [str(ws) for ws in sorted_mig_ws]
+sorted_heuristic_ws = [str(ws) for ws in sorted_heuristic_ws]
+sorted_gpupool_ws = [str(ws) for ws in sorted_gpupool_ws]
+
+csv.write('Heuristic,{}'.format(','.join(sorted_heuristic_ws)))
+csv.write('Coarse,{}'.format(','.join(sorted_mig_ws)))
+csv.write('GPUPool,{}'.format(','.join(sorted_gpupool_ws)))
+
+
 # Draw bar graphs for comparison
 plt.figure(figsize=(4, 4))
 ax = sns.barplot(x=["No-Sharing", "Coarse-Grained", "Heuristic", "GPUPool"],
@@ -97,6 +111,12 @@ plt.xticks(rotation=30)
 plt.savefig("required_gpu_count.pdf", bbox_inches='tight')
 plt.close()
 
+csv.write("#gpu-count")
+csv.write("No-Sharing,{}".format(num_jobs))
+csv.write("Coarse,{}".format(mig_count))
+csv.write("Heuristic,{}".format(heuristic_migrated_count_final))
+csv.write("GPUPool,{}".format(gpupool_count))
+
 # Draw aggregate WS stats
 plt.figure(figsize=(4, 4))
 ax = sns.barplot(x=["No-Sharing", "Coarse-Grained", "Heuristic", "GPUPool"],
@@ -109,9 +129,16 @@ plt.xticks(rotation=30)
 # for i, bar in enumerate(ax.patches):
 #     hatch = next(hatches)
 #     bar.set_hatch(hatch)
-
 plt.savefig("aggregate_ws.pdf", bbox_inches='tight')
 plt.close()
+
+csv.write("#ws")
+csv.write("No-Sharing,{}".format(1))
+csv.write("Coarse,{}".format(mig_ws))
+csv.write("Heuristic,{}".format(heuristic_ws_final))
+csv.write("GPUPool,{}".format(gpupool_ws))
+
+csv.close()
 
 # Achieved QoS per Job
 job_ids = [job.id for job in batch.list_jobs]
@@ -146,3 +173,11 @@ plt.ylabel("Normalized Throughput")
 
 plt.savefig("qos_job.pdf", bbox_inches='tight')
 plt.close()
+
+# csv.write('xs, Coarse, Heuristic, GPUPool')
+scatter_data = np.array([np.array(xs),
+                         np.array(norm_sld_mig),
+                         np.array(norm_sld_heuristic),
+                         np.array(norm_sld_gpupool)]).T
+
+np.savetxt('scatter.csv', scatter_data, delimiter=',')

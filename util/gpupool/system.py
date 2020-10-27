@@ -5,6 +5,7 @@ import numpy as np
 
 from gpupool.workload import BatchJob, GpuPoolConfig
 from gpupool.predict import Allocation, StageOne, StageTwo
+import pandas as pd
 
 
 def parse_args():
@@ -50,8 +51,8 @@ def parse_args():
 
 def run_exp_0(args):
     # Generic experiment
-    num_batches = 5
-    num_jobs = 200
+    num_batches = 1
+    num_jobs = 100
 
     result = []
     for batch_id in range(num_batches):
@@ -70,7 +71,7 @@ def run_exp_0(args):
                                               save=args.save)
 
         # Get baseline #1: MIG results
-        mig, mig_ws_total = batch.calculate_gpu_count_mig()
+        mig, mig_ws_total, ws_list = batch.calculate_gpu_count_mig()
 
         # Get baseline #2: Random matching results
         random_violation = \
@@ -106,8 +107,20 @@ def run_exp_0(args):
             lambda x: x.time_stage1)
         stage2 = batch.df_pair[gpupool_config.get_perf()].apply(
             lambda x: x.time_stage2)
+        stage2_steady = batch.df_pair[gpupool_config.get_perf()].apply(
+            lambda x: x.steady_iter[0])
+        stage2_steady_2 = batch.df_pair[gpupool_config.get_perf()].apply(
+            lambda x: x.steady_iter[1]
+        )
+        stage_steady = pd.concat([stage2_steady, stage2_steady_2])
+
         print("Sum of time spent in Stage1: ", sum(stage1) / mp.cpu_count())
         print("Sum of time spent in Stage2: ", sum(stage2) / mp.cpu_count())
+
+        print("Stage2 std: ", np.std(stage2))
+        print("Stage2 mean: ", np.mean(stage2))
+        print("Stage2 steady std: ", np.std(stage2_steady))
+        print("Stage2 steady mean: ", np.mean(stage_steady))
 
         print("MIG time {:.6f} sec".format(batch.time_mig))
 
