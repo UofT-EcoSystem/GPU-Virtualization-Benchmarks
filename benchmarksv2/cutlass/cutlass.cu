@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <vector>
 #include <iostream>
+#include "cuda_runtime_api.h"
 
 extern bool set_and_check(int uid, bool start);
 
@@ -60,6 +61,7 @@ static void run_gemm(
   > TB;
   std::vector<TB*> testbeds;
 
+
   for (int i = 0; i < num_params; i++) {
       testbeds.push_back(new TB(
               m,
@@ -91,6 +93,16 @@ static void run_gemm(
                         testbeds[i]->ldc());
   }
 
+  cudaGraph_t graph;
+  cudaGraphExec_t instance;
+  cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+  for (int i = 0; i < num_params; i++) {
+      Gemm::launch(params[i], stream);
+  }
+  cudaStreamEndCapture(stream, &graph);
+  cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+
+
   // mark setup done
   cudaStreamSynchronize(stream);
   while (!set_and_check(uid, true)) {
@@ -101,12 +113,15 @@ static void run_gemm(
   int index = 0;
 
   while (!can_exit) {
-    Gemm::launch(params[index], stream);
-    index = (index + 1) % num_params;
+    // Gemm::launch(params[index], stream);
+    // index = (index + 1) % num_params;
+    cudaGraphLaunch(instance, stream);
 
 //    cudaStreamSynchronize(stream);
     can_exit = set_and_check(uid, false);
   }
+
+  cudaStreamSynchronize(stream);
 
 
 //  cudaError_t result;
