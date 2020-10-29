@@ -93,14 +93,14 @@ static void run_gemm(
                         testbeds[i]->ldc());
   }
 
-  cudaGraph_t graph;
-  cudaGraphExec_t instance;
-  cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
-  for (int i = 0; i < num_params; i++) {
-      Gemm::launch(params[i], stream);
-  }
-  cudaStreamEndCapture(stream, &graph);
-  cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+//  cudaGraph_t graph;
+//  cudaGraphExec_t instance;
+//  cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+//  for (int i = 0; i < num_params; i++) {
+//      Gemm::launch(params[i], stream);
+//  }
+//  cudaStreamEndCapture(stream, &graph);
+//  cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
 
 
   // mark setup done
@@ -113,9 +113,9 @@ static void run_gemm(
   int index = 0;
 
   while (!can_exit) {
-    // Gemm::launch(params[index], stream);
-    // index = (index + 1) % num_params;
-    cudaGraphLaunch(instance, stream);
+     Gemm::launch(params[index], stream);
+     index = (index + 1) % num_params;
+//    cudaGraphLaunch(instance, stream);
 
 //    cudaStreamSynchronize(stream);
     can_exit = set_and_check(uid, false);

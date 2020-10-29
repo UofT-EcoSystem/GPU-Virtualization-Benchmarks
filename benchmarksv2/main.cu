@@ -43,7 +43,18 @@ bool set_and_check(int uid, bool start) {
   if (synthetic_workload) {
     // ignore start sync
     if (start) {
-      return true;
+      if (stream_ops.current_pos == 0) {
+        // check if others have started yet
+        app.start = true;
+
+        for (auto & s: list_stream_ops) {
+          if (!s.apps[0].start) return false;
+        }
+
+        return true;
+      } else {
+        return true;
+      }
     } else {
       bool done = app.increment_and_check_pos();
 
