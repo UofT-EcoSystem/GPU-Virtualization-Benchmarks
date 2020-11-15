@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import argparse
 import os
-from gpupool.workload import BatchJob, GpuPoolConfig
+from gpupool.workload import BatchJob, GpuPoolConfig, Job
 from gpupool.predict import Allocation, StageOne, StageTwo
 from gpupool.workload import Violation
 
@@ -18,6 +18,11 @@ def parse_args():
     parser.add_argument('--stage2_buffer', default=0.1,
                         type=float,
                         help='Amount of buffer to tighten qos check in stage2.')
+    # hack
+    parser.add_argument('--offset',
+                        type=int,
+                        default=0,
+                        help='ID Offset for job synthesis.')
 
     results = parser.parse_args()
 
@@ -29,6 +34,7 @@ def main():
     pkl_name = str(os.path.basename(args.pkl).split('.')[0])
     params = pkl_name.split('-')
 
+    Job.count = args.offset
     batch = BatchJob(rand_seed=int(params[1]), num_jobs=NUM_JOBS)
     batch.load_df_from_pickle(args.pkl)
 
