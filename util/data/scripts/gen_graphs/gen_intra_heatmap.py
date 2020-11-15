@@ -218,6 +218,10 @@ def parse_args():
                         default=os.path.join(const.DATA_HOME,
                                              'graphs/heatmap.pdf'),
                         help='Path to output file.')
+    parser.add_argument('--plot',
+                        choices=['heatmap', 'line'],
+                        default='heatmap',
+                        help='Type of plots to draw.')
 
     results = parser.parse_args()
     return results
@@ -265,6 +269,40 @@ def print_ipc_only(df, benchmarks, titles, maxGridWidth, figsize, outfile):
     plt.close()
 
 
+def lineplot_ipc(df, benchmarks, titles, figsize, outfile):
+    print(benchmarks)
+    fig_tot = plt.figure(figsize=figsize)
+    df["bench_keys"] = df[['pair_str', '1_kidx']].apply(tuple, axis=1)
+
+    _df = df[df["bench_keys"].isin(benchmarks)]
+    sns.lineplot(x='intra', y='norm_ipc', data=_df, hue="bench_keys",
+                 marker='o')
+    plt.ylim([0, 1.5])
+    plt.ylabel("Normalized IPC")
+
+    _df[['bench_keys', 'intra', 'norm_ipc']].to_csv("heatmaps.csv")
+
+    # # for ax, bench in zip(axs, benchmarks):
+    # for bench, title in zip(benchmarks, titles):
+    #     _df = df[bench_keys == bench]
+    #
+    #     if len(_df.index) == 0:
+    #         print("{0} does not exist in dataframe. Skip.".format(bench))
+    #         continue
+    #
+    #     # gs_height, gs_width = plot_heatmap_1d(_df, x_key='intra',
+    #     #                                       z_key='norm_ipc', title=title,
+    #     #                                       scale=2.2, gs=gs,
+    #     #                                       gs_height=gs_height,
+    #     #                                       gs_width=gs_width,
+    #     #                                       gs_width_max=maxGridWidth)
+
+    plt.tight_layout()
+    # fig_tot.suptitle('Intra, Normalized IPC', fontsize=18)
+    fig_tot.savefig(outfile, bbox_inches='tight')
+    plt.close()
+
+
 def main():
     args = parse_args()
 
@@ -284,7 +322,7 @@ def main():
             if len(split_app) > 1:
                 tuple_bench.append((split_app[0], int(split_app[1])))
             else:
-                tuple_bench.append((app, 0))
+                tuple_bench.append((app, 1))
 
         args.benchmark = tuple_bench
 
@@ -295,8 +333,13 @@ def main():
         for bench in args.benchmark:
             print_intra(df_intra, bench)
     elif args.content == 'ipc':
-        print_ipc_only(df_intra, args.benchmark, args.title, args.maxwidth,
-                       tuple(args.figsize), args.output)
+        if args.plot == 'heatmap':
+            print_ipc_only(df_intra, args.benchmark, args.title, args.maxwidth,
+                           tuple(args.figsize), args.output)
+        else:
+            # Line plot only
+            lineplot_ipc(df_intra, args.benchmark, args.title,
+                         tuple(args.figsize), args.output)
 
 
 if __name__ == '__main__':
