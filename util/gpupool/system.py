@@ -51,7 +51,7 @@ def parse_args():
 
 def run_exp_0(args):
     # Generic experiment
-    num_batches = 1
+    num_batches = 5
     num_jobs = 100
 
     result = []
