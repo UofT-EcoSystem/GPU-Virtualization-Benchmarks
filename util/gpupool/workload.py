@@ -745,9 +745,10 @@ class BatchJob:
                                 for bm in job.benchmarks]
             weighted_arith_mean = sum([norm_lengths[i] * avg_dram_bw_util[i]
                                        for i in range(len(norm_lengths))])
+
             job.bw = weighted_arith_mean
 
-        # sort the jobs and indeces
+        # Sort in descending order
         sorted_jobs = sorted(self.list_jobs, key=lambda x: x.bw,
                              reverse=True)
 
