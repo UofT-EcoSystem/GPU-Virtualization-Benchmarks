@@ -24,7 +24,7 @@ for buffer in buffers:
 
     print("Buffer = ", buffer)
     gpupool_count, gpupool_violation, gpupool_ws, ws_list_gpupool, isolated = \
-        batch._max_matching(config, cores=32)
+        batch.max_matching(config, cores=32)
     print("GPUPool GPU count:", gpupool_count)
     print("WS:", gpupool_ws)
 
