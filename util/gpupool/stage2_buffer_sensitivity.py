@@ -10,7 +10,7 @@ from gpupool.workload import Violation
 num_jobs = 100
 batch = BatchJob(rand_seed=0, num_jobs=num_jobs)
 batch.load_df_from_pickle(
-    "pickles/BatchJob-0-Three_D-BoostTree-Steady-False.pkl")
+    "pickles/eco12/BatchJob-0-Three_D-BoostTree-Steady-False.pkl")
 
 
 buffers = np.arange(0, 0.12, 0.02)
@@ -67,27 +67,27 @@ special_entry = {'buffer': 'cached',
 data.append(special_entry)
 
 df_data = pd.DataFrame(data)
-f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-f.set_size_inches(6, 8)
+# f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+# f.set_size_inches(6, 8)
 
 # GPU Count plot
-sns.barplot(x='buffer', y='count', ax=ax1, data=df_data)
-ax1.set_ylim([0, 80])
-ax1.set_ylabel('Number of GPUs Used')
-
-sns.barplot(x='buffer', y='qos_reached', ax=ax2, data=df_data)
-ax2.set_ylabel('QoS_reached')
-
-ax2_twin = ax2.twinx()
-sns.lineplot(x='buffer', y='avg_err', ax=ax2_twin, data=df_data, marker='o')
-ax2_twin.set_ylabel('Average Relative QoS Error (%)')
-
-sns.barplot(x='buffer', y='stp', ax=ax3, data=df_data)
-ax3.set_ylim([0, 2])
-ax3.set_ylabel('STP')
-
-plt.savefig('buffer.pdf', bbox_inches='tight')
-plt.close()
+# sns.barplot(x='buffer', y='count', ax=ax1, data=df_data)
+# ax1.set_ylim([0, 80])
+# ax1.set_ylabel('Number of GPUs Used')
+#
+# sns.barplot(x='buffer', y='qos_reached', ax=ax2, data=df_data)
+# ax2.set_ylabel('QoS_reached')
+#
+# ax2_twin = ax2.twinx()
+# sns.lineplot(x='buffer', y='avg_err', ax=ax2_twin, data=df_data, marker='o')
+# ax2_twin.set_ylabel('Average Relative QoS Error (%)')
+#
+# sns.barplot(x='buffer', y='stp', ax=ax3, data=df_data)
+# ax3.set_ylim([0, 2])
+# ax3.set_ylabel('STP')
+#
+# plt.savefig('buffer.pdf', bbox_inches='tight')
+# plt.close()
 
 table = df_data.to_latex(
     columns=['buffer', 'count', 'qos_reached', 'avg_err', 'stp'],
