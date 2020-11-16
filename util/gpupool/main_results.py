@@ -3,6 +3,8 @@ import numpy as np
 import argparse
 import os
 from collections import defaultdict
+from scipy import stats
+import copy
 from gpupool.workload import BatchJob, GpuPoolConfig, Job
 from gpupool.predict import Allocation, StageOne, StageTwo
 from gpupool.workload import Violation
@@ -47,7 +49,6 @@ def main():
         Job.count = batch_id * NUM_JOBS
         batch = BatchJob(rand_seed=batch_id, num_jobs=NUM_JOBS)
         batch.load_df_from_pickle(pkl)
-        batches.append(batch)
 
         # GPUPool
         config = GpuPoolConfig(Allocation[params[2]], StageOne[params[3]],
@@ -65,8 +66,8 @@ def main():
 
         count['gpupool'].append(gp_count)
         ws['gpupool'].append(gp_ws)
-        ws_list['gpupool'].append(gp_ws_list)
-        violation['gpupool'].append(gp_violation)
+        ws_list['gpupool'].append(copy.deepcopy(gp_ws_list))
+        violation['gpupool'].append(copy.deepcopy(gp_violation))
 
         # MIG
         mig_count, mig_ws, mig_ws_list = batch.calculate_gpu_count_mig()
@@ -75,7 +76,7 @@ def main():
 
         count['mig'].append(mig_count)
         ws['mig'].append(mig_ws)
-        ws_list['mig'].append(mig_ws_list)
+        ws_list['mig'].append(copy.deepcopy(mig_ws_list))
 
         # Heuristic
         heuristic_count = NUM_JOBS / 2
@@ -89,20 +90,41 @@ def main():
 
         count['bw'].append(bw_gpu_total)
         ws['bw'].append(bw_ws)
-        ws_list['bw'].append(bw_ws_list)
-        violation['bw'].append(bw_violation)
+        ws_list['bw'].append(copy.deepcopy(bw_ws_list))
+        violation['bw'].append(copy.deepcopy(bw_violation))
+
+        batches.append(copy.deepcopy(batch))
+
+    if len(args.pkl) == 1:
+        print("Single pickle. No output files.")
+        return
 
     ##############################################
     # CSV file output 1: main result
     ##############################################
-    comparison_csv = open('comp-{}'.format(ids), 'w')
-    comparison_csv.write('system,gpus,stp\n')
-    comparison_csv.write('coarse,{},{}\n'.format(np.average(count['mig']),
-                                                 np.average(ws['mig'])))
-    comparison_csv.write('heuristic,{},{}\n'.format(np.average(count['bw']),
-                                                    np.average(ws['bw'])))
-    comparison_csv.write('gpupool,{},{}\n'.format(np.average(count['gpupool']),
-                                                  np.average(ws['gpupool'])))
+    comparison_csv = open('main_result.csv', 'w')
+    comparison_csv.write('system,gpus,sem_gpus,sd_gpus,stp,sem_stp,sd_stp\n')
+    comparison_csv.write('coarse,{},{},{},{},{},{}\n'.format(
+        np.average(count['mig']),
+        stats.sem(count['mig']),
+        np.std(count['mig']),
+        np.average(ws['mig']),
+        stats.sem(ws['mig']),
+        np.std(ws['mig'])))
+    comparison_csv.write('bw,{},{},{},{},{},{}\n'.format(
+        np.average(count['bw']),
+        stats.sem(count['bw']),
+        np.std(count['bw']),
+        np.average(ws['bw']),
+        stats.sem(ws['bw']),
+        np.std(ws['bw'])))
+    comparison_csv.write('gpupool,{},{},{},{},{},{}\n'.format(
+        np.average(count['gpupool']),
+        stats.sem(count['gpupool']),
+        np.std(count['gpupool']),
+        np.average(ws['gpupool']),
+        stats.sem(ws['gpupool']),
+        np.std(ws['gpupool'])))
     comparison_csv.close()
 
     ##############################################
@@ -112,7 +134,7 @@ def main():
     sorted_mig_ws = sorted(ws_list['mig'][0], reverse=True)
     sorted_heuristic_ws = sorted(ws_list['bw'][0], reverse=True)
 
-    ws_csv = open('best.csv', 'w')
+    ws_csv = open('sorted_ws.csv', 'w')
 
     sorted_mig_ws = [str(ws) for ws in sorted_mig_ws]
     sorted_heuristic_ws = [str(ws) for ws in sorted_heuristic_ws]
@@ -133,7 +155,7 @@ def main():
     def get_job_norm_sld(_violation):
         norm_sld = []
         for job_id in job_ids:
-            job_qos = batch.list_jobs[job_id - id_offset].qos.value
+            job_qos = batches[0].list_jobs[job_id - id_offset].qos.value
             if job_id in _violation.job_sld:
                 norm_sld.append(_violation.job_sld[job_id] / job_qos)
             else:
