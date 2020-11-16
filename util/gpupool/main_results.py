@@ -15,11 +15,15 @@ def parse_args():
 
     parser.add_argument('--pkl', nargs='+',
                         help='Path to pickle file')
-    parser.add_argument('--stage2_buffer', default=0.1,
+    parser.add_argument('--stage2_buffer', nargs='+',
                         type=float,
                         help='Amount of buffer to tighten qos check in stage2.')
 
     results = parser.parse_args()
+
+    if len(results.pkl) != len(results.stage2_buffer):
+        print("Length of pkl must match with stage2_buffer")
+        sys.exit(1)
 
     return results
 
@@ -34,7 +38,7 @@ def main():
     ws_list = defaultdict(list)
     violation = defaultdict(list)
 
-    for pkl in args.pkl:
+    for pkl, stage2 in zip(args.pkl, args.stage2_buffer):
         pkl_name = str(os.path.basename(pkl).split('.')[0])
         params = pkl_name.split('-')
         batch_id = int(params[1])
@@ -50,7 +54,7 @@ def main():
                                StageTwo[params[4]],
                                at_least_once=(params[5] == "True"),
                                accuracy_mode=False,
-                               stage2_buffer=args.stage2_buffer)
+                               stage2_buffer=stage2)
 
         gpupool_matching = batch.max_matching(config, cores=32)
         gp_count, gp_violation, gp_ws, gp_ws_list, isolated = gpupool_matching
