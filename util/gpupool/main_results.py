@@ -46,7 +46,7 @@ def main():
 
         Job.count = batch_id * NUM_JOBS
         batch = BatchJob(rand_seed=batch_id, num_jobs=NUM_JOBS)
-        batch.load_df_from_pickle(args.pkl)
+        batch.load_df_from_pickle(pkl)
         batches.append(batch)
 
         # GPUPool
