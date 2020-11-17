@@ -586,6 +586,9 @@ class RunOption:
             if index in self.df_dynamic_index_all.index:
                 df_bench_pair = self.df_dynamic_index_all.loc[index]
                 sld = df_bench_pair['sld'].iloc[0]
+
+                if sum(sld) < 1.0:
+                    sld = [0, 0.5, 0.5]
             else:
                 sld = [0, 0.5, 0.5]
 
