@@ -1,8 +1,7 @@
-import seaborn as sns
-import matplotlib.pyplot as plt
-import itertools
 import pandas as pd
 import numpy as np
+import sys
+from gpupool.predict import PairJob
 from gpupool.workload import BatchJob, GpuPoolConfig
 from gpupool.predict import Allocation, StageOne, StageTwo
 from gpupool.workload import Violation
@@ -11,7 +10,6 @@ num_jobs = 100
 batch = BatchJob(rand_seed=0, num_jobs=num_jobs)
 batch.load_df_from_pickle(
     "pickles/eco12/BatchJob-0-Three_D-BoostTree-Steady-False.pkl")
-
 
 buffers = np.arange(0, 0.12, 0.02)
 
@@ -45,7 +43,6 @@ for buffer in buffers:
              }
     data.append(entry)
 
-
 # Perfect stage 1:
 config = GpuPoolConfig(Allocation.Three_D, StageOne.GPUSim,
                        StageTwo.Steady,
@@ -57,37 +54,24 @@ print("Perfect stage 1")
 print("GPU count:", gpu_count)
 print("violations: ", violation.count)
 print("ws_total", ws_total)
-perfect_reached = int((num_jobs - violation.count)/num_jobs * 100)
+perfect_reached = int((num_jobs - violation.count) / num_jobs * 100)
 special_entry = {'buffer': 'cached',
                  'count': gpu_count,
                  'qos_reached': perfect_reached,
                  'avg_err': violation.mean_error_pct(),
                  'stp': ws_total
                  }
+
+# debugging
+
+# bad_pair = PairJob([batch.list_jobs[40], batch.list_jobs[80]])
+# result = bad_pair.get_gpupool_performance(config)
+# option_col = config.get_option()
+# result[option_col].get_real_performance()
+
 data.append(special_entry)
 
 df_data = pd.DataFrame(data)
-# f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-# f.set_size_inches(6, 8)
-
-# GPU Count plot
-# sns.barplot(x='buffer', y='count', ax=ax1, data=df_data)
-# ax1.set_ylim([0, 80])
-# ax1.set_ylabel('Number of GPUs Used')
-#
-# sns.barplot(x='buffer', y='qos_reached', ax=ax2, data=df_data)
-# ax2.set_ylabel('QoS_reached')
-#
-# ax2_twin = ax2.twinx()
-# sns.lineplot(x='buffer', y='avg_err', ax=ax2_twin, data=df_data, marker='o')
-# ax2_twin.set_ylabel('Average Relative QoS Error (%)')
-#
-# sns.barplot(x='buffer', y='stp', ax=ax3, data=df_data)
-# ax3.set_ylim([0, 2])
-# ax3.set_ylabel('STP')
-#
-# plt.savefig('buffer.pdf', bbox_inches='tight')
-# plt.close()
 
 table = df_data.to_latex(
     columns=['buffer', 'count', 'qos_reached', 'avg_err', 'stp'],

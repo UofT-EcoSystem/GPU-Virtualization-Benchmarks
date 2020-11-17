@@ -474,13 +474,13 @@ class BatchJob:
             if (jobs[0].qos.value * (1 + buffer) < row[perf_col].sld[0]) and \
                     (jobs[1].qos.value * (1 + buffer) < row[perf_col].sld[1]):
                 input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
-                                                                adjusted_id[1],
-                                                                1
-                                                                )
+                                                            adjusted_id[1],
+                                                            1
+                                                            )
             else:
                 input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
                                                             adjusted_id[1],
-                                                            -sys.maxsize - 1)
+                                                            -sys.maxsize + 1)
 
             f.write(input_line)
 
@@ -491,11 +491,6 @@ class BatchJob:
         f.write("console.log(util.inspect(results, {maxArrayLength: null}));\n")
         f.close()
 
-        # print('Resulting input file is:')
-        # print('')
-        # os.system('cat input.js')
-        # print('')
-
         try:
             matching = subprocess.getoutput("node input.js")
         except subprocess.CalledProcessError as node_except:
@@ -504,8 +499,6 @@ class BatchJob:
             print("Console output:", node_except.output)
             sys.exit(1)
 
-        # matching = subprocess.getoutput("node input.js")
-        # print(matching)
         matching = matching.replace(" ", "").replace("]", "").replace("[", "")
         matching = matching.split(",")
         matching = [int(x) for x in matching]
@@ -516,14 +509,13 @@ class BatchJob:
         self.time_gpupool[gpupool_config.get_time_matching()] = \
             time.perf_counter() - start_matching
 
-        # os.system('rm input.js')
+        os.system('rm input.js')
         # print(matching)
         # print(self.list_jobs)
 
         # Parse the output and get qos violations
         print("Running QoS verifications...")
         options = []
-        # print(len(matching))
 
         for i in range(self.num_jobs):
             if matching[i] < i:

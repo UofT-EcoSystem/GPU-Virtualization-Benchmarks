@@ -127,6 +127,26 @@ def main():
         np.std(ws['gpupool'])))
     comparison_csv.close()
 
+    comparison_tbl = open("main_result.tex", 'w')
+    comparison_tbl.write(
+        "\\coarse &      {} $\\pm$ {:.2f} &       {:.2f} $\\pm$ {}\n".format(
+            np.average(count['mig']),
+            stats.sem(count['mig']),
+            np.average(ws['mig']),
+            stats.sem(ws['mig'])))
+    comparison_tbl.write(
+        "\\heuristic &      {} $\\pm$ {:.2f} &       {:.2f} $\\pm$ {}\n".format(
+            np.average(count['bw']),
+            stats.sem(count['bw']),
+            np.average(ws['bw']),
+            stats.sem(ws['bw'])))
+    comparison_tbl.write(
+        "\\gpupool &      {} $\\pm$ {:.3f} &       {:.2f} $\\pm$ {}\n".format(
+            np.average(count['gpupool']),
+            stats.sem(count['gpupool']),
+            np.average(ws['gpupool']),
+            stats.sem(ws['gpupool'])))
+
     ##############################################
     # CSV file output 2: sorted ws per GPU
     ##############################################
