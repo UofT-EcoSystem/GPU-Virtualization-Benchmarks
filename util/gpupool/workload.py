@@ -101,7 +101,8 @@ class Violation:
             self.actual_ws_list = actual_ws_list
 
     def update(self, actual_qos, target_qos):
-        if actual_qos < target_qos:
+        from gpupool.predict import RunOption
+        if actual_qos + RunOption.QOS_LOSS_ERROR < target_qos:
             self.count += 1
             error = (target_qos - actual_qos) / target_qos
             self.sum += error
