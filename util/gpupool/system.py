@@ -159,11 +159,10 @@ def run_exp_2(args):
     min_jobs = 50
     max_jobs = 350
     max_jobs += job_step
-    f = open('sensitivity_2.out', 'w')
-    f.write('num_jobs, (gpupool_required_gpus, gpupool_violations, gpupool_ws),\
-    (mig_required_gpus, mig_ws), random_violations, dram_bw_based_violations\n')
+    f = open('window_sensitivity.txt', 'w')
+    f.write('num_jobs, gpupool_required_gpus, gpupool_violations,'
+            'mig_required_gpus, heuristic_gpus\n')
     for num_jobs in range(min_jobs, max_jobs, job_step):
-        result = []
         seed = num_jobs // job_step
         print(seed)
         # generate required number of jobs
@@ -179,21 +178,17 @@ def run_exp_2(args):
             gpupool_config, args.cores, save=args.save)
 
         # Get baseline #1: MIG results
-        mig, mig_ws = batch.calculate_gpu_count_mig()
+        mig, mig_ws, mig_ws_list = batch.calculate_gpu_count_mig()
 
-        # Get baseline #2: Random matching results
-        random = batch.calculate_qos_violation_random(gpupool, args.cores)
-
-        # Get baseline #3: Dram_bw based results
+        # Get baseline #2: Dram_bw based results
         violation_dram_bw, dram_bw_ws_list, migrated_count_dram = \
             batch.calculate_qos_viol_dram_bw(gpupool, args.cores)
 
-        result.append((batch.num_jobs,
-                       (gpupool, gpupool_viol.count, gpupool_ws),
-                       (mig, mig_ws),
-                       random.count, violation_dram_bw.count))
-        print(result)
-        f.write('%s\n' % result)
+        f.write('{},{},{},{},{}\n'.format(batch.num_jobs,
+                                          gpupool,
+                                          gpupool_viol.count,
+                                          mig,
+                                          migrated_count_dram))
 
     f.close()
 
