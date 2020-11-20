@@ -9,14 +9,14 @@ from gpupool.workload import BatchJob, GpuPoolConfig, Job
 from gpupool.predict import Allocation, StageOne, StageTwo
 from gpupool.workload import Violation
 
-NUM_JOBS = 100
-
 
 def parse_args():
     parser = argparse.ArgumentParser("Get main paper results from pickle.")
 
     parser.add_argument('--pkl', nargs='+',
                         help='Path to pickle file')
+    parser.add_argument('--job_count', type=int, default=100,
+            help='Number of jobs in the batch')
     parser.add_argument('--stage2_buffer', nargs='+',
                         type=float,
                         help='Amount of buffer to tighten qos check in stage2.')
@@ -46,8 +46,8 @@ def main():
         batch_id = int(params[1])
         ids.append(batch_id)
 
-        Job.count = batch_id * NUM_JOBS
-        batch = BatchJob(rand_seed=batch_id, num_jobs=NUM_JOBS)
+        Job.count = args.job_count * batch_id 
+        batch = BatchJob(rand_seed=batch_id, num_jobs=args.job_count)
         batch.load_df_from_pickle(pkl)
 
         # GPUPool
@@ -62,7 +62,7 @@ def main():
 
         print("GPUPool GPU count:", gp_count)
         print("WS:", gp_ws)
-        print(gp_violation.to_string(NUM_JOBS))
+        print(gp_violation.to_string(args.job_count))
 
         count['gpupool'].append(gp_count)
         ws['gpupool'].append(gp_ws)
@@ -79,7 +79,7 @@ def main():
         ws_list['mig'].append(copy.deepcopy(mig_ws_list))
 
         # Heuristic
-        heuristic_count = NUM_JOBS / 2
+        heuristic_count = args.job_count / 2
         bw_violation, bw_ws_list, bw_gpu_total = \
             batch.calculate_qos_viol_dram_bw(heuristic_count,
                                              cores=32)

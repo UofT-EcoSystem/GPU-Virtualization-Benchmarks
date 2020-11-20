@@ -20,6 +20,8 @@ def parse_args():
                              '2 = sensitivity analysis for number of jobs '
                              'per batch. '
                              '3 = boosting tree test.')
+    parser.add_argument('--job_count', default=100, type=int, 
+                        help='job count for exp0.')
     parser.add_argument('--stage1', default="GPUSim",
                         choices=[s1.name for s1 in StageOne],
                         help='Stage 1 predictor: GPUSim or BoostTree.')
@@ -52,7 +54,7 @@ def parse_args():
 def run_exp_0(args):
     # Generic experiment
     num_batches = 5
-    num_jobs = 100
+    num_jobs = args.job_count
 
     result = []
     for batch_id in range(num_batches):
