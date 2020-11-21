@@ -64,6 +64,10 @@ def main():
         print("WS:", gp_ws)
         print(gp_violation.to_string(args.job_count))
 
+        if gp_violation.count > 0:
+            print("Non-zero violations.")
+            sys.exit(1)
+
         count['gpupool'].append(gp_count)
         ws['gpupool'].append(gp_ws)
         ws_list['gpupool'].append(copy.deepcopy(gp_ws_list))
