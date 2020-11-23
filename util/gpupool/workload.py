@@ -462,13 +462,23 @@ class BatchJob:
         f.write("var data = [" + "\n")
 
         # iterate over rows and read off the weighted speedups
+        id_offset = self.list_jobs[0].id
+        id_max = self.list_jobs[-1].id
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
             # the qos of each job in pair is satisfied
             jobs = row['pair_job'].jobs
-            id_offset = self.list_jobs[0].id
-            adjusted_id = [job.id - id_offset for job in jobs]
+            not_in_batch = False
+            for j in jobs:
+                if j.id < id_offset or j.id > id_max:
+                    not_in_batch = True
+                    break
 
+            if not_in_batch:
+                # skip row
+                continue
+
+            adjusted_id = [job.id - id_offset for job in jobs]
             # Buffer to tighten the bounds and offset error from stage 1
             buffer = gpupool_config.stage2_buffer
             if (jobs[0].qos.value * (1 + buffer) < row[perf_col].sld[0]) and \
@@ -510,8 +520,6 @@ class BatchJob:
             time.perf_counter() - start_matching
 
         os.system('rm input.js')
-        # print(matching)
-        # print(self.list_jobs)
 
         # Parse the output and get qos violations
         print("Running QoS verifications...")
