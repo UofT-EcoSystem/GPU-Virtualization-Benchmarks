@@ -135,9 +135,9 @@ class Performance:
 
 
 class RunOption:
-    EQUALITY_ERROR = 0.00001
-    STEADY_STEP = 20
-    QOS_LOSS_ERROR = 0.00001
+    EQUALITY_ERROR = 0.0001
+    STEADY_STEP = 10
+    QOS_LOSS_ERROR = 0.0001
 
     TRAINING_SET_RATIO = 0.8
 
