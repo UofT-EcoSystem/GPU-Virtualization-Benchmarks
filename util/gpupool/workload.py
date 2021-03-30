@@ -157,15 +157,20 @@ class Violation:
 
 # Top-level functions to be pickled and parallelized on multiple cores
 def get_perf(df, config: GpuPoolConfig):
+
     # Deep copy config so that each process can have a unique model copy to
     # run on if stage1 is boosting tree
     option_copy = deepcopy(config)
 
     start = time.perf_counter()
+
     _df_performance = df['pair_job'].apply(
         lambda pair_job:
         pd.Series(pair_job.get_gpupool_performance(option_copy))
     )
+
+    duration = time.perf_counter() - start
+    print("each core sec", duration)
 
     # print("Core:", time.perf_counter() - start, " jobs: ", len(df.index))
     return _df_performance
@@ -363,7 +368,17 @@ class BatchJob:
 
     def _calculate_gpupool_performance(self, config: GpuPoolConfig, cores):
         print(self, config)
+
+        self.df_pair = self.df_pair.sample(frac=1).reset_index(drop=True)
+        # Profiling
+        start_prediction = time.perf_counter()
+
         result = parallelize(self.df_pair, cores, get_perf, extra_param=config)
+
+        # Profiling
+        self.time_gpupool[config.get_time_prediction()] = \
+            time.perf_counter() - start_prediction
+
         df_performance = pd.concat(result)
 
         # Drop the same columns
@@ -448,7 +463,7 @@ class BatchJob:
 
         return average_error
 
-    def max_matching(self, gpupool_config, cores):
+    def max_matching(self, gpupool_config, cores, start_id=-1, end_id=-1):
         # Call max weight matching solver
 
         # Profiling
@@ -463,7 +478,11 @@ class BatchJob:
 
         # iterate over rows and read off the weighted speedups
         id_offset = self.list_jobs[0].id
+        id_offset = id_offset if start_id == -1 else id_offset + start_id
+
         id_max = self.list_jobs[-1].id
+        id_max = id_max if end_id == -1 else id_offset + end_id
+
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
             # the qos of each job in pair is satisfied
@@ -525,13 +544,15 @@ class BatchJob:
         print("Running QoS verifications...")
         options = []
 
-        for i in range(self.num_jobs):
+        num_jobs = self.num_jobs if end_id == -1 else end_id - start_id + 1
+        job_start = 0 if start_id == -1 else start_id
+        for i in range(num_jobs):
             if matching[i] < i:
                 # either no pair or pair was formed already
                 continue
 
-            job_pair = [self.list_jobs[matching[i]].name,
-                        self.list_jobs[i].name]
+            job_pair = [self.list_jobs[matching[i] + job_start].name,
+                        self.list_jobs[i + job_start].name]
             job_pair.sort()
             pair_str = "+".join(job_pair)
             option = self.df_pair[self.df_pair['pair_str'] == pair_str]\
@@ -667,15 +688,9 @@ class BatchJob:
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
         print("Running GPUPool predictor... ")
-        # Profiling
-        start_prediction = time.perf_counter()
 
         # Call two-stage predictor
         self._calculate_gpupool_performance(gpupool_config, cores=cores)
-
-        # Profiling
-        self.time_gpupool[gpupool_config.get_time_prediction()] = \
-            time.perf_counter() - start_prediction
 
         print("Running max weight matching solver...")
         gpu_count, violation, ws_total, ws_list, isolated_count = \
