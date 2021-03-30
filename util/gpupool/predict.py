@@ -177,6 +177,21 @@ class RunOption:
 
     # Return Performance
     def app_wise_full_and_steady(self, steady=False, at_least_once=False):
+        # # Dump input for C++ implementation
+        # with open("seq_cycles.csv", "w+") as f:
+        #     for job in self.jobs:
+        #         string_cycles = [str(c) for c in job.get_seq_cycles()]
+        #         f.write(",".join(string_cycles))
+        #         f.write("\n")
+        #
+        # np.savetxt("inter1.csv", self.interference_matrix[0], delimiter=",")
+        # np.savetxt("inter2.csv", self.interference_matrix[1], delimiter=",")
+        #
+        # print("job 0 limit", self.jobs[0].num_iters)
+        # print("job 1 limit", self.jobs[1].num_iters)
+
+        start_time = time.perf_counter()
+
         seq_runtimes = [job.get_seq_cycles() for job in self.jobs]
 
         # to keep track of iterations completed by apps
@@ -352,6 +367,9 @@ class RunOption:
             steady_perf = Performance(self.jobs)
             steady_perf.fill_with_slowdown(sld=steady_state_qos,
                                            steady_iter=steady_state_iter)
+            print("stage 2 took seconds", time.perf_counter() - start_time)
+            print("qos", steady_state_qos)
+            print("iter", steady_state_iter)
             return steady_perf
         else:
             if not at_least_once:
