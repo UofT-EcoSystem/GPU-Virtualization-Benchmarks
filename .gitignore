@@ -121,3 +121,4 @@ benchmarks/cuda-sdk/cudaTensorCoreGemm/profile\.nsight-cuprof-report
 
 # Jupyter notebooks
 .ipynb_checkpoints/
+cmake-build-debug/
