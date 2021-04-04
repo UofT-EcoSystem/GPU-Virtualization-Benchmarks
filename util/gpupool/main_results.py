@@ -96,6 +96,15 @@ def main():
         ws['bw'].append(bw_ws)
         ws_list['bw'].append(copy.deepcopy(bw_ws_list))
         violation['bw'].append(copy.deepcopy(bw_violation))
+        # similarity
+        sim_violation, sim_ws_list, sim_gpu_total = \
+            batch.calculate_qos_viol_similarity(cores=32)
+        sim_ws = sum(sim_ws_list) / sim_gpu_total
+
+        print("Similarity count", sim_gpu_total)
+        print("Similarity WS", sim_ws)
+        print("Similarity violation", sim_violation.to_string(
+            num_jobs=args.job_count))
 
         batches.append(copy.deepcopy(batch))
 

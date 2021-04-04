@@ -10,6 +10,7 @@ import multiprocessing as mp
 import time
 import sys
 from copy import deepcopy
+import math
 
 import data.scripts.common.constants as const
 from gpupool.predict import Allocation, StageOne, StageTwo
@@ -157,7 +158,6 @@ class Violation:
 
 # Top-level functions to be pickled and parallelized on multiple cores
 def get_perf(df, config: GpuPoolConfig):
-
     # Deep copy config so that each process can have a unique model copy to
     # run on if stage1 is boosting tree
     option_copy = deepcopy(config)
@@ -287,6 +287,7 @@ class Job:
         self.sld_mig = 0
         self.num_iters = num_iters
         self.bw = -1
+        self.vector = []
 
         # Create new job with a list of benchmarks
         self.benchmarks = benchmarks
@@ -327,6 +328,50 @@ class Job:
                 return resources + 1, attained_qos
 
         return MAX_PARTITIONS
+
+    def calculate_metric_vector(self):
+        if hasattr(self, 'vector') and len(self.vector) > 0:
+            return
+
+        cycles = self.get_seq_cycles()
+        metrics = ['ipc', 'avg_mem_lat', 'mpc', 'avg_dram_bw',
+                   'thread_count', 'sp_busy', 'int_busy',
+                   'not_selected_cycles', 'l2_miss_rate']
+
+        df = const.get_pickle('seq.pkl')
+
+        df['mpc'] = df['mem_count'] / df['runtime']
+        df['thread_count'] = df.apply(
+            lambda row: const.get_achieved_cta(row['pair_str']) *
+                        const.get_block_size(row['pair_str']),
+            axis=1
+        )
+
+        job_total = sum(cycles)
+        norm_lengths = [x / job_total for x in cycles]
+
+        self.vector = []
+        for metric in metrics:
+            utilization = [float(df[df['pair_str'] == bm][metric])
+                           for bm in self.benchmarks]
+            weighted_arith_mean = sum([norm_lengths[i] * utilization[i]
+                                       for i in range(len(norm_lengths))])
+            self.vector.append(weighted_arith_mean)
+
+    def similar(self, other):
+        # calculate cosine similarity between two jobs
+        def square_rooted(x):
+            return round(math.sqrt(sum([a * a for a in x])), 3)
+
+        def cosine_similarity(x, y):
+            numerator = sum(a * b for a, b in zip(x, y))
+            denominator = square_rooted(x) * square_rooted(y)
+            return round(numerator / float(denominator), 3)
+
+        self.calculate_metric_vector()
+        other.calculate_metric_vector()
+
+        return cosine_similarity(self.vector, other.vector)
 
 
 class BatchJob:
@@ -463,52 +508,36 @@ class BatchJob:
 
         return average_error
 
-    def max_matching(self, gpupool_config, cores, start_id=-1, end_id=-1):
-        # Call max weight matching solver
-
-        # Profiling
-        start_matching = time.perf_counter()
-
-        perf_col = gpupool_config.get_perf()
-        ws_col = gpupool_config.get_ws()
-
+    def _max_matching(self, gpupool=True, gpupool_config=None, perf_col=None):
         f = open("input.js", "w+")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
-
-        # iterate over rows and read off the weighted speedups
-        id_offset = self.list_jobs[0].id
-        id_offset = id_offset if start_id == -1 else id_offset + start_id
-
-        id_max = self.list_jobs[-1].id
-        id_max = id_max if end_id == -1 else id_offset + end_id
 
         for index, row in self.df_pair.iterrows():
             # determine if we include this pair as an edge or not based on if
             # the qos of each job in pair is satisfied
             jobs = row['pair_job'].jobs
-            not_in_batch = False
-            for j in jobs:
-                if j.id < id_offset or j.id > id_max:
-                    not_in_batch = True
-                    break
 
-            if not_in_batch:
-                # skip row
-                continue
+            if gpupool:
+                # Buffer to tighten the bounds and offset error from stage 1
+                buffer = gpupool_config.stage2_buffer
 
-            adjusted_id = [job.id - id_offset for job in jobs]
-            # Buffer to tighten the bounds and offset error from stage 1
-            buffer = gpupool_config.stage2_buffer
-            if (jobs[0].qos.value * (1 + buffer) < row[perf_col].sld[0]) and \
-                    (jobs[1].qos.value * (1 + buffer) < row[perf_col].sld[1]):
-                input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
-                                                            adjusted_id[1],
+                target = [job.qos.value * (1 + buffer) for job in jobs]
+                prediction = row[perf_col].sld
+                condition = (prediction[0] > target[0]) and \
+                            (prediction[1] > target[1])
+            else:
+                threshold = 0.8
+                condition = row['similar'] < threshold
+
+            if condition:
+                input_line = "      [{}, {}, {}],\n".format(jobs[0].id,
+                                                            jobs[1].id,
                                                             1
                                                             )
             else:
-                input_line = "      [{}, {}, {}],\n".format(adjusted_id[0],
-                                                            adjusted_id[1],
+                input_line = "      [{}, {}, {}],\n".format(jobs[0].id,
+                                                            jobs[1].id,
                                                             -sys.maxsize + 1)
 
             f.write(input_line)
@@ -534,6 +563,19 @@ class BatchJob:
         num_pairs = len([x for x in matching if x >= 0]) // 2
         num_isolated = len([x for x in matching if x == -1])
 
+        return matching, num_pairs, num_isolated
+
+    def max_matching(self, gpupool_config=None, cores=32, gpupool=True):
+        # Call max weight matching solver
+
+        # Profiling
+        start_matching = time.perf_counter()
+
+        perf_col = gpupool_config.get_perf()
+
+        matching, num_pairs, num_isolated = self._max_matching(
+            gpupool, gpupool_config, perf_col)
+
         # Profiling
         self.time_gpupool[gpupool_config.get_time_matching()] = \
             time.perf_counter() - start_matching
@@ -544,15 +586,13 @@ class BatchJob:
         print("Running QoS verifications...")
         options = []
 
-        num_jobs = self.num_jobs if end_id == -1 else end_id - start_id + 1
-        job_start = 0 if start_id == -1 else start_id
-        for i in range(num_jobs):
+        for i in range(len(self.list_jobs)):
             if matching[i] < i:
                 # either no pair or pair was formed already
                 continue
 
-            job_pair = [self.list_jobs[matching[i] + job_start].name,
-                        self.list_jobs[i + job_start].name]
+            job_pair = [self.list_jobs[matching[i]].name,
+                        self.list_jobs[i].name]
             job_pair.sort()
             pair_str = "+".join(job_pair)
             option = self.df_pair[self.df_pair['pair_str'] == pair_str]\
@@ -772,5 +812,40 @@ class BatchJob:
 
         ws_list = violation.actual_ws_list + [1] * num_singles
         gpu_migrated_count = gpu_avail + violation.gpu_increase
+
+        return violation, ws_list, gpu_migrated_count
+
+    def calculate_qos_viol_similarity(self, cores):
+        print("Running similarity-based scheduling...")
+
+        self.df_pair['similar'] = self.df_pair.apply(
+            lambda row: row['pair_job'].jobs[0].similar(row['pair_job'].jobs[1]),
+            axis=1
+        )
+
+        matching, num_pairs, num_isolated = self._max_matching(gpupool=False)
+
+        print("job pairs", num_pairs)
+        print("num singles", num_isolated)
+
+        job_pairs = []
+        for i in range(len(self.list_jobs)):
+            if matching[i] < i:
+                # either no pair or pair was formed already
+                continue
+
+            job_pairs.append((self.list_jobs[matching[i]],
+                              self.list_jobs[i]))
+
+        if len(job_pairs) > 0:
+            violations_result = parallelize(
+                job_pairs, cores, get_qos_violations)
+            violation = sum(violations_result)
+        else:
+            violation = Violation()
+
+        ws_list = violation.actual_ws_list + [1] * num_isolated
+        gpu_migrated_count = len(job_pairs) + violation.gpu_increase \
+                             + num_isolated
 
         return violation, ws_list, gpu_migrated_count
