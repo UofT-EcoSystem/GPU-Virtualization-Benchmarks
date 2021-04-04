@@ -1,4 +1,6 @@
 from sklearn import ensemble
+from sklearn.linear_model import LinearRegression
+from sklearn.neural_network import MLPRegressor
 from sklearn.utils import shuffle
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_error
@@ -11,6 +13,9 @@ import argparse
 import matplotlib.pyplot as plt
 import os
 from collections import OrderedDict
+import matplotlib.pyplot as plt
+import time
+import random
 
 import data.scripts.common.constants as const
 
@@ -29,7 +34,7 @@ metric_dict = OrderedDict([
     # ('ratio_dp_busy', 'dp_busy'),
     # ('sum_dp_busy', 'dp_busy'),
     ('l2_miss_rate', 'l2_miss_rate'),
-    ('ratio_rbh', 'avg_rbh'),
+    # ('ratio_rbh', 'avg_rbh'),
 ])
 
 # deprecated
@@ -168,7 +173,7 @@ def prepare_ws_datasets(df_pair):
 
 
 def train(X, y, cross_validation=True):
-    params = {'n_estimators': 300, 'max_depth': 8, 'min_samples_split': 2,
+    params = {'n_estimators': 200, 'max_depth': 5, 'min_samples_split': 2,
               'learning_rate': 0.1, 'loss': 'huber'}
 
     if cross_validation:
@@ -192,6 +197,74 @@ def train(X, y, cross_validation=True):
     clf.fit(X_train, y_train)
 
     return clf
+
+
+def linear(X, y):
+    reg = LinearRegression().fit(X, y)
+    return reg
+
+
+def mlp(X, y, cross_validation=True):
+    # hyperparameter search
+    # max_num_layers = 1
+    # exp_per_layer_count = 50
+    # max_num_neurons = 1000
+    # min_num_neurons = 100
+
+    n_iter = 500
+    params = {'random_state': 1, 'max_iter': n_iter,
+              'hidden_layer_sizes': 100,
+              'activation': 'tanh', 'alpha': 0.001,
+              'learning_rate_init': 0.008,
+              'solver': 'adam'}
+
+    # generate search space
+    # hidden_sizes = []
+    # for layer_count in range(1, max_num_layers+1):
+    #     for exp in range(exp_per_layer_count):
+    #         sizes = [random.randint(min_num_neurons, max_num_neurons)
+    #                  for _ in range(layer_count)]
+    #         hidden_sizes.append(tuple(sizes))
+    hidden_sizes = [460]
+
+    # find best arch config
+    min_error = float("inf")
+    min_config = hidden_sizes[0]
+    for hidden_config in hidden_sizes:
+        print("config:", hidden_config)
+        params['hidden_layer_sizes'] = hidden_config
+
+        if cross_validation:
+            # Fit gradient boost tree regression model
+            # using K-fold cross validation
+            kf = KFold(n_splits=3, shuffle=True)
+            errors = []
+
+            for train_index, test_index in kf.split(X):
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+
+                reg = MLPRegressor(**params)
+
+                reg.fit(X_train, y_train)
+
+                mae = mean_absolute_error(y_test, reg.predict(X_test))
+                print('K-fold l1 error:', mae)
+                errors.append(mae)
+
+            current_error = np.average(errors)
+            if current_error < min_error:
+                min_error = current_error
+                min_config = hidden_config
+
+    print("min error:", min_error)
+    print("min config:", min_config)
+    params['hidden_layer_sizes'] = min_config
+    # get the final model
+    reg = MLPRegressor(**params)
+    reg.fit(X, y)
+
+    return reg
 
 
 def plot_importance(clf, type='old'):
@@ -225,7 +298,16 @@ def plot_importance(clf, type='old'):
 
 def predict_from_df(clf, df_pair):
     xs = prepare_datasets(df_pair, training=False)
+
+    count = sum([x.shape[0] for x in xs])
+
+    print(count, "predictions")
+
+    start = time.perf_counter()
     ys = [clf.predict(x) for x in xs]
+    end = time.perf_counter()
+
+    print("Took", end - start, "seconds")
 
     return ys
 
