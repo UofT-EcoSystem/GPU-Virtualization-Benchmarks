@@ -3,8 +3,8 @@ import sys
 import multiprocessing as mp
 import numpy as np
 
-from gpupool.workload import BatchJob, GpuPoolConfig
-from gpupool.predict import Allocation, StageOne, StageTwo
+from gpupool.core.workload import BatchJob, GpuPoolConfig
+from gpupool.core.predict import Allocation, StageOne, StageTwo
 import pandas as pd
 
 

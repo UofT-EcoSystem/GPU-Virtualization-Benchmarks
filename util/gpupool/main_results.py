@@ -5,9 +5,8 @@ import os
 from collections import defaultdict
 from scipy import stats
 import copy
-from gpupool.workload import BatchJob, GpuPoolConfig, Job
-from gpupool.predict import Allocation, StageOne, StageTwo
-from gpupool.workload import Violation
+from gpupool.core.workload import BatchJob, GpuPoolConfig, Job
+from gpupool.core.predict import Allocation, StageOne, StageTwo
 
 
 def parse_args():

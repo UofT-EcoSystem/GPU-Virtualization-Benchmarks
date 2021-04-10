@@ -1,5 +1,5 @@
-from gpupool.workload import BatchJob, GpuPoolConfig
-from gpupool.predict import Allocation, StageOne, StageTwo
+from gpupool.core.workload import BatchJob, GpuPoolConfig
+from gpupool.core.predict import Allocation, StageOne, StageTwo
 
 num_jobs = 100
 batch = BatchJob(rand_seed=0, num_jobs=num_jobs)

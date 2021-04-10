@@ -13,7 +13,7 @@ from copy import deepcopy
 import math
 
 import data.scripts.common.constants as const
-from gpupool.predict import Allocation, StageOne, StageTwo
+from gpupool.core.predict import Allocation, StageOne, StageTwo
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -41,7 +41,7 @@ class GpuPoolConfig:
 
         model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
 
-        from gpupool.predict import RunOption
+        from gpupool.core.predict import RunOption
         if self.stage_1 == StageOne.BoostTree and not accuracy_mode:
             # Runtime mode, simply do inference on a single model
             if os.path.isfile(model_pkl_path):
@@ -102,7 +102,7 @@ class Violation:
             self.actual_ws_list = actual_ws_list
 
     def update(self, actual_qos, target_qos):
-        from gpupool.predict import RunOption
+        from gpupool.core.predict import RunOption
         if actual_qos + RunOption.QOS_LOSS_ERROR < target_qos:
             self.count += 1
             error = (target_qos - actual_qos) / target_qos
@@ -182,7 +182,7 @@ def get_qos_violations(job_pairs: list):
     for list_job in job_pairs:
         qos_goals = [list_job[0].qos.value, list_job[1].qos.value]
 
-        from gpupool.predict import PairJob
+        from gpupool.core.predict import PairJob
         pair = PairJob([list_job[0], list_job[1]])
         perf = pair.get_best_effort_performance()
         violated_pair = False
@@ -483,7 +483,7 @@ class BatchJob:
             self.list_jobs.append(new_job)
 
     def _create_pairs(self):
-        from gpupool.predict import PairJob
+        from gpupool.core.predict import PairJob
         pairs = [PairJob([lhs, rhs])
                  for lhs in self.list_jobs for rhs in self.list_jobs
                  if lhs.name < rhs.name]

@@ -1,5 +1,5 @@
-from gpupool.workload import BatchJob, GpuPoolConfig
-from gpupool.predict import Allocation, StageOne, StageTwo
+from gpupool.core.workload import BatchJob, GpuPoolConfig
+from gpupool.core.predict import Allocation, StageOne, StageTwo
 
 
 job_step = 50

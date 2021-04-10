@@ -134,7 +134,7 @@ def get_num_kernels(app):
         result = sum([get_num_kernels_bench(bench) for bench in list_bench])
         return result
 
-    from gpupool.workload import Job
+    from gpupool.core.workload import Job
     if app in syn_yaml:
         return get_from_list(syn_yaml[app])
     elif app in Job.job_list:
@@ -185,7 +185,7 @@ def get_seq_cycles(app):
                 result += get_seq_cycles_bench(benchmark)
         return result
 
-    from gpupool.workload import Job
+    from gpupool.core.workload import Job
     if app in syn_yaml:
         # Synthetic workloads
         return get_from_list(syn_yaml[app])
@@ -221,7 +221,7 @@ def get_dominant_usage(app):
 
         return list_usage
 
-    from gpupool.workload import Job
+    from gpupool.core.workload import Job
     if app in syn_yaml:
         # Synthetic workloads
         return get_list_usage(syn_yaml[app])
@@ -232,7 +232,7 @@ def get_dominant_usage(app):
 
 
 def get_cta_from_ctx(rsrc_usage, ctx, app):
-    from gpupool.workload import Job
+    from gpupool.core.workload import Job
     if app in multi_kernel_app:
         benchmarks = ["{}:{}".format(app, kidx)
                       for kidx in multi_kernel_app[app]]
