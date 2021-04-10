@@ -136,8 +136,8 @@ class Performance:
 
 class RunOption:
     EQUALITY_ERROR = 0.0001
-    STEADY_STEP = 10
-    QOS_LOSS_ERROR = 0.0001
+    STEADY_STEP = 20
+    QOS_LOSS_ERROR = 0.00001
 
     TRAINING_SET_RATIO = 0.8
 
@@ -367,9 +367,9 @@ class RunOption:
             steady_perf = Performance(self.jobs)
             steady_perf.fill_with_slowdown(sld=steady_state_qos,
                                            steady_iter=steady_state_iter)
-            print("stage 2 took seconds", time.perf_counter() - start_time)
-            print("qos", steady_state_qos)
-            print("iter", steady_state_iter)
+            # print("stage 2 took seconds", time.perf_counter() - start_time)
+            # print("qos", steady_state_qos)
+            # print("iter", steady_state_iter)
             return steady_perf
         else:
             if not at_least_once:
