@@ -1,279 +1,20 @@
 from random import seed
 from random import choices
-from enum import Enum
 import pandas as pd
 import pickle
 import os
 import subprocess
 import numpy as np
-import multiprocessing as mp
 import time
 import sys
-from copy import deepcopy
 import math
 
 import data.scripts.common.constants as const
-from gpupool.core.predict import Allocation, StageOne, StageTwo
+from gpupool.core.helper import QOS, GpuPoolConfig, Violation
+from gpupool.core.configs import *
+from gpupool.core.parallelize import *
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-
-MAX_PARTITIONS = 8
-
-
-class QOS(Enum):
-    PCT_50 = 0.5
-    PCT_60 = 0.6
-    PCT_70 = 0.7
-    PCT_80 = 0.8
-    PCT_90 = 0.9
-
-
-class GpuPoolConfig:
-    def __init__(self, alloc: Allocation, stage_1: StageOne, stage_2: StageTwo,
-                 at_least_once, accuracy_mode, stage2_buffer):
-        self.alloc = alloc
-        self.stage_1 = stage_1
-        self.stage_2 = stage_2
-        self.at_least_once = at_least_once
-        self.model = None
-        self.accuracy_mode = accuracy_mode
-        self.stage2_buffer = stage2_buffer
-
-        model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
-
-        from gpupool.core.predict import RunOption
-        if self.stage_1 == StageOne.BoostTree and not accuracy_mode:
-            # Runtime mode, simply do inference on a single model
-            if os.path.isfile(model_pkl_path):
-                print("Load boosting tree from pickle {}"
-                      .format(model_pkl_path))
-
-                self.model = pickle.load(open(model_pkl_path, 'rb'))
-            else:
-                print("Training boosting tree for stage 1.")
-                self.model = RunOption.train_boosting_tree(train_all=True)
-                pickle.dump(self.model, open(model_pkl_path, 'wb'))
-
-    def to_string(self):
-        combo_name = "{}-{}-{}-{}".format(self.alloc.name,
-                                          self.stage_1.name,
-                                          self.stage_2.name,
-                                          self.at_least_once)
-        return combo_name
-
-    def get_ws(self):
-        return self.to_string() + '-ws'
-
-    def get_perf(self):
-        return self.to_string() + '-perf'
-
-    def get_option(self):
-        return self.to_string() + '-option'
-
-    def get_time_prediction(self):
-        return self.to_string() + '-time-prediction'
-
-    def get_time_matching(self):
-        return self.to_string() + '-time-matching'
-
-    def get_model(self):
-        return self.model
-
-
-class Violation:
-    def __init__(self, count=0, err_sum=0, err_max=0, gpu_increase=0,
-                 actual_ws=0, actual_ws_list=None, job_sld=None,
-                 ws_no_migrate=0):
-        self.count = count
-        self.sum = err_sum
-        self.max = err_max
-        self.gpu_increase = gpu_increase
-        self.actual_ws = actual_ws
-        self.ws_no_migrate = ws_no_migrate
-
-        if job_sld is None:
-            self.job_sld = {}
-        else:
-            self.job_sld = job_sld
-
-        if actual_ws_list is None:
-            self.actual_ws_list = []
-        else:
-            self.actual_ws_list = actual_ws_list
-
-    def update(self, actual_qos, target_qos):
-        from gpupool.core.predict import RunOption
-        if actual_qos + RunOption.QOS_LOSS_ERROR < target_qos:
-            self.count += 1
-            error = (target_qos - actual_qos) / target_qos
-            self.sum += error
-
-            if error > self.max:
-                self.max = error
-
-            # return did violate
-            return True
-        else:
-            return False
-
-    def mean_error_pct(self):
-        if self.count == 0:
-            return 0
-        else:
-            return self.sum / self.count * 100
-
-    def max_error_pct(self):
-        return self.max * 100
-
-    def to_string(self, num_jobs):
-        return "{} QoS violations ({:.2f}% jobs, {:.2f}% mean relative " \
-               "error, {:.2f}% max error)".format(self.count,
-                                                  self.count / num_jobs * 100,
-                                                  self.mean_error_pct(),
-                                                  self.max_error_pct())
-
-    def __add__(self, other):
-        new_count = self.count + other.count
-        new_sum = self.sum + other.sum
-        new_max = max(self.max, other.max)
-        new_gpu_increase = self.gpu_increase + other.gpu_increase
-        new_ws = self.actual_ws + other.actual_ws
-        new_ws_list = self.actual_ws_list + other.actual_ws_list
-        new_ws_no_migrate = self.ws_no_migrate + other.ws_no_migrate
-
-        new_job_sld = {}
-        new_job_sld.update(self.job_sld)
-        new_job_sld.update(other.job_sld)
-
-        return Violation(new_count, new_sum, new_max,
-                         new_gpu_increase, new_ws, new_ws_list, new_job_sld,
-                         new_ws_no_migrate)
-
-    def __radd__(self, other):
-        if other == 0:
-            return self
-        else:
-            return self.__add__(other)
-
-
-# Top-level functions to be pickled and parallelized on multiple cores
-def get_perf(df, config: GpuPoolConfig):
-    # Deep copy config so that each process can have a unique model copy to
-    # run on if stage1 is boosting tree
-    option_copy = deepcopy(config)
-
-    start = time.perf_counter()
-
-    _df_performance = df['pair_job'].apply(
-        lambda pair_job:
-        pd.Series(pair_job.get_gpupool_performance(option_copy))
-    )
-
-    duration = time.perf_counter() - start
-    print("each core sec", duration)
-
-    # print("Core:", time.perf_counter() - start, " jobs: ", len(df.index))
-    return _df_performance
-
-
-def get_qos_violations(job_pairs: list):
-    violation = Violation()
-
-    for list_job in job_pairs:
-        qos_goals = [list_job[0].qos.value, list_job[1].qos.value]
-
-        from gpupool.core.predict import PairJob
-        pair = PairJob([list_job[0], list_job[1]])
-        perf = pair.get_best_effort_performance()
-        violated_pair = False
-
-        for sld, qos in zip(perf.sld, qos_goals):
-            violated_pair |= violation.update(sld, qos)
-
-        if violated_pair:
-            violation.gpu_increase += 1
-            violation.actual_ws += 2
-            violation.actual_ws_list += [1, 1]
-
-            # Update job slowdown for heuristic
-            for job in list_job:
-                violation.job_sld[job.id] = 1
-        else:
-            violation.actual_ws += sum(perf.sld)
-            violation.actual_ws_list.append(sum(perf.sld))
-
-            # Update job slowdown for heuristic
-            for job, sld in zip(list_job, perf.sld):
-                violation.job_sld[job.id] = sld
-    return violation
-
-
-def verify_qos_violations(options: list):
-    violation = Violation()
-
-    for option in options:
-        job_pair = option.jobs
-        qos_goals = [job_pair[0].qos.value, job_pair[1].qos.value]
-
-        # This function changes interference matrix get a deepcopy first
-        from copy import deepcopy
-        option_copy = deepcopy(option)
-        perf = option_copy.get_real_performance()
-
-        violated_pair = False
-        for sld, qos in zip(perf.sld, qos_goals):
-            violated_pair |= violation.update(sld, qos)
-
-        if violated_pair:
-            violation.gpu_increase += 1
-            violation.actual_ws += 2
-            violation.actual_ws_list += [1, 1]
-
-            # Update job slowdown for GPUPool
-            for job in option.jobs:
-                violation.job_sld[job.id] = 1
-        else:
-            violation.actual_ws += sum(perf.sld)
-            violation.actual_ws_list.append(sum(perf.sld))
-
-            # Update job slowdown for GPUPool
-            for job, sld in zip(option.jobs, perf.sld):
-                violation.job_sld[job.id] = sld
-
-        violation.ws_no_migrate += sum(perf.sld)
-
-    return violation
-
-
-def verify_boosting_tree(df, config: GpuPoolConfig):
-    config_copy = deepcopy(config)
-
-    delta = df['pair_job'].apply(
-        lambda pair_job: pair_job.verify_boosting_tree(config_copy)
-    )
-
-    return delta.tolist()
-
-
-# End parallel functions
-
-
-def parallelize(data, cores, func, extra_param=None):
-    cores = min(cores, len(data))
-    pool = mp.Pool(cores)
-
-    data_split = np.array_split(data, cores)
-
-    if extra_param:
-        data_split = [(ds, extra_param) for ds in data_split]
-        result = pool.starmap(func, data_split)
-    else:
-        result = pool.map(func, data_split)
-
-    pool.close()
-    pool.join()
-
-    return result
 
 
 class Job:
@@ -282,10 +23,12 @@ class Job:
 
     def __init__(self, qos: QOS, num_iters, benchmarks: list):
         self.qos = qos
+        self.num_iters = num_iters
+
         self.sld_gpupool = 0
         self.sld_heuristic = 0
         self.sld_mig = 0
-        self.num_iters = num_iters
+
         self.bw = -1
         self.vector = []
 
@@ -297,6 +40,7 @@ class Job:
 
         self.name = "job-{}".format(self.id)
 
+        # FIXME: why is this needed
         Job.job_list[self.name] = self.benchmarks
 
     def get_seq_cycles(self):
@@ -306,6 +50,7 @@ class Job:
     def get_num_benchmarks(self):
         return len(self.benchmarks)
 
+    # FIXME: store this value in obj instead?
     def calculate_static_partition(self):
         mig_pickles = os.path.join(THIS_DIR, '../data/pickles/mig_ipcs')
         mig_ipcs = pickle.load(open(mig_pickles, 'rb'))
@@ -327,7 +72,7 @@ class Job:
                 self.sld_mig = attained_qos
                 return resources + 1, attained_qos
 
-        return MAX_PARTITIONS
+        return MAX_PARTITIONS, 1
 
     def calculate_metric_vector(self):
         if hasattr(self, 'vector') and len(self.vector) > 0:
@@ -375,13 +120,6 @@ class Job:
 
 
 class BatchJob:
-    REPEAT = 0
-    FRESH = 1
-
-    ITER_CHOICES = [400, 800, 1200, 1600, 2000, 2400, 2800]
-    NUM_JOB_CHOICES = [100, 200, 300, 400]
-    NUM_BENCH_CHOICES = [4, 8, 12, 16]
-
     count = 0
 
     def __init__(self, rand_seed, num_benchmarks_per_job=-1, num_jobs=-1,
@@ -401,31 +139,25 @@ class BatchJob:
         self.df_pair = pd.DataFrame()
         self._create_pairs()
 
-        # In seconds
-        self.time_gpupool = {}
+        # Profiling info in seconds
+        # self.time_gpupool = {}
         self.time_mig = 0
 
-    def load_df_from_pickle(self, file_path):
-        if os.path.isfile(file_path):
-            self.df_pair = pd.read_pickle(file_path)
-        else:
-            print(file_path, "does not exist. Do nothing.")
-
-    def _calculate_gpupool_performance(self, config: GpuPoolConfig, cores):
-        print(self, config)
-
+    def _two_stage_predict(self, config: GpuPoolConfig, cores):
+        # Shuffle df_pair for load balancing
         self.df_pair = self.df_pair.sample(frac=1).reset_index(drop=True)
+
         # Profiling
         start_prediction = time.perf_counter()
 
-        result = parallelize(self.df_pair, cores, get_perf, extra_param=config)
+        result = parallelize(self.df_pair, cores, two_stage_predict, extra_param=config)
 
-        # Profiling
-        self.time_gpupool[config.get_time_prediction()] = \
-            time.perf_counter() - start_prediction
+        # End profiling
+        latency = time.perf_counter() - start_prediction
 
         df_performance = pd.concat(result)
 
+        # FIXME: wtf is this?
         # Drop the same columns
         drop_col = [col for col in self.df_pair.columns
                     if col in df_performance.columns]
@@ -433,6 +165,8 @@ class BatchJob:
 
         self.df_pair = self.df_pair.merge(df_performance,
                                           left_index=True, right_index=True)
+
+        return latency
 
     def _synthesize_jobs(self):
         self.list_jobs.clear()
@@ -443,7 +177,7 @@ class BatchJob:
                       not in const.multi_kernel_app]
 
         if self.num_jobs == -1:
-            self.num_jobs = choices(BatchJob.NUM_JOB_CHOICES)[0]
+            self.num_jobs = choices(NUM_JOB_CHOICES)[0]
 
         print("BatchJob {} synthesizes {} jobs.".format(self.id, self.num_jobs))
 
@@ -492,6 +226,7 @@ class BatchJob:
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
 
+    # FIXME
     def boosting_tree_test(self, config: GpuPoolConfig, cores):
         delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
         # Flatten the array
@@ -508,6 +243,7 @@ class BatchJob:
 
         return average_error
 
+    # FIXME
     def _max_matching(self, gpupool=True, gpupool_config=None, perf_col=None):
         f = open("input.js", "w+")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
@@ -565,13 +301,14 @@ class BatchJob:
 
         return matching, num_pairs, num_isolated
 
+    # FIXME
     def max_matching(self, gpupool_config=None, cores=32, gpupool=True):
         # Call max weight matching solver
 
         # Profiling
         start_matching = time.perf_counter()
 
-        perf_col = gpupool_config.get_perf()
+        perf_col = gpupool_config.two_stage_predict()
 
         matching, num_pairs, num_isolated = self._max_matching(
             gpupool, gpupool_config, perf_col)
@@ -613,6 +350,8 @@ class BatchJob:
 
         return num_gpus, violation, ws_sum / num_gpus, ws_list, num_isolated
 
+    # Calculate GPU count for different systems: #
+    # MIG, GPUPool, Random, DRAM, Similarity #
     def calculate_gpu_count_mig(self):
         print("Running MIG job scheduling...")
         # convert jobs to size slices 
@@ -727,10 +466,9 @@ class BatchJob:
         return num_gpus, speedup_sum / num_gpus, ws_list
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
-        print("Running GPUPool predictor... ")
-
         # Call two-stage predictor
-        self._calculate_gpupool_performance(gpupool_config, cores=cores)
+        print("Running GPUPool predictor... ")
+        pred_latency = self._two_stage_predict(gpupool_config, cores=cores)
 
         print("Running max weight matching solver...")
         gpu_count, violation, ws_total, ws_list, isolated_count = \
@@ -750,7 +488,13 @@ class BatchJob:
 
         print("Done with GPUPool Calculations.\n")
 
-        return gpu_count, violation, ws_total
+        result = {'gpu_count': gpu_count,
+                  'violation': violation,
+                  'ws_total': ws_total,
+                  'pred_latency': pred_latency,
+                  }
+
+        return result
 
     def calculate_qos_violation_random(self, max_gpu_count, cores):
         print("Running random matching...")
@@ -849,3 +593,11 @@ class BatchJob:
                              + num_isolated
 
         return violation, ws_list, gpu_migrated_count
+
+    # deprecated
+    def load_df_from_pickle(self, file_path):
+        if os.path.isfile(file_path):
+            self.df_pair = pd.read_pickle(file_path)
+        else:
+            print(file_path, "does not exist. Do nothing.")
+

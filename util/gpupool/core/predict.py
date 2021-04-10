@@ -1,10 +1,10 @@
 import numpy as np
 import sys
 import pandas as pd
-from enum import Enum
 import math
 import time
 
+from gpupool.core.helper import *
 import job_launching.pair as run_pair
 import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
@@ -15,24 +15,6 @@ import data.scripts.predict.predict_slowdown as tree_model
 def debug_print(text, condition=True):
     if condition:
         print(text)
-
-
-class Allocation(Enum):
-    One_D = 1
-    Two_D = 2
-    Three_D = 3
-
-
-class StageOne(Enum):
-    GPUSim = 1
-    BoostTree = 2
-
-
-class StageTwo(Enum):
-    Full = 1
-    Steady = 2
-    Weighted = 3
-    GPUSim = 4
 
 
 class Performance:
@@ -842,86 +824,74 @@ class PairJob:
         # print("Getting performance for", self.job_names)
 
         option_col = predictor_config.get_option()
-        perf_col = predictor_config.get_perf()
+        perf_col = predictor_config.two_stage_predict()
         ws_col = predictor_config.get_ws()
         result = {option_col: None, perf_col: None, ws_col: 0}
 
         # Create RunOptions for allocation design
-        if predictor_config.alloc.name == Allocation.One_D.name:
-            # Find all possible 1D allocations
-            configs = run_pair.find_ctx_configs(self.job_names,
-                                                self.NUM_SLICES_1D)
+        # if predictor_config.alloc.name == Allocation.One_D.name:
+        #     # Find all possible 1D allocations
+        #     configs = run_pair.find_ctx_configs(self.job_names,
+        #                                         self.NUM_SLICES_1D)
+        #
+        #     if len(configs) == 0:
+        #         return result
+        #
+        #     ctx = [hi.check_config('1_ctx', c, default=0) for c in configs]
+        #
+        #     run_options = [RunOption1D(ctx_value, self.jobs)
+        #                    for ctx_value in ctx]
+        # elif predictor_config.alloc.name == Allocation.Three_D.name:
+        #     # step = 1.0 / num_slices
+        #     # run_options = [RunOption3D(self.jobs, ratio)
+        #     #                for ratio in np.arange(0, 1, step)]
+        #     run_options = [RunOption3D(self.jobs, 0)]
+        # else:
+        #     # 2D is unimplemented
+        #     print("PairJob: 2D is unimplemented.")
+        #     sys.exit(1)
 
-            if len(configs) == 0:
-                return result
-
-            ctx = [hi.check_config('1_ctx', c, default=0) for c in configs]
-
-            run_options = [RunOption1D(ctx_value, self.jobs)
-                           for ctx_value in ctx]
-        elif predictor_config.alloc.name == Allocation.Three_D.name:
-            # step = 1.0 / num_slices
-            # run_options = [RunOption3D(self.jobs, ratio)
-            #                for ratio in np.arange(0, 1, step)]
-            run_options = [RunOption3D(self.jobs, 0)]
-        else:
-            # 2D is unimplemented
-            print("PairJob: 2D is unimplemented.")
-            sys.exit(1)
+        # Hard-code to 3D #
+        option = RunOption3D(self.jobs, 0)
 
         # Profiling
         start_stage1 = time.perf_counter()
 
         # Run Stage 1 to get kernel-wise matrices
-        for option in run_options:
-            if predictor_config.stage_1.name == StageOne.GPUSim.name:
-                option.kernel_wise_gpusim()
-            else:
-                # 'BOOST_TREE'
-                option.kernel_wise_prediction(
-                    accuracy_mode=predictor_config.accuracy_mode,
-                    model=predictor_config.get_model())
+        if predictor_config.stage_1.name == StageOne.GPUSim.name:
+            option.kernel_wise_gpusim()
+        else:
+            # 'BOOST_TREE'
+            option.kernel_wise_prediction(
+                accuracy_mode=predictor_config.accuracy_mode,
+                model=predictor_config.get_model())
 
         # Profiling
         time_stage1 = time.perf_counter() - start_stage1
         start_stage2 = time.perf_counter()
 
         # Run Stage 2 to get app-wise matrices
-        performance = []
-        for option in run_options:
-            if predictor_config.stage_2.name == StageTwo.Full.name:
-                performance.append(
-                    option.app_wise_full_and_steady(
-                        at_least_once=predictor_config.at_least_once)
-                )
-            elif predictor_config.stage_2.name == StageTwo.Steady.name:
-                performance.append(
-                    option.app_wise_full_and_steady(
-                        steady=True,
-                        at_least_once=predictor_config.at_least_once)
-                )
-            elif predictor_config.stage_2.name == StageTwo.Weighted.name:
-                performance.append(option.app_wise_weighted())
-            else:
-                performance.append(option.app_wise_gpusim())
+        if predictor_config.stage_2.name == StageTwo.Full.name:
+            performance = option.app_wise_full_and_steady(
+                at_least_once=predictor_config.at_least_once)
+        elif predictor_config.stage_2.name == StageTwo.Steady.name:
+            performance = option.app_wise_full_and_steady(
+                steady=True,
+                at_least_once=predictor_config.at_least_once)
+        elif predictor_config.stage_2.name == StageTwo.Weighted.name:
+            performance = option.app_wise_weighted()
+        else:
+            performance = option.app_wise_gpusim()
 
         time_stage2 = time.perf_counter() - start_stage2
 
-        # only keep the best one (only matter for 1D)
-        best_perf = max(performance)
-        best_perf.delta = max(performance).weighted_speedup() - \
-                          min(performance).weighted_speedup()
-
         # Add profile info
-        best_perf.time_stage1 = time_stage1
-        best_perf.time_stage2 = time_stage2
+        performance.time_stage1 = time_stage1
+        performance.time_stage2 = time_stage2
 
-        best_idx = performance.index(best_perf)
-        best_option = run_options[best_idx]
-
-        result[option_col] = best_option
-        result[perf_col] = best_perf
-        result[ws_col] = best_perf.weighted_speedup()
+        result[option_col] = option
+        result[perf_col] = performance
+        result[ws_col] = performance.weighted_speedup()
 
         return result
 

@@ -1,0 +1,12 @@
+# Synthetic workload configs #
+REPEAT = 0
+FRESH = 1
+ITER_CHOICES = [400, 800, 1200, 1600, 2000, 2400, 2800]
+NUM_JOB_CHOICES = [100, 200, 300, 400]
+NUM_BENCH_CHOICES = [4, 8, 12, 16]
+
+# MIG configs #
+MAX_PARTITIONS = 8
+
+
+
