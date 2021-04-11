@@ -10,6 +10,7 @@ NUM_BENCH_CHOICES = [4, 8, 12, 16]
 
 # MIG configs #
 MAX_PARTITIONS = 8
+MIG_PARTITIONS = [0, 1, 3, 7]
 
 # Stage 1 predictor #
 TRAINING_SET_RATIO = 0.8

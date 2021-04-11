@@ -67,12 +67,13 @@ class Job:
 
     # FIXME: store this value in obj instead?
     def calculate_static_partition(self):
-        mig_pickles = os.path.join(THIS_DIR, '../data/pickles/mig_ipcs')
-        mig_ipcs = pickle.load(open(mig_pickles, 'rb'))
+        mig_pickle_path = os.path.join(const.DATA_HOME, 'pickles/mig_ipcs')
+        mig_ipcs = pickle.load(open(mig_pickle_path, 'rb'))
         cycle_lengths = self.get_seq_cycles()
 
         full_runtime = sum(cycle_lengths)
-        for resources in range(MAX_PARTITIONS):
+        # for resources in range(MAX_PARTITIONS):
+        for resources in MIG_PARTITIONS:
             # calculate qos with i static partitions available
             restricted_runtime = 0
             for bm_index in range(len(self.benchmarks)):
