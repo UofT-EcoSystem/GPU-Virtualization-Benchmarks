@@ -45,6 +45,9 @@ def parse_args():
     parser.add_argument('--stage2_buffer', default=0.05,
                         type=float,
                         help='Amount of buffer to tighten qos check in stage2.')
+    parser.add_argument('--system', nargs='+',
+                        default=['gpupool', 'mig', 'heuristic'],
+                        help="Which systems to evaluate.")
 
     results = parser.parse_args()
 
@@ -56,103 +59,98 @@ def run_exp_0(args):
     num_batches = 5
     num_jobs = args.job_count
 
-    result = []
+    results = []
     for batch_id in range(num_batches):
         batch = BatchJob(rand_seed=batch_id, num_jobs=num_jobs)
+        batch_result = {'batch': batch}
 
-        # Get GPUPool results
-        gpupool_config = GpuPoolConfig(Allocation.Three_D,
-                                       StageOne[args.stage1],
-                                       StageTwo[args.stage2],
-                                       at_least_once=False,
-                                       accuracy_mode=args.accuracy_mode,
-                                       stage2_buffer=args.stage2_buffer)
-        gpupool, gpupool_violation, gpupool_ws_total = \
-            batch.calculate_gpu_count_gpupool(gpupool_config,
-                                              cores=args.cores,
-                                              save=args.save)
+        if 'gpupool' in args.system:
+            # Get GPUPool results
+            gpupool_config = GpuPoolConfig(Allocation.Three_D,
+                                           StageOne[args.stage1],
+                                           StageTwo[args.stage2],
+                                           at_least_once=False,
+                                           accuracy_mode=args.accuracy_mode,
+                                           stage2_buffer=args.stage2_buffer)
+            gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
+                                                        cores=args.cores,
+                                                        save=args.save)
 
-        # Get baseline #1: MIG results
-        mig, mig_ws_total, ws_list = batch.calculate_gpu_count_mig()
+            print("-" * 100)
+            print("Profiling info:")
+            print("Two-stage predictor took", gpupool['pred_latency'])
 
-        # Get baseline #2: Random matching results
-        random_violation = \
-            batch.calculate_qos_violation_random(gpupool,
-                                                 cores=args.cores)
+            stage1 = batch.df_pair[gpupool_config.get_perf()].apply(
+                lambda x: x.time_stage1)
+            stage2 = batch.df_pair[gpupool_config.get_perf()].apply(
+                lambda x: x.time_stage2)
 
-        result.append(
-            {"batch": batch,
-             "gpupool": gpupool,
-             "gpupool_violation": gpupool_violation,
-             "gpupool_weighted_speedup": gpupool_ws_total,
-             "mig": mig,
-             "random_violation": random_violation
-             }
-        )
+            stage2_iters = batch.df_pair[gpupool_config.get_perf()].apply(
+                lambda x: x.steady_iter[0])
+            stage2_iters_2 = batch.df_pair[gpupool_config.get_perf()].apply(
+                lambda x: x.steady_iter[1]
+            )
+            stage_steady = pd.concat([stage2_iters, stage2_iters_2])
 
-        print("=" * 100)
-        print("Batch {} with {} jobs:".format(batch_id, batch.num_jobs))
-        print("GPUPool: {} GPUs achieving {} weighted speedup with".
-                format(gpupool, gpupool_ws_total),
-              gpupool_violation.to_string(batch.num_jobs))
-        print("MIG: {} GPUs achieving {} weighted speedup".format(mig,
-            mig_ws_total))
-        print("Random: same number of GPUs as GPUPool with",
-              random_violation.to_string(batch.num_jobs))
+            print("Sum of time spent in Stage1: ", sum(stage1) / mp.cpu_count())
+            print("Sum of time spent in Stage2: ", sum(stage2) / mp.cpu_count())
 
-        print("-" * 100)
-        print("Profiling info:")
-        for time_name in batch.time_gpupool:
-            print("{} {:.6f} sec".format(
-                time_name, batch.time_gpupool[time_name]))
-        stage1 = batch.df_pair[gpupool_config.get_perf()].apply(
-            lambda x: x.time_stage1)
-        stage2 = batch.df_pair[gpupool_config.get_perf()].apply(
-            lambda x: x.time_stage2)
-        stage2_steady = batch.df_pair[gpupool_config.get_perf()].apply(
-            lambda x: x.steady_iter[0])
-        stage2_steady_2 = batch.df_pair[gpupool_config.get_perf()].apply(
-            lambda x: x.steady_iter[1]
-        )
-        stage_steady = pd.concat([stage2_steady, stage2_steady_2])
+            print("Stage2 latency mean: ", np.mean(stage2))
+            print("Stage2 latency std: ", np.std(stage2))
+            print("Stage2 steady std: ", np.std(stage_steady))
+            print("Stage2 steady mean: ", np.mean(stage_steady))
 
-        print("Sum of time spent in Stage1: ", sum(stage1) / mp.cpu_count())
-        print("Sum of time spent in Stage2: ", sum(stage2) / mp.cpu_count())
+            batch_result["gpupool_count"] = gpupool['gpu_count']
+            batch_result["gpupool_violation"] = gpupool['violation']
+            batch_result["gpupool_ws"] = gpupool['ws_total']
+            batch_result["gpupool_margin"] = gpupool['margin']
 
-        print("Stage2 std: ", np.std(stage2))
-        print("Stage2 mean: ", np.mean(stage2))
-        print("Stage2 steady std: ", np.std(stage2_steady))
-        print("Stage2 steady mean: ", np.mean(stage_steady))
+        if 'mig' in args.system:
+            # Get baseline #1: MIG results
+            mig = batch.calculate_gpu_count_mig()
 
-        print("MIG time {:.6f} sec".format(batch.time_mig))
+            batch_result["mig_count"] = mig['gpu_count']
+            batch_result["mig_ws"] = mig['ws_total']
+            # print("MIG time {:.6f} sec".format(batch.time_mig))
+
+        if 'heuristic' in args.system:
+            # Get baseline #2: memory bandwidth results
+            bw = batch.calculate_qos_viol_dram_bw(gpu_avail=50,
+                                                  cores=args.cores)
+
+            batch_result["bw_count"] = bw['gpu_count']
+            batch_result["bw_ws"] = bw['ws_total']
+
+        print(batch_result)
+        results.append(batch_result)
 
     # Aggregate results over all runs
-    print("=" * 100)
-    print("Aggregate results:")
-
-    # TODO: how to get an average number?
-
-    sum_gpupool = sum([r['gpupool'] for r in result])
-    sum_mig = sum(r['mig'] for r in result)
-
-    # GPUPool v.s. baseline #1
-    pct_reduction = (sum_mig - sum_gpupool) / sum_mig * 100
-    print("GPUPool uses {:.2f}% fewer GPUs than MIG on average."
-          .format(pct_reduction))
-
-    # GPUPool v.s. baseline #2
-    sum_jobs = sum([r['batch'].num_jobs for r in result])
-    sum_gpupool_violations = sum([r['gpupool_violation'] for r in result])
-    sum_random_violations = sum([r['random_violation'] for r in result])
-
-    print("GPUPool:", sum_gpupool_violations.to_string(sum_jobs))
-    print("Random matching:", sum_random_violations.to_string(sum_jobs))
-
-    if sum_gpupool_violations.count:
-        print("Random matching introduces {:.2f}% more violations than "
-              "GPUPool.".format((sum_random_violations.count -
-                                 sum_gpupool_violations.count) /
-                                sum_gpupool_violations.count * 100))
+    # print("=" * 100)
+    # print(results)
+    #
+    # print("Aggregate results:")
+    #
+    # sum_gpupool = sum([r['gpupool_count'] for r in results])
+    # sum_mig = sum(r['mig'] for r in results)
+    #
+    # # GPUPool v.s. baseline #1
+    # pct_reduction = (sum_mig - sum_gpupool) / sum_mig * 100
+    # print("GPUPool uses {:.2f}% fewer GPUs than MIG on average."
+    #       .format(pct_reduction))
+    #
+    # # GPUPool v.s. baseline #2
+    # sum_jobs = sum([r['batch'].num_jobs for r in results])
+    # sum_gpupool_violations = sum([r['gpupool_violation'] for r in results])
+    # sum_random_violations = sum([r['random_violation'] for r in results])
+    #
+    # print("GPUPool:", sum_gpupool_violations.to_string(sum_jobs))
+    # print("Random matching:", sum_random_violations.to_string(sum_jobs))
+    #
+    # if sum_gpupool_violations.count:
+    #     print("Random matching introduces {:.2f}% more violations than "
+    #           "GPUPool.".format((sum_random_violations.count -
+    #                              sum_gpupool_violations.count) /
+    #                             sum_gpupool_violations.count * 100))
 
 
 def run_exp_2(args):
