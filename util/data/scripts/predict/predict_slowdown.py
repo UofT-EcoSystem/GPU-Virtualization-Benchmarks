@@ -139,7 +139,8 @@ def prepare_datasets(df_pair, training=True):
 
         return aggregate_x, aggregate_y
     else:
-        return [x1, x2]
+        # return [x1, x2]
+        return np.concatenate((x1, x2), axis=0)
 
 
 def prepare_ws_datasets(df_pair):

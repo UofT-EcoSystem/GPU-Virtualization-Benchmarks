@@ -35,6 +35,20 @@ class Job:
         # Create new job with a list of benchmarks
         self.benchmarks = benchmarks
 
+        # Create metric table from df_intra
+        df_intra = const.get_pickle('intra.pkl')
+        # Grab the used benchmarks
+        df_benchmarks = df_intra[df_intra['pair_str'].isin(benchmarks)]
+        # Shave off unused cols
+        df_benchmarks = df_benchmarks[KERNEL_COLS]
+        # Get rid of the ones with norm_ipc below 0.5
+        df_benchmarks = df_benchmarks[df_benchmarks['norm_ipc'] > 0.5]
+        # assign kernel ids
+        df_benchmarks['kernel_id'] = df_benchmarks['pair_str'].apply(
+            lambda pair_str: self.benchmarks.index(pair_str)
+        )
+        self.df_benchmarks = df_benchmarks
+
         self.id = Job.count
         Job.count += 1
 
@@ -150,10 +164,24 @@ class BatchJob:
         # Profiling
         start_prediction = time.perf_counter()
 
-        result = parallelize(self.df_pair, cores, two_stage_predict, extra_param=config)
+        result = parallelize(self.df_pair, cores, two_stage_predict,
+                             extra_param=config)
 
         # End profiling
-        latency = time.perf_counter() - start_prediction
+        total_latency = time.perf_counter() - start_prediction
+
+        # Collect stage1 and stage2 latency
+        perf_col = config.get_perf()
+        stage1_latency = [np.sum(r[perf_col].apply(lambda p: p.time_stage1))
+                          for r in result]
+        stage2_latency = [np.sum(r[perf_col].apply(lambda p: p.time_stage2))
+                          for r in result]
+
+        latency = {
+            'total': total_latency,
+            'stage1': stage1_latency,
+            'stage2': stage2_latency
+        }
 
         df_performance = pd.concat(result)
 
@@ -188,12 +216,12 @@ class BatchJob:
             qos = choices(list(QOS))[0]
 
             # Generate number of iterations for the job
-            num_iters = choices(BatchJob.ITER_CHOICES)[0]
+            num_iters = choices(ITER_CHOICES)[0]
 
             # Generate benchmarks within the job
             num_benchmarks = self.num_benchmarks_per_job
             if num_benchmarks == -1:
-                num_benchmarks = choices(BatchJob.NUM_BENCH_CHOICES)[0]
+                num_benchmarks = choices(NUM_BENCH_CHOICES)[0]
 
             for bench_idx in range(num_benchmarks):
                 if bench_idx == 0:
@@ -202,10 +230,10 @@ class BatchJob:
                 else:
                     # Figure out if we are repeating or selecting
                     # a fresh benchmark
-                    repeat_or_fresh = choices([BatchJob.REPEAT, BatchJob.FRESH],
+                    repeat_or_fresh = choices([REPEAT, FRESH],
                                               weights=[self.p_repeat,
                                                        1 - self.p_repeat])[0]
-                    if self.allow_repeat and repeat_or_fresh == BatchJob.REPEAT:
+                    if self.allow_repeat and repeat_or_fresh == REPEAT:
                         list_benchmarks.append('repeat')
                     else:
                         # Make sure we don't pick the same benchmark again
@@ -306,16 +334,10 @@ class BatchJob:
         # Call max weight matching solver
 
         # Profiling
-        start_matching = time.perf_counter()
-
-        perf_col = gpupool_config.two_stage_predict()
+        perf_col = gpupool_config.get_perf()
 
         matching, num_pairs, num_isolated = self._max_matching(
             gpupool, gpupool_config, perf_col)
-
-        # Profiling
-        self.time_gpupool[gpupool_config.get_time_matching()] = \
-            time.perf_counter() - start_matching
 
         os.system('rm input.js')
 
@@ -470,27 +492,34 @@ class BatchJob:
         print("Running GPUPool predictor... ")
         pred_latency = self._two_stage_predict(gpupool_config, cores=cores)
 
-        print("Running max weight matching solver...")
-        gpu_count, violation, ws_total, ws_list, isolated_count = \
-            self.max_matching(gpupool_config, cores)
-
-        # Save df_pair
-        if save:
-            pickle_dir = os.path.join(THIS_DIR, "pickles")
-            if not os.path.exists(pickle_dir):
-                os.mkdir(pickle_dir)
-
-            self.df_pair.to_pickle(
-                os.path.join(
-                    pickle_dir,
-                    "BatchJob-{}-{}.pkl".format(self.id,
-                                                gpupool_config.to_string())))
+        # print("Running max weight matching solver...")
+        # start_matching = time.perf_counter()
+        # gpu_count, violation, ws_total, ws_list, isolated_count = \
+        #     self.max_matching(gpupool_config, cores)
+        # pred_latency['matching'] = time.perf_counter() - start_matching
+        #
+        # # Save df_pair
+        # if save:
+        #     pickle_dir = os.path.join(THIS_DIR, "pickles")
+        #     if not os.path.exists(pickle_dir):
+        #         os.mkdir(pickle_dir)
+        #
+        #     self.df_pair.to_pickle(
+        #         os.path.join(
+        #             pickle_dir,
+        #             "BatchJob-{}-{}.pkl".format(self.id,
+        #                                         gpupool_config.to_string())))
 
         print("Done with GPUPool Calculations.\n")
 
-        result = {'gpu_count': gpu_count,
-                  'violation': violation,
-                  'ws_total': ws_total,
+        # result = {'gpu_count': gpu_count,
+        #           'violation': violation,
+        #           'ws_total': ws_total,
+        #           'pred_latency': pred_latency,
+        #           }
+        result = {'gpu_count': 100,
+                  'violation': Violation(),
+                  'ws_total': 1.0,
                   'pred_latency': pred_latency,
                   }
 

@@ -7,7 +7,6 @@ import multiprocessing as mp
 
 
 def two_stage_predict(df, config: GpuPoolConfig):
-    # FIXME: does this actually help
     # Deep copy config so that each process can have a unique model copy to
     # run on if stage1 is boosting tree
     option_copy = deepcopy(config)

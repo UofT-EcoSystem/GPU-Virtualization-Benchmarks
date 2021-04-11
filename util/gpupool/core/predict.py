@@ -10,6 +10,7 @@ import data.scripts.common.help_iso as hi
 import data.scripts.common.constants as const
 import data.scripts.gen_graphs.gen_altair_timeline as gen_altair
 import data.scripts.predict.predict_slowdown as tree_model
+from gpupool.core.configs import *
 
 
 def debug_print(text, condition=True):
@@ -117,12 +118,8 @@ class Performance:
 
 
 class RunOption:
-    EQUALITY_ERROR = 0.0001
-    STEADY_STEP = 20
-    QOS_LOSS_ERROR = 0.00001
 
-    TRAINING_SET_RATIO = 0.8
-
+    # Prepare df_dynamic #
     df_dynamic = const.get_pickle('pair_dynamic.pkl')
     df_dynamic_best = df_dynamic.sort_values(
         'ws', ascending=False).drop_duplicates(
@@ -134,12 +131,13 @@ class RunOption:
         ['1_bench', '2_bench', '1_intra', '2_intra'], drop=True
     ).sort_index()
 
+    # Prepare df_intra
     df_intra = const.get_pickle('intra.pkl').set_index(
         ['pair_str', '1_kidx', 'intra']).sort_index()
     # Shave off unused column
-    used_cols = list(set().union(list(tree_model.metric_dict.values()),
-                                 const.EXEC_CTX))
-    df_intra = df_intra[used_cols]
+    USED_COLS = list(set().union(list(tree_model.metric_dict.values()),
+                     const.EXEC_CTX))
+    df_intra = df_intra[USED_COLS]
 
     def __init__(self, jobs, offset_ratio=0):
         self.jobs = jobs
@@ -148,14 +146,13 @@ class RunOption:
 
         num_cols = const.get_num_kernels(self.job_names[0])
         num_rows = const.get_num_kernels(self.job_names[1])
-        matrix_size = (num_rows, num_cols)
+        matrix_size = (num_rows, num_cols, 2)
 
-        self.config_matrix = [np.zeros(matrix_size, dtype=int),
-                              np.zeros(matrix_size, dtype=int)]
-        self.interference_matrix = [np.zeros(matrix_size),
-                                    np.zeros(matrix_size)]
-        self.interference_hit = np.zeros(matrix_size, dtype=int)
-        self.serial = np.zeros(matrix_size, dtype=int)
+        self.config_matrix = np.zeros(matrix_size, dtype=int)
+        self.interference_matrix = np.zeros(matrix_size)
+
+        # self.interference_hit = np.zeros(matrix_size, dtype=int)
+        # self.serial = np.zeros(matrix_size, dtype=int)
 
     # Return Performance
     def app_wise_full_and_steady(self, steady=False, at_least_once=False):
@@ -171,8 +168,6 @@ class RunOption:
         #
         # print("job 0 limit", self.jobs[0].num_iters)
         # print("job 1 limit", self.jobs[1].num_iters)
-
-        start_time = time.perf_counter()
 
         seq_runtimes = [job.get_seq_cycles() for job in self.jobs]
 
@@ -198,8 +193,8 @@ class RunOption:
         steady_state_iter = [0, 0]
 
         # Clear the interference_hit matrix just in case
-        self.interference_hit = np.zeros(self.interference_hit.shape,
-                                         dtype=int)
+        # self.interference_hit = np.zeros(self.interference_hit.shape,
+        #                                  dtype=int)
 
         # initialize starting offset by fast forward app 0
         forward_cycles = self.offset_ratio * sum(seq_runtimes[0])
@@ -240,14 +235,14 @@ class RunOption:
                 iter_[app_idx] += 1
 
                 # evaluate steady state
-                if iter_[app_idx] % RunOption.STEADY_STEP == 0:
+                if iter_[app_idx] % STEADY_STEP == 0:
                     # compare qos to the past qos
                     qos_loss = find_qos_loss(shared_runtimes[app_idx],
                                              iter_[app_idx],
                                              seq_runtimes[app_idx])
 
                     if abs(past_qos_loss[app_idx] - qos_loss) \
-                            < RunOption.QOS_LOSS_ERROR \
+                            < QOS_LOSS_ERROR \
                             and steady_state_qos[app_idx] == -1:
                         steady_state_qos[app_idx] = qos_loss
                         steady_state_iter[app_idx] = iter_[app_idx]
@@ -272,11 +267,11 @@ class RunOption:
             # figure out who finishes first by scaling the runtimes by the
             # slowdowns
             kidx_pair = (kidx[1], kidx[0])
-            self.interference_hit[kidx_pair] = 1
+            # self.interference_hit[kidx_pair] = 1
             app0_ker_scaled = \
-                remaining_runtimes[0] / self.interference_matrix[0][kidx_pair]
+                remaining_runtimes[0] / self.interference_matrix[kidx_pair][0]
             app1_ker_scaled = \
-                remaining_runtimes[1] / self.interference_matrix[1][kidx_pair]
+                remaining_runtimes[1] / self.interference_matrix[kidx_pair][1]
             # logger.debug("app1 kernel scaled runtime is: {}".format(
             # app1_ker_scaled))
 
@@ -288,7 +283,7 @@ class RunOption:
             diff_scaled = abs(app0_ker_scaled - app1_ker_scaled)
 
             steady_exit = False
-            if diff_scaled <= RunOption.EQUALITY_ERROR:
+            if diff_scaled <= EQUALITY_ERROR:
                 # both kernels finished at the same time update the total
                 # runtime of both kernels to either kernel runtime since they
                 # have finished together
@@ -301,7 +296,7 @@ class RunOption:
 
                 # compute raw remaining runtime of app1
                 remaining_runtimes[1] = diff_scaled * \
-                                        self.interference_matrix[1][kidx_pair]
+                                        self.interference_matrix[kidx_pair][1]
 
                 steady_exit |= handle_completed_kernel(0)
             else:
@@ -311,7 +306,7 @@ class RunOption:
 
                 # compute raw remaining runtime of app0
                 remaining_runtimes[0] = diff_scaled * \
-                                        self.interference_matrix[0][kidx_pair]
+                                        self.interference_matrix[kidx_pair][0]
 
                 steady_exit |= handle_completed_kernel(1)
 
@@ -457,91 +452,57 @@ class RunOption:
 
     def kernel_wise_prediction(self, accuracy_mode, model=None):
         # Cross product of kernels from each job
-        dfs = [self.df_intra[self.df_intra.index
-                                          .get_level_values('pair_str')
-                                          .isin(job.benchmarks)
-                            ].reset_index()
-               for job in self.jobs]
+        df_prod_tot = self.jobs[0].df_benchmarks.merge(
+            self.jobs[1].df_benchmarks, how='cross')
 
-        df_prod_tot = dfs[0].assign(key=1).merge(
-            dfs[1].assign(key=1), on="key").drop("key", axis=1)
-
+        # Drop the ones that exceed execution context resource
         for rsrc in const.EXEC_CTX:
             df_prod_tot = df_prod_tot[
                 (df_prod_tot[rsrc + '_x'] + df_prod_tot[rsrc + '_y']) <= 1.0
                 ]
 
-        # FIXME: be consistent with df_dyanmic launch condition
-        # Only check the ones with above 0.5 intra norm ipc
-        df_prod_tot = df_prod_tot[df_prod_tot['norm_ipc_x'] > 0.5]
-        df_prod_tot = df_prod_tot[df_prod_tot['norm_ipc_y'] > 0.5]
-
-        # Don't predict same benchmarks
-        df_prod_tot = df_prod_tot[df_prod_tot['pair_str_x']
-                                  != df_prod_tot['pair_str_y']]
-
         # Prep for inference data
         xs = tree_model.prepare_datasets(df_prod_tot, training=False)
 
-        if accuracy_mode:
-            # Retrain model for cross validation
-            test_pairs = df_prod_tot[['pair_str_x', 'pair_str_y']].itertuples(
-                index=False, name=None)
-            test_pairs = [tuple(sorted(pair)) for pair in test_pairs
-                          if pair[0] != pair[1]]
-            test_pairs = list(set(test_pairs))
-            df_train = \
-                self.df_dynamic_index[
-                    ~self.df_dynamic_index.index.isin(test_pairs)]
-            model = RunOption.train_boosting_tree(train_all=False,
-                                                  df_train=df_train)
-
-        # Profile info
-        # start_inference = time.perf_counter()
-
         # Run inference on all pairs
-        sld = [model.predict(x) for x in xs]
+        # sld = [model.predict(x) for x in xs]
+        sld = model.predict(xs)
 
-        # duration_inference = \
-        #     (time.perf_counter() - start_inference) / len(df_prod_tot.index)
-        # print("Duration per inference:", duration_inference, "sec")
+        half_len = int(len(sld) / 2)
+        df_prod_tot['sld_x'] = sld[0:half_len]
+        df_prod_tot['sld_y'] = sld[half_len:]
+        df_prod_tot['ws'] = df_prod_tot['sld_x'] + df_prod_tot['sld_y']
 
-        df_prod_tot['sld'] = list(zip(sld[0], sld[1]))
-        df_prod_tot['ws'] = df_prod_tot['sld'].apply(lambda x: x[0] + x[1])
+        # accuracy mode, drop configs not in df_dynamic
+        if accuracy_mode:
+            df_prod_tot = df_prod_tot[df_prod_tot[
+                ['pair_str_x', 'pair_str_y', 'intra_x', 'intra_y']].isin(
+                self.df_dynamic_index_all.index)]
+
+        # Append default time multiplexing performance
+        id_pairs = [(x, y) for x in range(len(self.jobs[0].benchmarks))
+                    for y in range(len(self.jobs[1].benchmarks))]
+        df_default = pd.DataFrame(id_pairs,
+                                  columns=['kernel_id_x', 'kernel_id_y'])
+        df_default['intra_x'] = df_default['intra_y'] = -1
+        df_default['sld_x'] = df_default['sld_y'] = 0.5
+        df_default['ws'] = 1.0
+        df_prod_tot = df_prod_tot.append(df_default, ignore_index=True)
 
         # Only keep rows with max weighted speedup
+        # Sort by kernel ids for vectorized write
         df_prod_tot = df_prod_tot.sort_values('ws', ascending=False)\
-            .drop_duplicates(['pair_str_x', 'pair_str_y'])\
-            .set_index(['pair_str_x', 'pair_str_y'])
+            .drop_duplicates(['kernel_id_y', 'kernel_id_x'])\
+            .sort_values(['kernel_id_y', 'kernel_id_x'])
 
-        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
-            row_idx = matrix_idx[0]
-            col_idx = matrix_idx[1]
+        self.interference_matrix = \
+            df_prod_tot[['sld_x', 'sld_y']].values.reshape(
+                self.interference_matrix.shape)
 
-            benchmarks = (self.jobs[0].benchmarks[col_idx],
-                          self.jobs[1].benchmarks[row_idx])
+        self.config_matrix = \
+            df_prod_tot[['intra_x', 'intra_y']].values.reshape(
+                self.config_matrix.shape)
 
-            def time_multiplex():
-                # Simply run at best intra config and get 0.5 sld
-                for i in range(len(self.jobs)):
-                    self.config_matrix[i][matrix_idx] = \
-                        dfs[i]['norm_ipc'].idxmax(axis=0)
-                    self.interference_matrix[i][matrix_idx] = 0.5
-
-            if benchmarks not in df_prod_tot.index:
-                time_multiplex()
-            else:
-                pair_series = df_prod_tot.xs(benchmarks)
-
-                if pair_series['ws'] < 1.0:
-                    time_multiplex()
-                else:
-                    self.config_matrix[0][matrix_idx] = pair_series['intra_x']
-                    self.config_matrix[1][matrix_idx] = pair_series['intra_y']
-
-                    sld = pair_series['sld']
-                    self.interference_matrix[0][matrix_idx] = sld[0]
-                    self.interference_matrix[1][matrix_idx] = sld[1]
 
     def kernel_wise_gpusim(self):
         print("Parent kernel_wise_gpusim function prototype called.")
@@ -599,7 +560,7 @@ class RunOption:
                 self.interference_matrix[0][matrix_idx] = sld[1]
                 self.interference_matrix[1][matrix_idx] = sld[2]
 
-            self.serial[matrix_idx] = False
+            # self.serial[matrix_idx] = False
 
         # Run second stage full
         perf = self.app_wise_full_and_steady(steady=False, at_least_once=False)
@@ -824,7 +785,7 @@ class PairJob:
         # print("Getting performance for", self.job_names)
 
         option_col = predictor_config.get_option()
-        perf_col = predictor_config.two_stage_predict()
+        perf_col = predictor_config.get_perf()
         ws_col = predictor_config.get_ws()
         result = {option_col: None, perf_col: None, ws_col: 0}
 
