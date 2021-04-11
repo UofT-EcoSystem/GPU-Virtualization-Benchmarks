@@ -2,6 +2,8 @@ from enum import Enum
 import os
 import pickle
 
+from gpupool.core.configs import *
+
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -48,7 +50,7 @@ class GpuPoolConfig:
         model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
 
         from gpupool.core.predict import RunOption
-        if self.stage_1 == StageOne.BoostTree and not accuracy_mode:
+        if self.stage_1 == StageOne.BoostTree:
             # Runtime mode, simply do inference on a single model
             if os.path.isfile(model_pkl_path):
                 print("Load boosting tree from pickle {}"
@@ -109,7 +111,7 @@ class Violation:
 
     def update(self, actual_qos, target_qos):
         from gpupool.core.predict import RunOption
-        if actual_qos + RunOption.QOS_LOSS_ERROR < target_qos:
+        if actual_qos + QOS_LOSS_ERROR < target_qos:
             self.count += 1
             error = (target_qos - actual_qos) / target_qos
             self.sum += error

@@ -56,7 +56,7 @@ def get_qos_violations(job_pairs: list):
     return violation
 
 
-def verify_qos_violations(options: list):
+def verify_qos(options: list):
     violation = Violation()
 
     for option in options:

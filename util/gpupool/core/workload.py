@@ -47,7 +47,8 @@ class Job:
         df_benchmarks['kernel_id'] = df_benchmarks['pair_str'].apply(
             lambda pair_str: self.benchmarks.index(pair_str)
         )
-        self.df_benchmarks = df_benchmarks
+        assert not df_benchmarks['kernel_id'].isnull().values.any()
+        self.df_benchmarks = df_benchmarks.astype({'intra': 'int32'})
 
         self.id = Job.count
         Job.count += 1
@@ -244,6 +245,8 @@ class BatchJob:
             new_job = Job(qos, num_iters, benchmarks=list_benchmarks)
             self.list_jobs.append(new_job)
 
+        print(">>> first job", self.list_jobs[0].benchmarks)
+
     def _create_pairs(self):
         from gpupool.core.predict import PairJob
         pairs = [PairJob([lhs, rhs])
@@ -253,7 +256,6 @@ class BatchJob:
         self.df_pair['pair_job'] = pairs
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
-
     # FIXME
     def boosting_tree_test(self, config: GpuPoolConfig, cores):
         delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
@@ -271,8 +273,11 @@ class BatchJob:
 
         return average_error
 
-    # FIXME
     def _max_matching(self, gpupool=True, gpupool_config=None, perf_col=None):
+        # For some reason, df_pair is not sorted by pair_str in each run
+        # which resulted in non-reproducible output each time
+        self.df_pair = self.df_pair.sort_values('pair_str').reset_index()
+
         f = open("input.js", "w+")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
@@ -324,27 +329,8 @@ class BatchJob:
         matching = matching.replace(" ", "").replace("]", "").replace("[", "")
         matching = matching.split(",")
         matching = [int(x) for x in matching]
-        num_pairs = len([x for x in matching if x >= 0]) // 2
-        num_isolated = len([x for x in matching if x == -1])
 
-        return matching, num_pairs, num_isolated
-
-    # FIXME
-    def max_matching(self, gpupool_config=None, cores=32, gpupool=True):
-        # Call max weight matching solver
-
-        # Profiling
-        perf_col = gpupool_config.get_perf()
-
-        matching, num_pairs, num_isolated = self._max_matching(
-            gpupool, gpupool_config, perf_col)
-
-        os.system('rm input.js')
-
-        # Parse the output and get qos violations
-        print("Running QoS verifications...")
-        options = []
-
+        list_pair_str = []
         for i in range(len(self.list_jobs)):
             if matching[i] < i:
                 # either no pair or pair was formed already
@@ -354,23 +340,31 @@ class BatchJob:
                         self.list_jobs[i].name]
             job_pair.sort()
             pair_str = "+".join(job_pair)
-            option = self.df_pair[self.df_pair['pair_str'] == pair_str]\
-                [gpupool_config.get_option()].iloc[0]
-            options.append(option)
+            list_pair_str.append(pair_str)
 
-        if len(options) > 0:
-            violations_result = parallelize(
-                options, cores, verify_qos_violations)
-            violation = sum(violations_result)
-        else:
-            # No jobs are co-running
-            violation = Violation()
+        # Clean up temp file
+        os.system('rm input.js')
 
-        num_gpus = num_isolated + num_pairs + violation.gpu_increase
-        ws_sum = num_isolated + violation.actual_ws
-        ws_list = [1] * num_isolated + violation.actual_ws_list
+        print(list_pair_str)
 
-        return num_gpus, violation, ws_sum / num_gpus, ws_list, num_isolated
+        return list_pair_str
+
+    def _verify_qos(self, list_pair_str, gpupool_config=None, cores=32):
+        if len(list_pair_str) == 0:
+            return Violation()
+
+        # Parse the output and get qos violations
+        print("Running QoS verifications...")
+        df_selected = self.df_pair[self.df_pair['pair_str'].isin(list_pair_str)]
+        options = df_selected[gpupool_config.get_option()]
+        assert len(options) == len(list_pair_str)
+
+        violations_result = parallelize(options, cores, verify_qos)
+
+        # Aggregate all the violation results
+        violation = sum(violations_result)
+
+        return violation
 
     # Calculate GPU count for different systems: #
     # MIG, GPUPool, Random, DRAM, Similarity #
@@ -488,38 +482,50 @@ class BatchJob:
         return num_gpus, speedup_sum / num_gpus, ws_list
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
-        # Call two-stage predictor
+        # Call two-stage predictor #
         print("Running GPUPool predictor... ")
         pred_latency = self._two_stage_predict(gpupool_config, cores=cores)
 
-        # print("Running max weight matching solver...")
-        # start_matching = time.perf_counter()
-        # gpu_count, violation, ws_total, ws_list, isolated_count = \
-        #     self.max_matching(gpupool_config, cores)
-        # pred_latency['matching'] = time.perf_counter() - start_matching
-        #
-        # # Save df_pair
-        # if save:
-        #     pickle_dir = os.path.join(THIS_DIR, "pickles")
-        #     if not os.path.exists(pickle_dir):
-        #         os.mkdir(pickle_dir)
-        #
-        #     self.df_pair.to_pickle(
-        #         os.path.join(
-        #             pickle_dir,
-        #             "BatchJob-{}-{}.pkl".format(self.id,
-        #                                         gpupool_config.to_string())))
+        # Call max match job dispatcher #
+        print("Running max weight matching solver...")
+        start_matching = time.perf_counter()
+
+        perf_col = gpupool_config.get_perf()
+        list_pair_str = self._max_matching(gpupool=True,
+                                           gpupool_config=gpupool_config,
+                                           perf_col=perf_col)
+
+        pred_latency['matching'] = time.perf_counter() - start_matching
+
+        # Verify QoS #
+        violation = self._verify_qos(list_pair_str, gpupool_config, cores=cores)
+
+        # Calculate final metrics #
+        pairs_predicted = len(list_pair_str)
+        isolated_predicted = len(self.list_jobs) - 2 * pairs_predicted
+        num_gpus = isolated_predicted + pairs_predicted + violation.gpu_increase
+
+        ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
+        ws_list = [1] * isolated_predicted + violation.actual_ws_list
+
+        # Save df_pair #
+        if save:
+            pickle_dir = os.path.join(THIS_DIR, "pickles")
+            if not os.path.exists(pickle_dir):
+                os.mkdir(pickle_dir)
+
+            self.df_pair.to_pickle(
+                os.path.join(
+                    pickle_dir,
+                    "BatchJob-{}-{}.pkl".format(self.id,
+                                                gpupool_config.to_string())))
 
         print("Done with GPUPool Calculations.\n")
 
-        # result = {'gpu_count': gpu_count,
-        #           'violation': violation,
-        #           'ws_total': ws_total,
-        #           'pred_latency': pred_latency,
-        #           }
-        result = {'gpu_count': 100,
-                  'violation': Violation(),
-                  'ws_total': 1.0,
+        result = {'gpu_count': num_gpus,
+                  'violation': violation,
+                  'ws_total': ws_avg,
+                  'ws_list': ws_list,
                   'pred_latency': pred_latency,
                   }
 
@@ -588,6 +594,7 @@ class BatchJob:
 
         return violation, ws_list, gpu_migrated_count
 
+    # FIXME: updated max_match function call
     def calculate_qos_viol_similarity(self, cores):
         print("Running similarity-based scheduling...")
 

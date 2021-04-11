@@ -121,6 +121,7 @@ class RunOption:
 
     # Prepare df_dynamic #
     df_dynamic = const.get_pickle('pair_dynamic.pkl')
+    df_dynamic = df_dynamic.astype({'1_intra': 'int32', '2_intra': 'int32'})
     df_dynamic_best = df_dynamic.sort_values(
         'ws', ascending=False).drop_duplicates(
         ['1_bench', '1_kidx', '2_bench', '2_kidx']).set_index(
@@ -474,10 +475,23 @@ class RunOption:
         df_prod_tot['ws'] = df_prod_tot['sld_x'] + df_prod_tot['sld_y']
 
         # accuracy mode, drop configs not in df_dynamic
+        # super hacky
         if accuracy_mode:
-            df_prod_tot = df_prod_tot[df_prod_tot[
-                ['pair_str_x', 'pair_str_y', 'intra_x', 'intra_y']].isin(
-                self.df_dynamic_index_all.index)]
+            def process_pair(metrics: tuple):
+                if metrics[0] > metrics[1]:
+                    return metrics[1], metrics[0], metrics[3], metrics[2]
+                else:
+                    return metrics
+
+            columns = ['pair_str_x', 'pair_str_y', 'intra_x', 'intra_y']
+            prod_data = df_prod_tot[columns].values
+            prod_data = [tuple(x) for x in prod_data]
+
+            dynamic_data = self.df_dynamic_index_all.index.tolist()
+
+            bool_index = [(process_pair(row) in dynamic_data)
+                          for row in prod_data]
+            df_prod_tot = df_prod_tot[bool_index]
 
         # Append default time multiplexing performance
         id_pairs = [(x, y) for x in range(len(self.jobs[0].benchmarks))
@@ -503,7 +517,6 @@ class RunOption:
             df_prod_tot[['intra_x', 'intra_y']].values.reshape(
                 self.config_matrix.shape)
 
-
     def kernel_wise_gpusim(self):
         print("Parent kernel_wise_gpusim function prototype called.")
         sys.exit(1)
@@ -527,40 +540,36 @@ class RunOption:
 
     def get_real_performance(self):
         # Update interference matrix
-        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
-            row_idx = matrix_idx[0]
-            col_idx = matrix_idx[1]
+        for matrix_idx in np.ndindex(*(self.interference_matrix.shape[:2])):
+            # if the predicted config was time multiplex, skip
+            if np.all(self.config_matrix[matrix_idx] == [-1, -1]):
+                continue
 
             # Look up real performance from df_dynamic
+            row_idx = matrix_idx[0]
+            col_idx = matrix_idx[1]
             benchmarks = [self.jobs[0].benchmarks[col_idx],
                           self.jobs[1].benchmarks[row_idx]]
-            ctas = [self.config_matrix[0][matrix_idx],
-                    self.config_matrix[1][matrix_idx]]
+            ctas = self.config_matrix[matrix_idx]
 
             sorted_bench = sorted(benchmarks)
 
             if sorted_bench != benchmarks:
                 # Flip everything
-                ctas.reverse()
+                ctas = ctas[::-1]
 
             index = tuple(sorted_bench) + tuple(ctas)
             if index in self.df_dynamic_index_all.index:
                 df_bench_pair = self.df_dynamic_index_all.loc[index]
-                sld = df_bench_pair['sld'].iloc[0]
-
-                if sum(sld) < 1.0:
-                    sld = [0, 0.5, 0.5]
+                sld = df_bench_pair['sld'].iloc[0][1:]
             else:
-                sld = [0, 0.5, 0.5]
+                print("Non time-multiplex pair_str not in df_dynamic")
+                exit(-1)
 
             if sorted_bench != benchmarks:
-                self.interference_matrix[0][matrix_idx] = sld[2]
-                self.interference_matrix[1][matrix_idx] = sld[1]
-            else:
-                self.interference_matrix[0][matrix_idx] = sld[1]
-                self.interference_matrix[1][matrix_idx] = sld[2]
+                sld.reverse()
 
-            # self.serial[matrix_idx] = False
+            self.interference_matrix[matrix_idx] = np.array(sld)
 
         # Run second stage full
         perf = self.app_wise_full_and_steady(steady=False, at_least_once=False)
