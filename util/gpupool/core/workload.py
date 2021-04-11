@@ -196,6 +196,10 @@ class BatchJob:
         self.df_pair = self.df_pair.merge(df_performance,
                                           left_index=True, right_index=True)
 
+        # df_pair is not sorted by pair_str in each run
+        # which resulted in non-reproducible output each time
+        self.df_pair = self.df_pair.sort_values('pair_str').reset_index()
+
         return latency
 
     def _synthesize_jobs(self):
@@ -246,8 +250,6 @@ class BatchJob:
             new_job = Job(qos, num_iters, benchmarks=list_benchmarks)
             self.list_jobs.append(new_job)
 
-        print(">>> first job", self.list_jobs[0].benchmarks)
-
     def _create_pairs(self):
         from gpupool.core.predict import PairJob
         pairs = [PairJob([lhs, rhs])
@@ -257,6 +259,7 @@ class BatchJob:
         self.df_pair['pair_job'] = pairs
         self.df_pair['pair_str'] = self.df_pair['pair_job'].apply(lambda x:
                                                                   x.name())
+
     # FIXME
     def boosting_tree_test(self, config: GpuPoolConfig, cores):
         delta = parallelize(self.df_pair, cores, verify_boosting_tree, config)
@@ -274,10 +277,7 @@ class BatchJob:
 
         return average_error
 
-    def _max_matching(self, gpupool=True, gpupool_config=None, perf_col=None):
-        # For some reason, df_pair is not sorted by pair_str in each run
-        # which resulted in non-reproducible output each time
-        self.df_pair = self.df_pair.sort_values('pair_str').reset_index()
+    def _max_matching(self, stage2_buffer=0, gpupool=True, perf_col=None):
 
         f = open("input.js", "w+")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
@@ -290,7 +290,7 @@ class BatchJob:
 
             if gpupool:
                 # Buffer to tighten the bounds and offset error from stage 1
-                buffer = gpupool_config.stage2_buffer
+                buffer = stage2_buffer
 
                 target = [job.qos.value * (1 + buffer) for job in jobs]
                 prediction = row[perf_col].sld
@@ -480,26 +480,46 @@ class BatchJob:
 
         print("Done with MIG scheduling.")
 
-        return num_gpus, speedup_sum / num_gpus, ws_list
+        result = {
+            "gpu_count": num_gpus,
+            "ws_total": speedup_sum / num_gpus,
+            "ws_list": ws_list
+        }
+
+        return result
 
     def calculate_gpu_count_gpupool(self, gpupool_config, cores, save=False):
         # Call two-stage predictor #
         print("Running GPUPool predictor... ")
         pred_latency = self._two_stage_predict(gpupool_config, cores=cores)
 
-        # Call max match job dispatcher #
-        print("Running max weight matching solver...")
-        start_matching = time.perf_counter()
+        # We do a sweep to search for good QoS margin:
+        margin_min = 0.04
+        margin_step = 0.02
+        margin_max = 2
+        margin_selected = margin_max
+        list_pair_str = []
+        violation = Violation()
+        for margin in np.arange(margin_min, margin_max, margin_step):
+            margin_selected = margin
 
-        perf_col = gpupool_config.get_perf()
-        list_pair_str = self._max_matching(gpupool=True,
-                                           gpupool_config=gpupool_config,
-                                           perf_col=perf_col)
+            # Call max match job dispatcher #
+            print("Running max weight matching solver...")
+            start_matching = time.perf_counter()
 
-        pred_latency['matching'] = time.perf_counter() - start_matching
+            perf_col = gpupool_config.get_perf()
+            list_pair_str = self._max_matching(gpupool=True,
+                                               stage2_buffer=margin,
+                                               perf_col=perf_col)
 
-        # Verify QoS #
-        violation = self._verify_qos(list_pair_str, gpupool_config, cores=cores)
+            pred_latency['matching'] = time.perf_counter() - start_matching
+
+            # Verify QoS #
+            violation = self._verify_qos(list_pair_str, gpupool_config,
+                                         cores=cores)
+
+            if violation.gpu_increase == 0:
+                break
 
         # Calculate final metrics #
         pairs_predicted = len(list_pair_str)
@@ -524,6 +544,7 @@ class BatchJob:
         print("Done with GPUPool Calculations.\n")
 
         result = {'gpu_count': num_gpus,
+                  'margin': margin_selected,
                   'violation': violation,
                   'ws_total': ws_avg,
                   'ws_list': ws_list,
@@ -576,12 +597,12 @@ class BatchJob:
                              reverse=True)
 
         num_singles = int(-self.num_jobs + 2 * gpu_avail)
-        sorted_jobs = sorted_jobs[num_singles:]
+        shared_jobs = sorted_jobs[num_singles:]
 
         job_pairs = []
-        while len(sorted_jobs) > 2:
-            job_pairs.append((sorted_jobs[0], sorted_jobs[-1]))
-            sorted_jobs = sorted_jobs[1:-1]
+        while len(shared_jobs) > 2:
+            job_pairs.append((shared_jobs[0], shared_jobs[-1]))
+            shared_jobs = shared_jobs[1:-1]
 
         if len(job_pairs) > 0:
             violations_result = parallelize(
@@ -591,9 +612,15 @@ class BatchJob:
             violation = Violation()
 
         ws_list = violation.actual_ws_list + [1] * num_singles
-        gpu_migrated_count = gpu_avail + violation.gpu_increase
+        gpu_count = gpu_avail + violation.gpu_increase
 
-        return violation, ws_list, gpu_migrated_count
+        result = {
+            "gpu_count": gpu_count,
+            "violation": violation,
+            "ws_list": ws_list,
+            "ws_total": np.average(ws_list)
+        }
+        return result
 
     # FIXME: updated max_match function call
     def calculate_qos_viol_similarity(self, cores):

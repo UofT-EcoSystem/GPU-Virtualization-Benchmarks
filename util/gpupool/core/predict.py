@@ -762,7 +762,7 @@ class RunOption3D(RunOption):
 
                 return cta_setting, sld, serial
 
-        for matrix_idx, value in np.ndenumerate(self.interference_matrix[0]):
+        for matrix_idx in np.ndindex(*(self.interference_matrix.shape[:2])):
             row_idx = matrix_idx[0]
             col_idx = matrix_idx[1]
 
@@ -773,13 +773,10 @@ class RunOption3D(RunOption):
                 print("LUT config does not exist for {}", self.job_names)
                 sys.exit(1)
 
-            self.config_matrix[0][matrix_idx] = int(list_cta[0])
-            self.config_matrix[1][matrix_idx] = int(list_cta[1])
+            self.config_matrix[matrix_idx] = np.array(list_cta)
+            self.interference_matrix[matrix_idx] = np.array(list_sld)
 
-            self.interference_matrix[0][matrix_idx] = list_sld[0]
-            self.interference_matrix[1][matrix_idx] = list_sld[1]
-
-            self.serial[matrix_idx] = int(pair_serial)
+            # self.serial[matrix_idx] = int(pair_serial)
 
 
 class PairJob:

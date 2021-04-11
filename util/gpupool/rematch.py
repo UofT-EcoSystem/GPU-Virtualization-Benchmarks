@@ -1,3 +1,4 @@
+''' Deprecated '''
 from gpupool.core.workload import BatchJob, GpuPoolConfig
 from gpupool.core.predict import Allocation, StageOne, StageTwo
 
