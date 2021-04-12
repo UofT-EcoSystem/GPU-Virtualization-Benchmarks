@@ -22,8 +22,10 @@ import data.scripts.common.constants as const
 
 def get_diff(metric):
     def calculate_diff(df_pair):
-        x1 = df_pair[metric + '_x'].values - df_pair[metric + '_y'].values
-        x2 = -x1
+        x1 = (df_pair[metric + '_x'].values - df_pair[metric + '_y'].values) \
+             / df_pair[metric + '_x'].values
+        x2 = (df_pair[metric + '_y'].values - df_pair[metric + '_x'].values) \
+             / df_pair[metric + '_y'].values
 
         return x1, x2
 
@@ -107,7 +109,8 @@ def export_tree(clf, path_png, tree_id=300):
 
 
 def prepare_datasets(df_pair, training=True):
-    x1 = x2 = np.zeros((len(df_pair.index), len(metric_dict)))
+    x1 = np.zeros((len(df_pair.index), len(metric_dict)))
+    x2 = np.zeros((len(df_pair.index), len(metric_dict)))
 
     for idx, func in enumerate(metric_func):
         x1[:, idx], x2[:, idx] = func(df_pair)
