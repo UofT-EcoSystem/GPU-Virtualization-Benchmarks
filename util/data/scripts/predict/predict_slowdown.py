@@ -19,6 +19,42 @@ import random
 
 import data.scripts.common.constants as const
 
+
+def get_diff(metric):
+    def calculate_diff(df_pair):
+        x1 = df_pair[metric + '_x'].values - df_pair[metric + '_y'].values
+        x2 = -x1
+
+        return x1, x2
+
+    return calculate_diff
+
+
+def get_ratio(metric):
+    def calculate_ratio(df_pair):
+        x1 = df_pair[metric + '_x'].values / df_pair[metric + '_y'].values
+        x2 = 1/x1
+
+        return x1, x2
+
+    return calculate_ratio
+
+
+def get_sum(metric):
+    def calculate_sum(df_pair):
+        x = df_pair[metric + '_x'].values + df_pair[metric + '_y'].values
+        return x, x
+
+    return calculate_sum
+
+
+def get_metric(metric):
+    def unit_metric(df_pair):
+        return df_pair[metric + '_x'].values, df_pair[metric + '_y'].values
+
+    return unit_metric
+
+
 metric_dict = OrderedDict([
     ('norm_ipc', 'norm_ipc'),
     ('diff_mflat', 'avg_mem_lat'),
@@ -31,22 +67,26 @@ metric_dict = OrderedDict([
     ('ratio_int_busy', 'int_busy'),
     ('sum_int_busy', 'int_busy'),
     ('sum_not_selected_cycles', 'not_selected_cycles'),
+    ('l2_miss_rate', 'l2_miss_rate'),
     # ('ratio_dp_busy', 'dp_busy'),
     # ('sum_dp_busy', 'dp_busy'),
-    ('l2_miss_rate', 'l2_miss_rate'),
     # ('ratio_rbh', 'avg_rbh'),
 ])
 
-# deprecated
-cols_ws = ['sum_norm_ipc',
-           'sum_avg_rbh',
-           'sum_mflat',
-           'sum_mpc',
-           'sum_bw',
-           'sum_inst_empty',
-           'sum_int_busy',
-           'sum_sp_busy',
-           ]
+metric_func = [
+    get_metric('norm_ipc'),
+    get_diff('avg_mem_lat'),
+    get_ratio('mpc'),
+    get_ratio('avg_dram_bw'),
+    get_sum('avg_dram_bw'),
+    get_ratio('thread_count'),
+    get_ratio('sp_busy'),
+    get_sum('sp_busy'),
+    get_ratio('int_busy'),
+    get_sum('int_busy'),
+    get_sum('not_selected_cycles'),
+    get_metric('l2_miss_rate'),
+]
 
 
 def export_tree(clf, path_png, tree_id=300):
@@ -67,66 +107,22 @@ def export_tree(clf, path_png, tree_id=300):
 
 
 def prepare_datasets(df_pair, training=True):
-    df_features = pd.DataFrame()
+    x1 = x2 = np.zeros((len(df_pair.index), len(metric_dict)))
 
-    def feature_set(sfx_base, sfx_other):
-        def calculate_diff(derived_metric):
-            metric = metric_dict[derived_metric]
-            this_metric = df_pair[metric + '_' + sfx_base]
-            other_metric = df_pair[metric + '_' + sfx_other]
-            # this_metric = this_metric.replace(0, 1e-10)
+    for idx, func in enumerate(metric_func):
+        x1[:, idx], x2[:, idx] = func(df_pair)
 
-            df_features[derived_metric + '_' + sfx_base] = \
-                (this_metric - other_metric) / this_metric
-
-        def calculate_ratio(derived_metric):
-            metric = metric_dict[derived_metric]
-            this_metric = df_pair[metric + '_' + sfx_base]
-            other_metric = df_pair[metric + '_' + sfx_other]
-            # other_metric = other_metric.replace(0, 1e-10)
-
-            df_features[derived_metric + '_' + sfx_base] = \
-                this_metric / other_metric
-
-        def calculate_sum(derived_metric):
-            metric = metric_dict[derived_metric]
-            df_features[derived_metric + '_' + sfx_base] = \
-                df_pair[metric + '_' + sfx_base] + df_pair[
-                    metric + '_' + sfx_other]
-
-        def get_metric(derived_metric):
-            metric = metric_dict[derived_metric]
-            df_features[derived_metric + '_' + sfx_base] = \
-                df_pair[metric + '_' + sfx_base]
-
-        for derived in metric_dict:
-            if derived.startswith('diff'):
-                calculate_diff(derived)
-            elif derived.startswith('ratio'):
-                calculate_ratio(derived)
-            elif derived.startswith('sum'):
-                calculate_sum(derived)
-            else:
-                get_metric(derived)
-
-        cols = [c + '_' + sfx_base for c in metric_dict]
-        x = df_features[cols].values
-        x = x.astype(np.double)
-        # print('X invalid?', np.isnan(x).any())
-        # replace inf and -inf
-        x = np.nan_to_num(x, neginf=-1e30, posinf=1e30)
-
-        return x
-
-    def ground_truth(sld_idx):
-        y = [sld_list[sld_idx] for sld_list in df_pair['sld']]
-        # print('y invalid?', np.isnan(y).any())
-        return y
-
-    x1 = feature_set('x', 'y')
-    x2 = feature_set('y', 'x')
+    # print('X invalid?', np.isnan(x).any())
+    # replace inf and -inf
+    x1 = np.nan_to_num(x1, neginf=-1e30, posinf=1e30)
+    x2 = np.nan_to_num(x2, neginf=-1e30, posinf=1e30)
 
     if training:
+        def ground_truth(sld_idx):
+            y = [sld_list[sld_idx] for sld_list in df_pair['sld']]
+            # print('y invalid?', np.isnan(y).any())
+            return y
+
         aggregate_x = np.concatenate((x1, x2), axis=0)
 
         y1 = ground_truth(1)
@@ -139,38 +135,7 @@ def prepare_datasets(df_pair, training=True):
 
         return aggregate_x, aggregate_y
     else:
-        # return [x1, x2]
         return np.concatenate((x1, x2), axis=0)
-
-
-def prepare_ws_datasets(df_pair):
-    def calculate_sum(derived_metric, metric):
-        df_pair[derived_metric] = \
-            df_pair[metric + '_x'] + df_pair[metric + '_y']
-
-    calculate_sum('sum_norm_ipc', 'norm_ipc')
-    calculate_sum('sum_avg_rbh', 'avg_rbh')
-    calculate_sum('sum_mflat', 'avg_mem_lat')
-    calculate_sum('sum_mpc', 'mpc')
-    calculate_sum('sum_bw', 'avg_dram_bw')
-    calculate_sum('sum_inst_empty', 'inst_empty_cycles')
-    calculate_sum('sum_int_busy', 'int_busy')
-    calculate_sum('sum_sp_busy', 'sp_busy')
-
-    X = df_pair[cols_ws].values
-    X = X.astype(np.double)
-
-    y = df_pair['ws']
-
-    print('X invalid?', np.isnan(X).any())
-    print('y invalid?', np.isnan(y).any())
-
-    # replace inf and -inf
-    X = np.nan_to_num(X, neginf=-1e30, posinf=1e30)
-
-    X, y = shuffle(X, y, random_state=5)
-
-    return X, y
 
 
 def train(X, y, cross_validation=True):
