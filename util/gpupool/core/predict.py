@@ -149,8 +149,8 @@ class RunOption:
         num_rows = const.get_num_kernels(self.job_names[1])
         matrix_size = (num_rows, num_cols, 2)
 
-        self.config_matrix = np.zeros(matrix_size, dtype=int)
-        self.interference_matrix = np.zeros(matrix_size)
+        self.config_matrix = np.full(matrix_size, -1, dtype=int)
+        self.interference_matrix = np.full(matrix_size, 0.5, dtype=float)
 
         # self.interference_hit = np.zeros(matrix_size, dtype=int)
         # self.serial = np.zeros(matrix_size, dtype=int)
@@ -451,10 +451,15 @@ class RunOption:
 
         return model
 
-    def kernel_wise_prediction(self, accuracy_mode, model=None):
+    def kernel_wise_prediction(self, accuracy_mode, model):
+        # pc = [0] * 8
+        # pc[0] = time.perf_counter()
+
         # Cross product of kernels from each job
         df_prod_tot = self.jobs[0].df_benchmarks.merge(
             self.jobs[1].df_benchmarks, how='cross')
+
+        # pc[1] = time.perf_counter()
 
         # Drop the ones that exceed execution context resource
         for rsrc in const.EXEC_CTX:
@@ -462,17 +467,22 @@ class RunOption:
                 (df_prod_tot[rsrc + '_x'] + df_prod_tot[rsrc + '_y']) <= 1.0
                 ]
 
+        # pc[2] = time.perf_counter()
+
         # Prep for inference data
         xs = tree_model.prepare_datasets(df_prod_tot, training=False)
 
+        # pc[3] = time.perf_counter()
+
         # Run inference on all pairs
-        # sld = [model.predict(x) for x in xs]
         sld = model.predict(xs)
+
+        # pc[4] = time.perf_counter()
 
         half_len = int(len(sld) / 2)
         df_prod_tot['sld_x'] = sld[0:half_len]
         df_prod_tot['sld_y'] = sld[half_len:]
-        df_prod_tot['ws'] = df_prod_tot['sld_x'] + df_prod_tot['sld_y']
+        df_prod_tot['ws'] = sld[0:half_len] + sld[half_len:]
 
         # accuracy mode, drop configs not in df_dynamic
         # super hacky
@@ -493,15 +503,7 @@ class RunOption:
                           for row in prod_data]
             df_prod_tot = df_prod_tot[bool_index]
 
-        # Append default time multiplexing performance
-        id_pairs = [(x, y) for x in range(len(self.jobs[0].benchmarks))
-                    for y in range(len(self.jobs[1].benchmarks))]
-        df_default = pd.DataFrame(id_pairs,
-                                  columns=['kernel_id_x', 'kernel_id_y'])
-        df_default['intra_x'] = df_default['intra_y'] = -1
-        df_default['sld_x'] = df_default['sld_y'] = 0.5
-        df_default['ws'] = 1.0
-        df_prod_tot = df_prod_tot.append(df_default, ignore_index=True)
+        # pc[5] = time.perf_counter()
 
         # Only keep rows with max weighted speedup
         # Sort by kernel ids for vectorized write
@@ -509,13 +511,25 @@ class RunOption:
             .drop_duplicates(['kernel_id_y', 'kernel_id_x'])\
             .sort_values(['kernel_id_y', 'kernel_id_x'])
 
-        self.interference_matrix = \
-            df_prod_tot[['sld_x', 'sld_y']].values.reshape(
-                self.interference_matrix.shape)
+        # pc[6] = time.perf_counter()
 
-        self.config_matrix = \
-            df_prod_tot[['intra_x', 'intra_y']].values.reshape(
-                self.config_matrix.shape)
+        matrix_idx = 2 * (len(self.jobs[0].benchmarks) *
+                          df_prod_tot['kernel_id_y'].values +
+                          df_prod_tot['kernel_id_x'].values)
+
+        np.put(self.interference_matrix, matrix_idx, df_prod_tot['sld_x'])
+        np.put(self.interference_matrix, matrix_idx + 1, df_prod_tot['sld_y'])
+
+        np.put(self.config_matrix, matrix_idx, df_prod_tot['intra_x'])
+        np.put(self.config_matrix, matrix_idx + 1, df_prod_tot['intra_y'])
+
+        self.get_real_performance()
+
+        # pc[7] = time.perf_counter()
+        #
+        # pc = np.array(pc)
+        # diff = pc[1:] - pc[0:-1]
+        # print("time:", diff)
 
     def kernel_wise_gpusim(self):
         print("Parent kernel_wise_gpusim function prototype called.")
@@ -539,6 +553,8 @@ class RunOption:
         return sum(delta) / len(delta), len(delta)
 
     def get_real_performance(self):
+        print("before", self.interference_matrix)
+
         # Update interference matrix
         for matrix_idx in np.ndindex(*(self.interference_matrix.shape[:2])):
             # if the predicted config was time multiplex, skip
@@ -573,6 +589,9 @@ class RunOption:
 
         # Run second stage full
         perf = self.app_wise_full_and_steady(steady=False, at_least_once=False)
+
+        print("after", self.interference_matrix)
+
         return perf
 
     def _pretty_print_matrix(self, title, data):
