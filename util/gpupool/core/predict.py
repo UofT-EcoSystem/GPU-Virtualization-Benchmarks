@@ -507,7 +507,8 @@ class RunOption:
 
         # Only keep rows with max weighted speedup
         # Sort by kernel ids for vectorized write
-        df_prod_tot = df_prod_tot.sort_values('ws', ascending=False)\
+        df_prod_tot = df_prod_tot[df_prod_tot['ws'] > 1]\
+            .sort_values('ws', ascending=False)\
             .drop_duplicates(['kernel_id_y', 'kernel_id_x'])\
             .sort_values(['kernel_id_y', 'kernel_id_x'])
 
@@ -522,8 +523,6 @@ class RunOption:
 
         np.put(self.config_matrix, matrix_idx, df_prod_tot['intra_x'])
         np.put(self.config_matrix, matrix_idx + 1, df_prod_tot['intra_y'])
-
-        self.get_real_performance()
 
         # pc[7] = time.perf_counter()
         #
@@ -553,8 +552,6 @@ class RunOption:
         return sum(delta) / len(delta), len(delta)
 
     def get_real_performance(self):
-        print("before", self.interference_matrix)
-
         # Update interference matrix
         for matrix_idx in np.ndindex(*(self.interference_matrix.shape[:2])):
             # if the predicted config was time multiplex, skip
@@ -589,8 +586,6 @@ class RunOption:
 
         # Run second stage full
         perf = self.app_wise_full_and_steady(steady=False, at_least_once=False)
-
-        print("after", self.interference_matrix)
 
         return perf
 

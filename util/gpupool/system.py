@@ -2,6 +2,7 @@ import argparse
 import sys
 import multiprocessing as mp
 import numpy as np
+from scipy import stats
 
 from gpupool.core.workload import BatchJob, GpuPoolConfig
 from gpupool.core.predict import Allocation, StageOne, StageTwo
@@ -61,6 +62,8 @@ def run_exp_0(args):
 
     results = []
     for batch_id in range(num_batches):
+        from gpupool.core.workload import Job
+        Job.count = 0
         batch = BatchJob(rand_seed=batch_id, num_jobs=num_jobs)
         batch_result = {'batch': batch}
 
@@ -115,42 +118,32 @@ def run_exp_0(args):
 
         if 'heuristic' in args.system:
             # Get baseline #2: memory bandwidth results
-            bw = batch.calculate_qos_viol_dram_bw(gpu_avail=50,
+            heuristic = batch.calculate_qos_viol_dram_bw(gpu_avail=50,
                                                   cores=args.cores)
 
-            batch_result["bw_count"] = bw['gpu_count']
-            batch_result["bw_ws"] = bw['ws_total']
+            batch_result["heuristic_count"] = heuristic['gpu_count']
+            batch_result["heuristic_ws"] = heuristic['ws_total']
 
         print(batch_result)
         results.append(batch_result)
 
     # Aggregate results over all runs
-    # print("=" * 100)
-    # print(results)
-    #
-    # print("Aggregate results:")
-    #
-    # sum_gpupool = sum([r['gpupool_count'] for r in results])
-    # sum_mig = sum(r['mig'] for r in results)
-    #
-    # # GPUPool v.s. baseline #1
-    # pct_reduction = (sum_mig - sum_gpupool) / sum_mig * 100
-    # print("GPUPool uses {:.2f}% fewer GPUs than MIG on average."
-    #       .format(pct_reduction))
-    #
-    # # GPUPool v.s. baseline #2
-    # sum_jobs = sum([r['batch'].num_jobs for r in results])
-    # sum_gpupool_violations = sum([r['gpupool_violation'] for r in results])
-    # sum_random_violations = sum([r['random_violation'] for r in results])
-    #
-    # print("GPUPool:", sum_gpupool_violations.to_string(sum_jobs))
-    # print("Random matching:", sum_random_violations.to_string(sum_jobs))
-    #
-    # if sum_gpupool_violations.count:
-    #     print("Random matching introduces {:.2f}% more violations than "
-    #           "GPUPool.".format((sum_random_violations.count -
-    #                              sum_gpupool_violations.count) /
-    #                             sum_gpupool_violations.count * 100))
+    print("=" * 100)
+    print(results)
+
+    print("Aggregate results:")
+
+    for system in args.system:
+        print('*' * 10, system, '*' * 10)
+
+        counts = [r['{}_count'.format(system)] for r in results]
+        print("count avg = {}, ste = {}".format(np.average(counts),
+                                                stats.sem(counts)))
+
+        stp = [r['{}_ws'.format(system)] for r in results]
+        print("stp avg = {}, ste = {}".format(np.average(stp),
+                                              stats.sem(stp)))
+
 
 
 def run_exp_2(args):

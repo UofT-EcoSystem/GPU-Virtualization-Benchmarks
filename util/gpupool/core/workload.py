@@ -346,8 +346,6 @@ class BatchJob:
         # Clean up temp file
         os.system('rm input.js')
 
-        print(list_pair_str)
-
         return list_pair_str
 
     def _verify_qos(self, list_pair_str, gpupool_config=None, cores=32):
