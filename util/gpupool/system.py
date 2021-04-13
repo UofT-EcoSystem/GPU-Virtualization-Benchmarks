@@ -23,6 +23,8 @@ def parse_args():
                              '3 = boosting tree test.')
     parser.add_argument('--job_count', default=100, type=int, 
                         help='job count for exp0.')
+    parser.add_argument('--batch', default=5, type=int,
+                        help="Number of batches for exp 0")
     parser.add_argument('--stage1', default="GPUSim",
                         choices=[s1.name for s1 in StageOne],
                         help='Stage 1 predictor: GPUSim or BoostTree.')
@@ -57,7 +59,7 @@ def parse_args():
 
 def run_exp_0(args):
     # Generic experiment
-    num_batches = 5
+    num_batches = args.batch
     num_jobs = args.job_count
 
     results = []
@@ -131,23 +133,22 @@ def run_exp_0(args):
     print("=" * 100)
     print(results)
 
-    print("Aggregate results:")
+    if num_batches > 1:
+        print("Aggregate results:")
 
-    for system in args.system:
-        print('*' * 10, system, '*' * 10)
+        for system in args.system:
+            print('*' * 10, system, '*' * 10)
 
-        counts = [r['{}_count'.format(system)] for r in results]
-        print("count avg = {}, ste = {}".format(np.average(counts),
-                                                stats.sem(counts)))
+            counts = [r['{}_count'.format(system)] for r in results]
+            print("count avg = {}, ste = {}".format(np.average(counts),
+                                                    stats.sem(counts)))
 
-        stp = [r['{}_ws'.format(system)] for r in results]
-        print("stp avg = {}, ste = {}".format(np.average(stp),
-                                              stats.sem(stp)))
-
+            stp = [r['{}_ws'.format(system)] for r in results]
+            print("stp avg = {}, ste = {}".format(np.average(stp),
+                                                  stats.sem(stp)))
 
 
 def run_exp_2(args):
-
     job_step = 50
     min_jobs = 50
     max_jobs = 350

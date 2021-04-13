@@ -512,6 +512,9 @@ class BatchJob:
 
             pred_latency['matching'] = time.perf_counter() - start_matching
 
+            if not gpupool_config.accuracy_mode:
+                break
+
             # Verify QoS #
             violation = self._verify_qos(list_pair_str, gpupool_config,
                                          cores=cores)
