@@ -5,12 +5,13 @@
 #include <chrono>
 
 #define EQUAL_ERR 0.0001
-#define STEADY_STEP 10
-#define QOS_LOSS_ERR 0.0001
+#define STEADY_STEP 20
+#define QOS_LOSS_ERR 0.001
 
 typedef std::vector<std::vector<float>> Array;
 
-void read_csv(std::string filename, std::vector<std::vector<float>> & result) {
+void read_csv(const std::string & filename,
+    std::vector<std::vector<float>> & result) {
   std::ifstream seq_file(filename);
   if(!seq_file.is_open()) {
     std::cout << filename << " DNE" << std::endl;
@@ -35,6 +36,27 @@ void read_csv(std::string filename, std::vector<std::vector<float>> & result) {
   }
 }
 
+void read_line(const std::string & filename,
+               std::vector<int> & result) {
+  std::ifstream limit_file(filename);
+  if(!limit_file.is_open()) {
+    std::cout << filename << " DNE" << std::endl;
+    abort();
+  }
+
+  std::string line;
+  std::getline(limit_file, line);
+  std::stringstream ss(line);
+
+  float val;
+  while(ss >> val){
+    result.push_back(val);
+
+    // If the next token is a comma, ignore it and move on
+    if(ss.peek() == ',') ss.ignore();
+  }
+}
+
 float find_qos_loss(const std::vector<float> & scaled_runtime,
                     int num_iter, float seq_sum) {
   // TODO: optimize this
@@ -47,7 +69,8 @@ float find_qos_loss(const std::vector<float> & scaled_runtime,
 }
 
 void simulate(const Array & seq_cycles, const Array & inter1,
-    const Array & inter2, int* limits, bool steady=false) {
+    const Array & inter2, std::vector<int> limits, float & qos0, float & qos1) {
+  const bool steady = true;
 
   float seq_sum[2] = {0, 0};
   for (int i = 0; i < seq_cycles.size(); i++) {
@@ -195,10 +218,10 @@ void simulate(const Array & seq_cycles, const Array & inter1,
   }
 
   if (steady) {
-    std::cout << "Stage 2 result: " << steady_state_qos[0] << ", "
-              << steady_state_qos[1] << std::endl;
-    std::cout << "steady iterations: " << steady_state_iter[0] << ", "
-              << steady_state_iter[1] << std::endl;
+//    std::cout << "Stage 2 result: " << steady_state_qos[0] << ", "
+//              << steady_state_qos[1] << std::endl;
+//    std::cout << "steady iterations: " << steady_state_iter[0] << ", "
+//              << steady_state_iter[1] << std::endl;
   }
   else {
 //    if not at_least_once:
@@ -224,25 +247,57 @@ void simulate(const Array & seq_cycles, const Array & inter1,
 //  return full_perf
   }
 
+  qos0 = steady_state_qos[0];
+  qos1 = steady_state_qos[1];
 }
 
-int main() {
-  // Load input from csv
+struct input_t {
   std::vector<std::vector<float>> seq_cycles;
-  read_csv("seq_cycles.csv", seq_cycles);
-
   std::vector<std::vector<float>> inter1;
-  read_csv("inter1.csv", inter1);
-
   std::vector<std::vector<float>> inter2;
-  read_csv("inter2.csv", inter2);
+  std::vector<int> limits;
+  std::string name;
+};
+
+int main() {
+  // Load input from csv in out_stage1
+  int num_jobs = 100;
+  input_t inputs[4950];
+  std::string names[4950];
+//  int num_jobs = 2;
+//  input_t inputs[1];
+
+  int idx = 0;
+  for (int i = 0; i < num_jobs; i++) {
+    const std::string job0 = "job-" + std::to_string(i);
+    for (int j = i + 1; j < num_jobs; j++) {
+      const std::string job1 = "job-" + std::to_string(j);
+      if (job0 < job1) {
+        std::string folder = "out_stage1/" + job0 + "+" + job1;
+        inputs[idx].name = "job-" + std::to_string(i) + "+" +
+            "job-" + std::to_string(j);
+        read_csv(folder + "/cycles.csv", inputs[idx].seq_cycles);
+        read_csv(folder + "/inter1.csv", inputs[idx].inter1);
+        read_csv(folder + "/inter2.csv", inputs[idx].inter2);
+        read_line(folder + "/limits.csv", inputs[idx].limits);
+
+        idx++;
+      }
+
+    }
+  }
+
+  std::cout << idx << std::endl;
 
   std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-  int limits[2] = {2400, 2800};
-
-  bool steady = true;
-  simulate(seq_cycles, inter1, inter2, limits, steady);
+#pragma omp parallel for
+  for (int i = 0; i < idx; i++) {
+    auto & in = inputs[i];
+    float qos0, qos1;
+    simulate(in.seq_cycles, in.inter1, in.inter2, in.limits, qos0, qos1);
+//    std::cout << inputs[i].name << "," << qos0 << "," << qos1 << std::endl;
+  }
 
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
