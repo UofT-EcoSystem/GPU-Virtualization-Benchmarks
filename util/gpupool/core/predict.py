@@ -157,18 +157,28 @@ class RunOption:
 
     # Return Performance
     def app_wise_full_and_steady(self, steady=False, at_least_once=False):
-        # # Dump input for C++ implementation
-        # with open("seq_cycles.csv", "w+") as f:
+        # Dump input for C++ implementation
+        # folder = "out_stage1/{}".format("+".join(self.job_names))
+        # if not os.path.exists(folder):
+        #     os.mkdir(folder)
+        #
+        # with open(os.path.join(folder, "cycles.csv"), "w+") as f:
         #     for job in self.jobs:
         #         string_cycles = [str(c) for c in job.get_seq_cycles()]
         #         f.write(",".join(string_cycles))
         #         f.write("\n")
         #
-        # np.savetxt("inter1.csv", self.interference_matrix[0], delimiter=",")
-        # np.savetxt("inter2.csv", self.interference_matrix[1], delimiter=",")
+        # np.savetxt(os.path.join(folder, "inter1.csv"),
+        #            self.interference_matrix[:, :, 0],
+        #            delimiter=",")
+        # np.savetxt(os.path.join(folder, "inter2.csv"),
+        #            self.interference_matrix[:, :, 1],
+        #            delimiter=",")
         #
-        # print("job 0 limit", self.jobs[0].num_iters)
-        # print("job 1 limit", self.jobs[1].num_iters)
+        # with open(os.path.join(folder, "limits.csv"), "w+") as f:
+        #     f.write("{}".format(self.jobs[0].num_iters))
+        #     f.write(",")
+        #     f.write("{}\n".format(self.jobs[1].num_iters))
 
         seq_runtimes = [job.get_seq_cycles() for job in self.jobs]
 
@@ -846,6 +856,9 @@ class PairJob:
             option.kernel_wise_prediction(
                 accuracy_mode=predictor_config.accuracy_mode,
                 model=predictor_config.get_model())
+
+        if predictor_config.profile_stage1:
+            return result
 
         # Profiling
         time_stage1 = time.perf_counter() - start_stage1

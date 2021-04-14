@@ -172,6 +172,9 @@ class BatchJob:
         # End profiling
         total_latency = time.perf_counter() - start_prediction
 
+        if config.profile_stage1:
+            return {'total': total_latency}
+
         # Collect stage1 and stage2 latency
         perf_col = config.get_perf()
         stage1_latency = [np.sum(r[perf_col].apply(lambda p: p.time_stage1))
@@ -491,12 +494,20 @@ class BatchJob:
         print("Running GPUPool predictor... ")
         pred_latency = self._two_stage_predict(gpupool_config, cores=cores)
 
+        if gpupool_config.profile_stage1:
+            print("Stage 1 took", pred_latency['total'])
+            return {}
+
         # We do a sweep to search for good QoS margin:
-        margin_min = 0.04
+        margin_min = 0
         margin_step = 0.02
         margin_max = 2
         margin_selected = margin_max
+
         list_pair_str = []
+        num_gpus = 0
+        ws_avg = 0
+        ws_list = []
         violation = Violation()
         for margin in np.arange(margin_min, margin_max, margin_step):
             margin_selected = margin
@@ -519,16 +530,21 @@ class BatchJob:
             violation = self._verify_qos(list_pair_str, gpupool_config,
                                          cores=cores)
 
+            # Calculate final metrics #
+            pairs_predicted = len(list_pair_str)
+            isolated_predicted = len(self.list_jobs) - 2 * pairs_predicted
+            num_gpus = isolated_predicted + pairs_predicted + \
+                       violation.gpu_increase
+
+            ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
+            ws_list = [1] * isolated_predicted + violation.actual_ws_list
+
+            print("Matching margin=", margin, ",",
+                  violation.to_string(self.num_jobs),
+                  ", stp=", ws_avg, ", count=", num_gpus)
+
             if violation.gpu_increase == 0:
                 break
-
-        # Calculate final metrics #
-        pairs_predicted = len(list_pair_str)
-        isolated_predicted = len(self.list_jobs) - 2 * pairs_predicted
-        num_gpus = isolated_predicted + pairs_predicted + violation.gpu_increase
-
-        ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
-        ws_list = [1] * isolated_predicted + violation.actual_ws_list
 
         # Save df_pair #
         if save:

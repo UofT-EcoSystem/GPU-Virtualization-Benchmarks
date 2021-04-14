@@ -45,6 +45,8 @@ def parse_args():
                              'train a new model for each pair of jobs.'
                              'Otherwise, runtime mode will simply load a '
                              'trained model to do fast inference.')
+    parser.add_argument('--profile_stage1', action='store_true',
+                        help='whether to only run stage 1 for profiling')
     parser.add_argument('--stage2_buffer', default=0.05,
                         type=float,
                         help='Amount of buffer to tighten qos check in stage2.')
@@ -76,10 +78,14 @@ def run_exp_0(args):
                                            StageTwo[args.stage2],
                                            at_least_once=False,
                                            accuracy_mode=args.accuracy_mode,
-                                           stage2_buffer=args.stage2_buffer)
+                                           stage2_buffer=args.stage2_buffer,
+                                           profile_stage1=args.profile_stage1)
             gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
                                                         cores=args.cores,
                                                         save=args.save)
+
+            if args.profile_stage1:
+                continue
 
             print("-" * 100)
             print("Profiling info:")
