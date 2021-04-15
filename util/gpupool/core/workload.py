@@ -533,15 +533,18 @@ class BatchJob:
             # Calculate final metrics #
             pairs_predicted = len(list_pair_str)
             isolated_predicted = len(self.list_jobs) - 2 * pairs_predicted
-            num_gpus = isolated_predicted + pairs_predicted + \
-                       violation.gpu_increase
+            num_gpus_no_migrate = isolated_predicted + pairs_predicted
+            num_gpus = num_gpus_no_migrate + violation.gpu_increase
 
+            ws_no_migrate = (isolated_predicted + violation.ws_no_migrate) \
+                            / num_gpus_no_migrate
             ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
             ws_list = [1] * isolated_predicted + violation.actual_ws_list
 
             print("Matching margin=", margin, ",",
                   violation.to_string(self.num_jobs),
-                  ", stp=", ws_avg, ", count=", num_gpus)
+                  ", no migrate stp=", ws_no_migrate, ", count=",
+                  num_gpus_no_migrate)
 
             if violation.gpu_increase == 0:
                 break
