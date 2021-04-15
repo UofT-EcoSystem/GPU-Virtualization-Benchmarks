@@ -155,6 +155,38 @@ class RunOption:
         # self.interference_hit = np.zeros(matrix_size, dtype=int)
         # self.serial = np.zeros(matrix_size, dtype=int)
 
+    def app_wise_steady_cpp(self):
+        from numpy.ctypeslib import load_library
+        from gpupool.core.numpyctypes import c_ndarray
+        import ctypes
+        s2_lib = load_library('libstage2',
+                              '/home/serinatan/project/GPU-Virtualization'
+                              '-Benchmarks/util/gpupool/core/stage2/build')
+
+        seq1 = np.array(self.jobs[0].get_seq_cycles(), dtype=float)
+        seq2 = np.array(self.jobs[1].get_seq_cycles(), dtype=float)
+        print(seq1.dtype)
+
+        seq1 = c_ndarray(seq1, dtype=np.float)
+        seq2 = c_ndarray(seq2, dtype=np.float)
+
+        interference = c_ndarray(self.interference_matrix, dtype=np.float)
+
+        limit1 = ctypes.c_int(self.jobs[0].num_iters)
+        limit2 = ctypes.c_int(self.jobs[1].num_iters)
+
+        qos1 = ctypes.c_float()
+        qos2 = ctypes.c_float()
+
+        s2_lib.simulate(seq1, seq2, interference, limit1, limit2,
+                        ctypes.byref(qos1), ctypes.byref(qos2))
+
+        print("cpp", qos1, qos2)
+        steady_perf = Performance(self.jobs)
+        steady_perf.fill_with_slowdown(sld=[qos1.value, qos2.value],
+                                       steady_iter=[10, 10])
+        return steady_perf
+
     # Return Performance
     def app_wise_full_and_steady(self, steady=False, at_least_once=False):
         # Dump input for C++ implementation
@@ -462,14 +494,9 @@ class RunOption:
         return model
 
     def kernel_wise_prediction(self, accuracy_mode, model):
-        # pc = [0] * 8
-        # pc[0] = time.perf_counter()
-
         # Cross product of kernels from each job
         df_prod_tot = self.jobs[0].df_benchmarks.merge(
             self.jobs[1].df_benchmarks, how='cross')
-
-        # pc[1] = time.perf_counter()
 
         # Drop the ones that exceed execution context resource
         for rsrc in const.EXEC_CTX:
@@ -477,17 +504,24 @@ class RunOption:
                 (df_prod_tot[rsrc + '_x'] + df_prod_tot[rsrc + '_y']) <= 1.0
                 ]
 
-        # pc[2] = time.perf_counter()
-
         # Prep for inference data
         xs = tree_model.prepare_datasets(df_prod_tot, training=False)
 
-        # pc[3] = time.perf_counter()
+        if accuracy_mode:
+            # Retrain model for cross validation
+            test_pairs = df_prod_tot[['pair_str_x', 'pair_str_y']].itertuples(
+                index=False, name=None)
+            test_pairs = [tuple(sorted(pair)) for pair in test_pairs
+                          if pair[0] != pair[1]]
+            test_pairs = list(set(test_pairs))
+            df_train = \
+                self.df_dynamic_index[
+                    ~self.df_dynamic_index.index.isin(test_pairs)]
+            model = RunOption.train_boosting_tree(train_all=False,
+                                                  df_train=df_train)
 
         # Run inference on all pairs
         sld = model.predict(xs)
-
-        # pc[4] = time.perf_counter()
 
         half_len = int(len(sld) / 2)
         df_prod_tot['sld_x'] = sld[0:half_len]
@@ -513,16 +547,12 @@ class RunOption:
                           for row in prod_data]
             df_prod_tot = df_prod_tot[bool_index]
 
-        # pc[5] = time.perf_counter()
-
         # Only keep rows with max weighted speedup
         # Sort by kernel ids for vectorized write
         df_prod_tot = df_prod_tot[df_prod_tot['ws'] > 1]\
             .sort_values('ws', ascending=False)\
             .drop_duplicates(['kernel_id_y', 'kernel_id_x'])\
             .sort_values(['kernel_id_y', 'kernel_id_x'])
-
-        # pc[6] = time.perf_counter()
 
         matrix_idx = 2 * (len(self.jobs[0].benchmarks) *
                           df_prod_tot['kernel_id_y'].values +
@@ -533,12 +563,6 @@ class RunOption:
 
         np.put(self.config_matrix, matrix_idx, df_prod_tot['intra_x'])
         np.put(self.config_matrix, matrix_idx + 1, df_prod_tot['intra_y'])
-
-        # pc[7] = time.perf_counter()
-        #
-        # pc = np.array(pc)
-        # diff = pc[1:] - pc[0:-1]
-        # print("time:", diff)
 
     def kernel_wise_gpusim(self):
         print("Parent kernel_wise_gpusim function prototype called.")
@@ -872,6 +896,7 @@ class PairJob:
             performance = option.app_wise_full_and_steady(
                 steady=True,
                 at_least_once=predictor_config.at_least_once)
+            # performance = option.app_wise_steady_cpp()
         elif predictor_config.stage_2.name == StageTwo.Weighted.name:
             performance = option.app_wise_weighted()
         else:
