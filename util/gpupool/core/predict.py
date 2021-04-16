@@ -611,7 +611,7 @@ class RunOption:
                 sld = df_bench_pair['sld'].iloc[0][1:]
             else:
                 print("Non time-multiplex pair_str not in df_dynamic")
-                exit(-1)
+                sys.exit(-1)
 
             if sorted_bench != benchmarks:
                 sld.reverse()
@@ -738,13 +738,13 @@ class RunOption3D(RunOption):
             def time_multiplex(sorted_bench):
                 # If no feasible pair dynamic config, let the kernels
                 # time multiplex using its best intra config
-                _cta_setting = []
-                _sld = []
-                for bench in sorted_bench:
-                    best_intra = self.df_intra.xs(bench)['norm_ipc'].idxmax(
-                        axis=0)
-                    _cta_setting.append(best_intra)
-                    _sld.append(0.5)
+                _cta_setting = [-1, -1]
+                _sld = [0.5, 0.5]
+                # for bench in sorted_bench:
+                #     best_intra = self.df_intra.xs(bench)['norm_ipc'].idxmax(
+                #         axis=0)
+                #     _cta_setting.append(best_intra)
+                #     _sld.append(0.5)
 
                 return _cta_setting, _sld
 

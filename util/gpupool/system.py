@@ -53,6 +53,8 @@ def parse_args():
     parser.add_argument('--system', nargs='+',
                         default=['gpupool', 'mig', 'heuristic'],
                         help="Which systems to evaluate.")
+    parser.add_argument('--seed', type=int,
+                        default=0, help="starting seed for generating jobs")
 
     results = parser.parse_args()
 
@@ -68,7 +70,8 @@ def run_exp_0(args):
     for batch_id in range(num_batches):
         from gpupool.core.workload import Job
         Job.count = 0
-        batch = BatchJob(rand_seed=batch_id, num_jobs=num_jobs)
+        batch = BatchJob(rand_seed=batch_id + args.seed,
+                         num_jobs=num_jobs)
         batch_result = {'batch': batch}
 
         if 'gpupool' in args.system:

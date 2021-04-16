@@ -10,7 +10,7 @@ import sys
 import math
 
 import data.scripts.common.constants as const
-from gpupool.core.helper import QOS, GpuPoolConfig, Violation
+from gpupool.core.helper import QOS, GpuPoolConfig, Violation, StageOne
 from gpupool.core.configs import *
 from gpupool.core.parallelize import *
 
@@ -523,7 +523,8 @@ class BatchJob:
 
             pred_latency['matching'] = time.perf_counter() - start_matching
 
-            if not gpupool_config.accuracy_mode:
+            if not (gpupool_config.accuracy_mode or
+                    gpupool_config.stage_1 == StageOne.GPUSim):
                 break
 
             # Verify QoS #
