@@ -476,7 +476,7 @@ class RunOption:
         if train_all:
             x, y = tree_model.prepare_datasets(cls.df_dynamic)
 
-            offset = int(x.shape[0] * cls.TRAINING_SET_RATIO)
+            offset = int(x.shape[0] * TRAINING_SET_RATIO)
             x_train, y_train = x[:offset], y[:offset]
             x_test, y_test = x[offset:], y[offset:]
 

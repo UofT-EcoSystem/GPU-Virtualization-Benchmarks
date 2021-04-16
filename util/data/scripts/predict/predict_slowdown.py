@@ -142,7 +142,7 @@ def prepare_datasets(df_pair, training=True):
 
 
 def train(X, y, cross_validation=True):
-    params = {'n_estimators': 200, 'max_depth': 5, 'min_samples_split': 2,
+    params = {'n_estimators': 300, 'max_depth': 8, 'min_samples_split': 2,
               'learning_rate': 0.1, 'loss': 'huber'}
 
     if cross_validation:
@@ -268,17 +268,19 @@ def plot_importance(clf, type='old'):
 def predict_from_df(clf, df_pair):
     xs = prepare_datasets(df_pair, training=False)
 
-    count = sum([x.shape[0] for x in xs])
+    count = xs.shape[0]
 
     print(count, "predictions")
 
     start = time.perf_counter()
-    ys = [clf.predict(x) for x in xs]
+    ys = clf.predict(xs)
     end = time.perf_counter()
 
     print("Took", end - start, "seconds")
 
-    return ys
+    half = int(ys.shape[0] / 2)
+    return ys[0:half], ys[half:]
+
 
 
 def parse_args():
