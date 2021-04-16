@@ -99,20 +99,21 @@ def run_exp_0(args):
             stage2 = batch.df_pair[gpupool_config.get_perf()].apply(
                 lambda x: x.time_stage2)
 
-            stage2_iters = batch.df_pair[gpupool_config.get_perf()].apply(
-                lambda x: x.steady_iter[0])
-            stage2_iters_2 = batch.df_pair[gpupool_config.get_perf()].apply(
-                lambda x: x.steady_iter[1]
-            )
-            stage_steady = pd.concat([stage2_iters, stage2_iters_2])
-
             print("Sum of time spent in Stage1: ", sum(stage1) / mp.cpu_count())
             print("Sum of time spent in Stage2: ", sum(stage2) / mp.cpu_count())
 
             print("Stage2 latency mean: ", np.mean(stage2))
             print("Stage2 latency std: ", np.std(stage2))
-            print("Stage2 steady std: ", np.std(stage_steady))
-            print("Stage2 steady mean: ", np.mean(stage_steady))
+
+            if args.stage2 == StageTwo.Steady:
+                stage2_iters = batch.df_pair[gpupool_config.get_perf()].apply(
+                    lambda x: x.steady_iter[0])
+                stage2_iters_2 = batch.df_pair[gpupool_config.get_perf()].apply(
+                    lambda x: x.steady_iter[1]
+                )
+                stage_steady = pd.concat([stage2_iters, stage2_iters_2])
+                print("Stage2 steady std: ", np.std(stage_steady))
+                print("Stage2 steady mean: ", np.mean(stage_steady))
 
             batch_result["gpupool_count"] = gpupool['gpu_count']
             batch_result["gpupool_violation"] = gpupool['violation']
