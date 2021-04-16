@@ -35,7 +35,8 @@ class StageTwo(Enum):
 
 class GpuPoolConfig:
     def __init__(self, alloc: Allocation, stage_1: StageOne, stage_2: StageTwo,
-                 at_least_once, accuracy_mode, stage2_buffer, profile_stage1):
+                 at_least_once, accuracy_mode, stage2_buffer, profile_stage1,
+                 window_size):
         self.alloc = alloc
         self.stage_1 = stage_1
         self.stage_2 = stage_2
@@ -47,6 +48,8 @@ class GpuPoolConfig:
         self.accuracy_mode = accuracy_mode
         self.stage2_buffer = stage2_buffer
         self.profile_stage1 = profile_stage1
+
+        self.window_size = window_size
 
         model_pkl_path = os.path.join(THIS_DIR, "model.pkl")
 

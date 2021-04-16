@@ -280,13 +280,112 @@ class BatchJob:
 
         return average_error
 
-    def _max_matching(self, stage2_buffer=0, gpupool=True, perf_col=None):
+    def run_dispatch(self, gpupool_config, pred_latency, cores):
+        results = []
+        for start in range(0, self.num_jobs, gpupool_config.window_size):
+            window_result = self._run_dispatch_window(
+                gpupool_config, pred_latency, cores,
+                window=(start, start + gpupool_config.window_size))
+            results.append(window_result)
+
+        total_ws_list = []
+        for r in results:
+            total_ws_list += r['ws_list']
+
+        final_result = {
+            'gpu_count': sum([r['gpu_count'] for r in results]),
+            'margin': [r['margin'] for r in results],
+            'violation': [r['violation'] for r in results],
+            'ws_total': np.average(total_ws_list),
+            'ws_list': total_ws_list,
+            'pred_latency': pred_latency,
+        }
+
+        return final_result
+
+    def _run_dispatch_window(self, gpupool_config, pred_latency, cores, window):
+        # We do a sweep to search for good QoS margin:
+        margin_min = 0
+        margin_step = 0.02
+        margin_max = 2
+
+        margin_selected = margin_max
+        num_gpus = 0
+        ws_avg = 0
+        ws_list = []
+        violation = Violation()
+        for margin in np.arange(margin_min, margin_max, margin_step):
+            margin_selected = margin
+
+            # Call max match job dispatcher #
+            print("Running max weight matching solver...")
+            start_matching = time.perf_counter()
+
+            perf_col = gpupool_config.get_perf()
+            list_pair_str = self._max_matching(gpupool=True,
+                                               stage2_buffer=margin,
+                                               perf_col=perf_col,
+                                               window=window)
+
+            pred_latency['matching'] = time.perf_counter() - start_matching
+
+            if not (gpupool_config.accuracy_mode or
+                    gpupool_config.stage_1 == StageOne.GPUSim):
+                break
+
+            # Verify QoS #
+            violation = self._verify_qos(list_pair_str, gpupool_config,
+                                         cores=cores)
+
+            # Calculate final metrics #
+            pairs_predicted = len(list_pair_str)
+            isolated_predicted = gpupool_config.window_size - \
+                                 2 * pairs_predicted
+            num_gpus_no_migrate = isolated_predicted + pairs_predicted
+            num_gpus = num_gpus_no_migrate + violation.gpu_increase
+
+            ws_no_migrate = (isolated_predicted + violation.ws_no_migrate) \
+                            / num_gpus_no_migrate
+            ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
+            ws_list = [1] * isolated_predicted + violation.actual_ws_list
+
+            print("Matching margin=", margin, ",",
+                  violation.to_string(gpupool_config.window_size),
+                  ", no migrate stp=", ws_no_migrate, ", count=",
+                  num_gpus_no_migrate)
+
+            if violation.gpu_increase == 0:
+                break
+
+        result = {
+            'gpu_count': num_gpus,
+            'margin': margin_selected,
+            'violation': violation,
+            'ws_total': ws_avg,
+            'ws_list': ws_list,
+            'pred_latency': pred_latency,
+        }
+
+        return result
+
+    def _max_matching(self, window,
+                      stage2_buffer=0, gpupool=True, perf_col=None):
+
+        # Filter out df_pair for window
+        offset = window[0]
+        window_size = window[1] - window[0]
+        window_jobs = self.list_jobs[window[0]:window[1]]
+        pairs = ["{}+{}".format(lhs.name, rhs.name)
+                 for lhs in window_jobs for rhs in window_jobs
+                 if lhs.name < rhs.name]
+
+        df_filter = self.df_pair[self.df_pair['pair_str'].isin(pairs)]
 
         f = open("input.js", "w+")
         f.write("var blossom = require('./edmonds-blossom');" + "\n")
         f.write("var data = [" + "\n")
 
-        for index, row in self.df_pair.iterrows():
+        for index, row in df_filter.iterrows():
             # determine if we include this pair as an edge or not based on if
             # the qos of each job in pair is satisfied
             jobs = row['pair_job'].jobs
@@ -304,13 +403,13 @@ class BatchJob:
                 condition = row['similar'] < threshold
 
             if condition:
-                input_line = "      [{}, {}, {}],\n".format(jobs[0].id,
-                                                            jobs[1].id,
+                input_line = "      [{}, {}, {}],\n".format(jobs[0].id-offset,
+                                                            jobs[1].id-offset,
                                                             1
                                                             )
             else:
-                input_line = "      [{}, {}, {}],\n".format(jobs[0].id,
-                                                            jobs[1].id,
+                input_line = "      [{}, {}, {}],\n".format(jobs[0].id-offset,
+                                                            jobs[1].id-offset,
                                                             -sys.maxsize + 1)
 
             f.write(input_line)
@@ -335,13 +434,13 @@ class BatchJob:
         matching = [int(x) for x in matching]
 
         list_pair_str = []
-        for i in range(len(self.list_jobs)):
+        for i in range(window_size):
             if matching[i] < i:
                 # either no pair or pair was formed already
                 continue
 
-            job_pair = [self.list_jobs[matching[i]].name,
-                        self.list_jobs[i].name]
+            job_pair = [self.list_jobs[matching[i] + offset].name,
+                        self.list_jobs[i + offset].name]
             job_pair.sort()
             pair_str = "+".join(job_pair)
             list_pair_str.append(pair_str)
@@ -498,58 +597,6 @@ class BatchJob:
             print("Stage 1 took", pred_latency['total'])
             return {}
 
-        # We do a sweep to search for good QoS margin:
-        margin_min = 0
-        margin_step = 0.02
-        margin_max = 2
-        margin_selected = margin_max
-
-        list_pair_str = []
-        num_gpus = 0
-        ws_avg = 0
-        ws_list = []
-        violation = Violation()
-        for margin in np.arange(margin_min, margin_max, margin_step):
-            margin_selected = margin
-
-            # Call max match job dispatcher #
-            print("Running max weight matching solver...")
-            start_matching = time.perf_counter()
-
-            perf_col = gpupool_config.get_perf()
-            list_pair_str = self._max_matching(gpupool=True,
-                                               stage2_buffer=margin,
-                                               perf_col=perf_col)
-
-            pred_latency['matching'] = time.perf_counter() - start_matching
-
-            if not (gpupool_config.accuracy_mode or
-                    gpupool_config.stage_1 == StageOne.GPUSim):
-                break
-
-            # Verify QoS #
-            violation = self._verify_qos(list_pair_str, gpupool_config,
-                                         cores=cores)
-
-            # Calculate final metrics #
-            pairs_predicted = len(list_pair_str)
-            isolated_predicted = len(self.list_jobs) - 2 * pairs_predicted
-            num_gpus_no_migrate = isolated_predicted + pairs_predicted
-            num_gpus = num_gpus_no_migrate + violation.gpu_increase
-
-            ws_no_migrate = (isolated_predicted + violation.ws_no_migrate) \
-                            / num_gpus_no_migrate
-            ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
-            ws_list = [1] * isolated_predicted + violation.actual_ws_list
-
-            print("Matching margin=", margin, ",",
-                  violation.to_string(self.num_jobs),
-                  ", no migrate stp=", ws_no_migrate, ", count=",
-                  num_gpus_no_migrate)
-
-            if violation.gpu_increase == 0:
-                break
-
         # Save df_pair #
         if save:
             pickle_dir = os.path.join(THIS_DIR, "pickles")
@@ -564,13 +611,8 @@ class BatchJob:
 
         print("Done with GPUPool Calculations.\n")
 
-        result = {'gpu_count': num_gpus,
-                  'margin': margin_selected,
-                  'violation': violation,
-                  'ws_total': ws_avg,
-                  'ws_list': ws_list,
-                  'pred_latency': pred_latency,
-                  }
+        # Run job dispatcher #
+        result = self.run_dispatch(gpupool_config, pred_latency, cores)
 
         return result
 
@@ -679,7 +721,6 @@ class BatchJob:
 
         return violation, ws_list, gpu_migrated_count
 
-    # deprecated
     def load_df_from_pickle(self, file_path):
         if os.path.isfile(file_path):
             self.df_pair = pd.read_pickle(file_path)

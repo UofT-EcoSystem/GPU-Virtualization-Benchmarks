@@ -12,7 +12,7 @@ import pandas as pd
 def parse_args():
     parser = argparse.ArgumentParser("Run GPUPool Experiments.")
 
-    parser.add_argument('--exp', default=0, choices=[0, 1, 2, 3],
+    parser.add_argument('--exp', default=0, choices=[0, 1, 2, 3, 4],
                         type=int,
                         help='Experiment ID: '
                              '0 = generic test. '
@@ -20,7 +20,8 @@ def parse_args():
                              'benchmarks per job. '
                              '2 = sensitivity analysis for number of jobs '
                              'per batch. '
-                             '3 = boosting tree test.')
+                             '3 = boosting tree test.'
+                             '4 = reload from pickle for window sensitivity')
     parser.add_argument('--job_count', default=100, type=int, 
                         help='job count for exp0.')
     parser.add_argument('--batch', default=5, type=int,
@@ -55,6 +56,10 @@ def parse_args():
                         help="Which systems to evaluate.")
     parser.add_argument('--seed', type=int,
                         default=0, help="starting seed for generating jobs")
+    parser.add_argument('--window', type=int,
+                        help="Window size for GPUPool")
+    parser.add_argument('--pickle',
+                        help="Pickle to reload from for exp 4")
 
     results = parser.parse_args()
 
@@ -82,7 +87,8 @@ def run_exp_0(args):
                                            at_least_once=False,
                                            accuracy_mode=args.accuracy_mode,
                                            stage2_buffer=args.stage2_buffer,
-                                           profile_stage1=args.profile_stage1)
+                                           profile_stage1=args.profile_stage1,
+                                           window_size=args.window)
             gpupool = batch.calculate_gpu_count_gpupool(gpupool_config,
                                                         cores=args.cores,
                                                         save=args.save)
@@ -130,8 +136,8 @@ def run_exp_0(args):
 
         if 'heuristic' in args.system:
             # Get baseline #2: memory bandwidth results
-            heuristic = batch.calculate_qos_viol_dram_bw(gpu_avail=50,
-                                                  cores=args.cores)
+            heuristic = batch.calculate_qos_viol_dram_bw(gpu_avail=num_jobs/2,
+                                                         cores=args.cores)
 
             batch_result["heuristic_count"] = heuristic['gpu_count']
             batch_result["heuristic_ws"] = heuristic['ws_total']
@@ -217,6 +223,31 @@ def run_exp_3(args):
           .format(error * 100))
 
 
+def run_exp_4(args):
+    # Reload from pickle for window sensitivity
+    num_jobs = args.job_count
+
+    from gpupool.core.workload import Job
+    Job.count = 0
+    batch = BatchJob(rand_seed=args.seed, num_jobs=num_jobs)
+    batch.load_df_from_pickle(args.pickle)
+
+    if 'gpupool' in args.system:
+        # Get GPUPool results
+        gpupool_config = GpuPoolConfig(Allocation.Three_D,
+                                       StageOne[args.stage1],
+                                       StageTwo[args.stage2],
+                                       at_least_once=False,
+                                       accuracy_mode=args.accuracy_mode,
+                                       stage2_buffer=args.stage2_buffer,
+                                       profile_stage1=args.profile_stage1,
+                                       window_size=args.window)
+        gpupool = batch.run_dispatch(gpupool_config,
+                                     pred_latency={},
+                                     cores=args.cores)
+        print(gpupool)
+
+
 def main():
     args = parse_args()
 
@@ -226,6 +257,8 @@ def main():
         run_exp_2(args)
     elif args.exp == 3:
         run_exp_3(args)
+    elif args.exp == 4:
+        run_exp_4(args)
     else:
         print("Unimplemented Error.")
         sys.exit(1)
