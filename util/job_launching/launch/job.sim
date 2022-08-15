@@ -8,8 +8,8 @@ fi
 echo "doing: export benchmark root directory"
 export BENCH_HOME=REPLACE_BENCH_HOME
 
-echo "doing: export -n PTX_SIM_USE_PTX_FILE"
-export -n PTX_SIM_USE_PTX_FILE
+#echo "doing: export -n PTX_SIM_USE_PTX_FILE"
+#export -n PTX_SIM_USE_PTX_FILE
 echo "doing: export LD_LIBRARY_PATH=REPLACE_LIBPATH:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH=REPLACE_LIBPATH:$LD_LIBRARY_PATH
 

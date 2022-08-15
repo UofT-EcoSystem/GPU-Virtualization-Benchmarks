@@ -187,8 +187,8 @@ def gen_job_script(apps, config_name, gpusim_version, so_run_dir,
     replacement_dict = {
         "NAME": job_name,
         "CPU": cpu,
-        "GPGPUSIM_ROOT": os.getenv("GPGPUSIM_ROOT"),
-        "BENCH_HOME": args.bench_home,
+        "GPGPUSIM_ROOT": "/mnt/gpgpu-sim_distribution",
+        "BENCH_HOME": "/mnt/GPU-Virtualization-Benchmarks/benchmarksv2/",
         "LIBPATH": so_run_dir,
         "SUBDIR": sim_run_dir,
         "DEFINES": " ".join(defines),
@@ -296,7 +296,7 @@ def main():
     parse_args()
 
     # Sanity checks:
-    sanity_checks()
+    # sanity_checks()
 
     parent_run_dir = os.path.join(args.bench_home, 'run')
     # mkdir(parent_run_dir)
@@ -332,9 +332,12 @@ def main():
                 if args.overwrite:
                     rm(sim_run_dir)
 
+            # Hack: replace path outside docker with path inside docker
+            docker_so_run_dir = so_run_dir.replace(launch_run_dir, "/mnt/GPU-Virtualization-Benchmarks/benchmarksv2/run/")
+            docker_sim_run_dir = sim_run_dir.replace(launch_run_dir, "/mnt/GPU-Virtualization-Benchmarks/benchmarksv2/run/")
             # Generate job script for this bench
             job_script_str = gen_job_script(bench, config_name, gpusim_version,
-                                            so_run_dir, sim_run_dir)
+                                            docker_so_run_dir, docker_sim_run_dir)
 
             # Generate input files
             input_str = gen_input_files(bench)

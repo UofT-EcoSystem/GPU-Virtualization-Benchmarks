@@ -304,58 +304,101 @@ class BatchJob:
         return final_result
 
     def _run_dispatch_window(self, gpupool_config, pred_latency, cores, window):
-        # We do a sweep to search for good QoS margin:
-        margin_min = 0
-        margin_step = 0.02
-        margin_max = 2
+        margin_selected = gpupool_config.stage2_buffer
 
-        margin_selected = margin_max
-        num_gpus = 0
-        ws_avg = 0
-        ws_list = []
-        violation = Violation()
-        for margin in np.arange(margin_min, margin_max, margin_step):
-            margin_selected = margin
+        # Call max match job dispatcher #
+        print("Running max weight matching solver...")
+        start_matching = time.perf_counter()
 
-            # Call max match job dispatcher #
-            print("Running max weight matching solver...")
-            start_matching = time.perf_counter()
+        perf_col = gpupool_config.get_perf()
+        list_pair_str = self._max_matching(gpupool=True,
+                                           stage2_buffer=margin_selected,
+                                           perf_col=perf_col,
+                                           window=window)
 
-            perf_col = gpupool_config.get_perf()
-            list_pair_str = self._max_matching(gpupool=True,
-                                               stage2_buffer=margin,
-                                               perf_col=perf_col,
-                                               window=window)
+        pred_latency['matching'] = time.perf_counter() - start_matching
 
-            pred_latency['matching'] = time.perf_counter() - start_matching
+        if not (gpupool_config.accuracy_mode or
+                gpupool_config.stage_1 == StageOne.GPUSim):
+           return 
 
-            if not (gpupool_config.accuracy_mode or
-                    gpupool_config.stage_1 == StageOne.GPUSim):
-                break
+        # Verify QoS #
+        violation = self._verify_qos(list_pair_str, gpupool_config,
+                                     cores=cores)
 
-            # Verify QoS #
-            violation = self._verify_qos(list_pair_str, gpupool_config,
-                                         cores=cores)
+        # Calculate final metrics #
+        pairs_predicted = len(list_pair_str)
+        isolated_predicted = gpupool_config.window_size - \
+                             2 * pairs_predicted
+        num_gpus_no_migrate = isolated_predicted + pairs_predicted
+        num_gpus = num_gpus_no_migrate + violation.gpu_increase
 
-            # Calculate final metrics #
-            pairs_predicted = len(list_pair_str)
-            isolated_predicted = gpupool_config.window_size - \
-                                 2 * pairs_predicted
-            num_gpus_no_migrate = isolated_predicted + pairs_predicted
-            num_gpus = num_gpus_no_migrate + violation.gpu_increase
+        ws_no_migrate = (isolated_predicted + violation.ws_no_migrate) \
+                        / num_gpus_no_migrate
+        ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
+        ws_list = [1] * isolated_predicted + violation.actual_ws_list
 
-            ws_no_migrate = (isolated_predicted + violation.ws_no_migrate) \
-                            / num_gpus_no_migrate
-            ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
-            ws_list = [1] * isolated_predicted + violation.actual_ws_list
+        print("Matching margin=", margin_selected, ",",
+              violation.to_string(gpupool_config.window_size),
+              ", no migrate stp=", ws_no_migrate, ", count=",
+              num_gpus_no_migrate)
 
-            print("Matching margin=", margin, ",",
-                  violation.to_string(gpupool_config.window_size),
-                  ", no migrate stp=", ws_no_migrate, ", count=",
-                  num_gpus_no_migrate)
 
-            if violation.gpu_increase == 0:
-                break
+
+
+
+#        # We do a sweep to search for good QoS margin:
+#        margin_min = 0
+#        margin_step = 0.02
+#        margin_max = 2
+#
+#        margin_selected = margin_max
+#        num_gpus = 0
+#        ws_avg = 0
+#        ws_list = []
+#        violation = Violation()
+#        for margin in np.arange(margin_min, margin_max, margin_step):
+#            margin_selected = margin
+#
+#            # Call max match job dispatcher #
+#            print("Running max weight matching solver...")
+#            start_matching = time.perf_counter()
+#
+#            perf_col = gpupool_config.get_perf()
+#            list_pair_str = self._max_matching(gpupool=True,
+#                                               stage2_buffer=margin,
+#                                               perf_col=perf_col,
+#                                               window=window)
+#
+#            pred_latency['matching'] = time.perf_counter() - start_matching
+#
+#            if not (gpupool_config.accuracy_mode or
+#                    gpupool_config.stage_1 == StageOne.GPUSim):
+#                break
+#
+#            # Verify QoS #
+#            violation = self._verify_qos(list_pair_str, gpupool_config,
+#                                         cores=cores)
+#
+#            # Calculate final metrics #
+#            pairs_predicted = len(list_pair_str)
+#            isolated_predicted = gpupool_config.window_size - \
+#                                 2 * pairs_predicted
+#            num_gpus_no_migrate = isolated_predicted + pairs_predicted
+#            num_gpus = num_gpus_no_migrate + violation.gpu_increase
+#
+#            ws_no_migrate = (isolated_predicted + violation.ws_no_migrate) \
+#                            / num_gpus_no_migrate
+#            ws_avg = (isolated_predicted + violation.actual_ws) / num_gpus
+#            ws_list = [1] * isolated_predicted + violation.actual_ws_list
+#
+#            print("Matching margin=", margin, ",",
+#                  violation.to_string(gpupool_config.window_size),
+#                  ", no migrate stp=", ws_no_migrate, ", count=",
+#                  num_gpus_no_migrate)
+#
+#            if violation.gpu_increase == 0:
+#                break
 
         result = {
             'gpu_count': num_gpus,
